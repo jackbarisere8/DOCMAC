@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
 class LoginPage extends ConsumerWidget {
@@ -28,7 +29,7 @@ class LoginPage extends ConsumerWidget {
                 onPressed: () async {
                   await authService.signInAnonymously();
                   if (context.mounted) {
-                    Navigator.of(context).pushReplacementNamed('/');
+                    context.go('/');
                   }
                 },
                 icon: const Icon(Icons.login),

@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -20,49 +21,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    measurementId: 'YOUR_MEASUREMENT_ID',
+    apiKey: 'AIzaSyDx7csijVC4rnw-SPr2HZS2vX4cQpJKEAI',
+    appId: '1:191635978435:web:085a9b0d701b55e6a4ca76',
+    messagingSenderId: '191635978435',
+    projectId: 'docmac-88a0d',
+    authDomain: 'docmac-88a0d.firebaseapp.com',
+    storageBucket: 'docmac-88a0d.firebasestorage.app',
+    measurementId: 'G-GK467GFT2Y',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    apiKey: 'AIzaSyBahKymWyOl4qHgIHVP2EGgtixuajrmcfw',
+    appId: '1:191635978435:android:dd5d82d4f7684865a4ca76',
+    messagingSenderId: '191635978435',
+    projectId: 'docmac-88a0d',
+    storageBucket: 'docmac-88a0d.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    iosBundleId: 'com.example.docmacApp',
+    apiKey: 'AIzaSyB4_dbAGg70YLAdwP8e2tDiB5frQyVJEXc',
+    appId: '1:191635978435:ios:90e565b4bc6bd06ea4ca76',
+    messagingSenderId: '191635978435',
+    projectId: 'docmac-88a0d',
+    storageBucket: 'docmac-88a0d.firebasestorage.app',
+    iosBundleId: 'com.jack.docmac',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_MACOS_API_KEY',
-    appId: 'YOUR_MACOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    iosBundleId: 'com.example.docmacApp',
+    apiKey: 'AIzaSyB4_dbAGg70YLAdwP8e2tDiB5frQyVJEXc',
+    appId: '1:191635978435:ios:ccb8795219cc0c06a4ca76',
+    messagingSenderId: '191635978435',
+    projectId: 'docmac-88a0d',
+    storageBucket: 'docmac-88a0d.firebasestorage.app',
+    iosBundleId: 'com.jack.docmacApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'YOUR_WINDOWS_API_KEY',
-    appId: 'YOUR_WINDOWS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    apiKey: 'AIzaSyDx7csijVC4rnw-SPr2HZS2vX4cQpJKEAI',
+    appId: '1:191635978435:web:6600656d1d253f51a4ca76',
+    messagingSenderId: '191635978435',
+    projectId: 'docmac-88a0d',
+    authDomain: 'docmac-88a0d.firebaseapp.com',
+    storageBucket: 'docmac-88a0d.firebasestorage.app',
+    measurementId: 'G-JE52YQWY1F',
   );
-
   static const FirebaseOptions linux = FirebaseOptions(
     apiKey: 'YOUR_LINUX_API_KEY',
     appId: 'YOUR_LINUX_APP_ID',

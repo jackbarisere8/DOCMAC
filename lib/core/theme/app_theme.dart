@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dark_theme.dart';
+import 'light_theme.dart';
 
+export 'app_colors.dart';
+export 'theme_provider.dart';
+
+/// Single import point for the application's Material themes.
 class AppTheme {
-  static ThemeData get lightTheme {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF7F7FB),
-      appBarTheme: const AppBarTheme(centerTitle: true),
-    );
-  }
+  AppTheme._();
+
+  static final light = lightTheme;
+  static final dark = darkTheme;
 }

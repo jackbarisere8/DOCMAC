@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "191635978435",
+    "project_id": "docmac-88a0d",
+    "storage_bucket": "docmac-88a0d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:191635978435:android:dd5d82d4f7684865a4ca76",
+        "android_client_info": {
+          "package_name": "com.jack.docmac"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "191635978435-vb8102c45lbsjc4jhr8974ouoe5cshuj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jack.docmac",
+            "certificate_hash": "0c03c1daecd31ca1650900c242237d3fedb0f140"
+          }
+        },
+        {
+          "client_id": "191635978435-ujd4cau2nithvon30rujaerkkne3qcs6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBahKymWyOl4qHgIHVP2EGgtixuajrmcfw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "191635978435-ujd4cau2nithvon30rujaerkkne3qcs6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "191635978435-cffjmpeaii93l5alviur852t16h3en13.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jack.docmacApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

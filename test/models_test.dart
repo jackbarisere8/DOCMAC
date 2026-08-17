@@ -5,7 +5,8 @@ import 'package:docmac_app/features/chat/data/models/chat_message.dart';
 void main() {
   group('app models', () {
     test('AppUser serializes and deserializes correctly', () {
-      const user = AppUser(id: 'u1', email: 'test@example.com', displayName: 'Tester');
+      const user =
+          AppUser(id: 'u1', email: 'test@example.com', displayName: 'Tester');
 
       final map = user.toMap();
       final restored = AppUser.fromMap(map);
