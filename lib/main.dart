@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as provider;
@@ -19,6 +21,16 @@ Future<void> initializeFirebase() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Firebase Console test numbers are the only phone numbers that work with
+    // this setting. Keeping it behind kDebugMode means release APKs retain
+    // Firebase's normal Play Integrity/reCAPTCHA verification.
+    if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
+      await FirebaseAuth.instance.setSettings(
+        appVerificationDisabledForTesting: true,
+      );
+      debugPrint('Phone Auth test verification is enabled for this debug build.');
+    }
   } catch (error, stackTrace) {
     debugPrint('Firebase initialization failed: $error');
     debugPrintStack(stackTrace: stackTrace);
