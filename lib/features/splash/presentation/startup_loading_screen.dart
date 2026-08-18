@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../config/firebase/firebase_configuration.dart';
 import '../../../shared/widgets/docmac_mark.dart';
 
 /// The first Flutter frame after the platform launch surface. It deliberately
@@ -27,9 +31,38 @@ class _StartupLoadingScreenState extends State<StartupLoadingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1250),
     )..repeat();
-    _timer = Timer(const Duration(milliseconds: 2100), () {
+    _timer = Timer(const Duration(milliseconds: 2100), _routeFromStartup);
+  }
+
+  /// Firebase persists phone-auth sessions on device. Only a profile that has
+  /// completed onboarding may bypass the public screens on a later launch.
+  Future<void> _routeFromStartup() async {
+    if (!FirebaseConfiguration.isAvailable || Firebase.apps.isEmpty) {
       if (mounted) context.go('/');
-    });
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) context.go('/');
+      return;
+    }
+
+    try {
+      final profile = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      if (mounted) {
+        context
+            .go(profile.data()?['onboardingComplete'] == true ? '/orbit' : '/');
+      }
+    } catch (_) {
+      // Do not grant access from a partial/offline profile. The auth screens
+      // remain available and show their own actionable backend errors.
+      if (mounted) context.go('/');
+    }
   }
 
   @override

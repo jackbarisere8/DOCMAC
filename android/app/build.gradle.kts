@@ -1,3 +1,13 @@
+import java.util.Properties
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasReleaseSigning = keystorePropertiesFile.exists()
+
+if (hasReleaseSigning) {
+    keystorePropertiesFile.inputStream().use(keystoreProperties::load)
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -29,11 +39,33 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (!hasReleaseSigning) {
+                val isReleaseBuild = gradle.startParameter.taskNames.any {
+                    it.contains("release", ignoreCase = true)
+                }
+                if (isReleaseBuild) {
+                    throw GradleException(
+                        "Release signing is not configured. Copy " +
+                            "android/key.properties.example to android/key.properties " +
+                            "and create the referenced keystore.",
+                    )
+                }
+            } else {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

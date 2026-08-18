@@ -74,14 +74,12 @@ class AuthService {
     );
   }
 
-  Future<void> signInWithPhoneCredential(
-      PhoneAuthCredential credential) {
+  Future<void> signInWithPhoneCredential(PhoneAuthCredential credential) {
     return _firebaseAuth.signInWithCredential(credential);
   }
 
-  /// Confirms the code sent to the person's phone and signs in to the
-  /// provisional phone-authenticated account. The account is completed only
-  /// after the username and password are chosen.
+  /// Confirms the code sent to the person's phone and restores their Firebase
+  /// session. Firebase persists that session on native devices until sign-out.
   Future<void> verifyPhoneCode({
     required String verificationId,
     required String smsCode,
@@ -93,16 +91,12 @@ class AuthService {
     await _firebaseAuth.signInWithCredential(credential);
   }
 
-  /// Completes a verified-phone account with Docmac's public username and a
-  /// password credential. Firebase needs an email-shaped identifier for the
-  /// password provider; this deterministic internal alias is never shown to
-  /// the person or used for email delivery.
+  /// Completes a verified-phone account with Docmac's public profile. Phone
+  /// OTP is the only authentication method; no hidden email/password account
+  /// is created.
   Future<void> completePhoneSignUp({
-    required String phoneNumber,
     required String username,
-    required String password,
     String? displayName,
-    required String contactEmail,
   }) async {
     final user = _firebaseAuth.currentUser;
     if (user == null || user.phoneNumber == null) {
@@ -118,34 +112,27 @@ class AuthService {
       );
     }
 
-    final accountEmail = _accountEmailForPhone(phoneNumber);
-    final providers = user.providerData.map((item) => item.providerId);
-    if (!providers.contains(EmailAuthProvider.PROVIDER_ID)) {
-      await user.linkWithCredential(
-        EmailAuthProvider.credential(email: accountEmail, password: password),
-      );
-    }
-
     final name = displayName?.trim();
-    final email = contactEmail.trim().toLowerCase();
-    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      throw const AuthServiceUnavailableException('Enter a valid email address.');
-    }
-    await user.updateDisplayName(name?.isNotEmpty == true ? name : normalizedUsername);
+    await user.updateDisplayName(
+      name?.isNotEmpty == true ? name : normalizedUsername,
+    );
     await user.reload();
 
     // Firestore gives usernames a stable, queryable home and prevents two
     // people from claiming the same public identity.
     final firestore = FirebaseFirestore.instance;
     await firestore.runTransaction((transaction) async {
-      final usernameRef = firestore.collection('usernames').doc(normalizedUsername);
+      final usernameRef =
+          firestore.collection('usernames').doc(normalizedUsername);
       final handleRef = firestore.collection('handles').doc(normalizedUsername);
       final usernameSnapshot = await transaction.get(usernameRef);
       final handleSnapshot = await transaction.get(handleRef);
-      if (usernameSnapshot.exists && usernameSnapshot.data()?['uid'] != user.uid) {
+      if (usernameSnapshot.exists &&
+          usernameSnapshot.data()?['uid'] != user.uid) {
         throw const UsernameUnavailableException();
       }
-      if (handleSnapshot.exists && handleSnapshot.data()?['ownerId'] != user.uid) {
+      if (handleSnapshot.exists &&
+          handleSnapshot.data()?['ownerId'] != user.uid) {
         throw const UsernameUnavailableException();
       }
       transaction.set(usernameRef, {'uid': user.uid});
@@ -153,26 +140,29 @@ class AuthService {
         'kind': 'user',
         'ownerId': user.uid,
       });
-      transaction.set(firestore.collection('users').doc(user.uid), {
-        'username': normalizedUsername,
-        'displayName': name?.isNotEmpty == true ? name : normalizedUsername,
-        'contactEmail': email,
-        'onboardingComplete': true,
-        'phoneNumber': user.phoneNumber,
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      transaction.set(
+          firestore.collection('users').doc(user.uid),
+          {
+            'username': normalizedUsername,
+            'displayName': name?.isNotEmpty == true ? name : normalizedUsername,
+            'onboardingComplete': true,
+            'phoneNumber': user.phoneNumber,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true));
     });
   }
 
-  /// Signs in with the phone number and password chosen during onboarding.
-  Future<AppUser?> signInWithPhoneAndPassword({
-    required String phoneNumber,
-    required String password,
-  }) {
-    return signInWithEmailAndPassword(
-      email: _accountEmailForPhone(phoneNumber),
-      password: password,
-    );
+  /// Whether the signed-in phone user has finished profile onboarding.
+  Future<bool> hasCompletedOnboarding() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return false;
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .timeout(const Duration(seconds: 10));
+    return snapshot.data()?['onboardingComplete'] == true;
   }
 
   Future<bool> isUsernameAvailable(String username) async {
@@ -271,14 +261,6 @@ class AuthService {
 
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
-  }
-
-  static String _accountEmailForPhone(String phoneNumber) {
-    final digits = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length < 8) {
-      throw const AuthServiceUnavailableException('Enter a valid phone number.');
-    }
-    return '$digits@phone.docmac.invalid';
   }
 
   static String _normalizeUsername(String username) =>

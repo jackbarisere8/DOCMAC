@@ -21,6 +21,50 @@ service cloud.firestore {
               || isRelayOperator(relayId));
     }
 
+    // A chat document must contain participantIds: [uid, ...]. A person can
+    // read or write its messages only when their authenticated UID is in that
+    // list. The client currently has no chat-creation flow, so creating chats
+    // remains denied until that flow is implemented and reviewed.
+    function isChatMember(chatId) {
+      return signedIn()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/chats/$(chatId)
+          ).data.participantIds;
+    }
+
+    match /chats/{chatId} {
+      allow get: if signedIn()
+          && request.auth.uid in resource.data.participantIds;
+      allow list, create, update, delete: if false;
+
+      match /messages/{messageId} {
+        allow get, list: if isChatMember(chatId);
+
+        // Match ChatMessage.toMap(): a member may create only their own text
+        // message in its parent chat. The stored chatId must match the path.
+        allow create: if isChatMember(chatId)
+            && request.resource.data.keys().hasOnly([
+              'id', 'chatId', 'senderId', 'text', 'createdAt', 'isRead'
+            ])
+            && request.resource.data.id == messageId
+            && request.resource.data.chatId == chatId
+            && request.resource.data.senderId == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 4000
+            && request.resource.data.createdAt is string
+            && request.resource.data.isRead is bool;
+
+        // Members may mark a message read, but cannot alter its sender, body,
+        // timestamp, or chat identity. Messages cannot be deleted by clients.
+        allow update: if isChatMember(chatId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['isRead'])
+            && request.resource.data.isRead is bool;
+        allow delete: if false;
+      }
+    }
+
     // Usernames are read one document at a time while onboarding. A username
     // can be created only by the account it belongs to and can never be moved
     // to a different account.

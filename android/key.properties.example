@@ -1,0 +1,7 @@
+# Copy this file to android/key.properties and replace every value locally.
+# Never commit android/key.properties or the keystore it refers to.
+storePassword=REPLACE_WITH_A_LONG_RANDOM_PASSWORD
+keyPassword=REPLACE_WITH_A_LONG_RANDOM_PASSWORD
+keyAlias=docmac-upload
+# This path is relative to android/app/build.gradle.kts.
+storeFile=../keystore/docmac-upload.jks

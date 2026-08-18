@@ -19,98 +19,156 @@ class SignInPage extends ConsumerStatefulWidget {
 }
 
 class _SignInPageState extends ConsumerState<SignInPage> {
-  final _formKey = GlobalKey<FormState>();
   final _phone = TextEditingController();
-  final _password = TextEditingController();
+  final _code = TextEditingController();
   ContactCountry _country = docmacCountries.first;
+  int _step = 0;
   bool _loading = false;
-  bool _obscure = true;
+  String? _verificationId;
+  int? _resendToken;
   String? _error;
+
+  String get _fullPhoneNumber => _phoneWithCountry(_country, _phone.text);
 
   @override
   void dispose() {
     _phone.dispose();
-    _password.dispose();
+    _code.dispose();
     super.dispose();
   }
 
-  Future<void> _signIn() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _sendCode() async {
+    final phoneError = _phoneValidator(_fullPhoneNumber);
+    if (phoneError != null) return setState(() => _error = phoneError);
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      await ref.read(authServiceProvider).signInWithPhoneAndPassword(
-            phoneNumber: _phoneWithCountry(_country, _phone.text),
-            password: _password.text,
+      await ref.read(authServiceProvider).sendPhoneVerification(
+            phoneNumber: _fullPhoneNumber,
+            forceResendingToken: _resendToken,
+            onCodeSent: (verificationId, resendToken) {
+              if (!mounted) return;
+              setState(() {
+                _verificationId = verificationId;
+                _resendToken = resendToken;
+                _step = 1;
+                _loading = false;
+              });
+            },
+            onFailure: (error) {
+              if (mounted) {
+                setState(() {
+                  _loading = false;
+                  _error = _authMessage(error);
+                });
+              }
+            },
+            onAutoVerified: (credential) async {
+              try {
+                await ref
+                    .read(authServiceProvider)
+                    .signInWithPhoneCredential(credential);
+                await _finishSignIn();
+              } on FirebaseAuthException catch (error) {
+                if (mounted) setState(() => _error = _authMessage(error));
+              } finally {
+                if (mounted) setState(() => _loading = false);
+              }
+            },
           );
-      if (mounted) context.go('/orbit');
     } on FirebaseAuthException catch (error) {
       if (mounted) setState(() => _error = _authMessage(error));
     } on AuthServiceUnavailableException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Unable to sign in right now.');
+      if (mounted) setState(() => _error = 'Could not send a code. Try again.');
+    } finally {
+      if (mounted && _step == 0) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyCode() async {
+    if (_code.text.trim().length != 6 || _verificationId == null) {
+      return setState(() => _error = 'Enter the six-digit code we sent.');
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).verifyPhoneCode(
+            verificationId: _verificationId!,
+            smsCode: _code.text.trim(),
+          );
+      await _finishSignIn();
+    } on FirebaseAuthException catch (error) {
+      if (mounted) setState(() => _error = _authMessage(error));
+    } on AuthServiceUnavailableException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Unable to confirm your account. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _finishSignIn() async {
+    final completed =
+        await ref.read(authServiceProvider).hasCompletedOnboarding();
+    if (!mounted) return;
+    context.go(completed ? '/orbit' : '/register');
   }
 
   @override
   Widget build(BuildContext context) => _AccountScaffold(
         step: null,
         eyebrow: 'WELCOME BACK',
-        title: 'Good to see\nyou again.',
-        description: 'Sign in to continue with your people.',
-        icon: DocmacIconlyLight.unlock,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        title: _step == 0 ? 'Good to see\nyou again.' : 'Confirm it\'s\nyou.',
+        description: _step == 0
+            ? 'Use the phone number linked to your Docmac account.'
+            : 'We sent a six-digit code to ${_maskedPhone(_fullPhoneNumber)}.',
+        icon:
+            _step == 0 ? DocmacIconlyLight.call : DocmacIconlyLight.shieldDone,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_step == 0)
               _PhoneField(
                 controller: _phone,
                 country: _country,
                 onChooseCountry: _chooseCountry,
-                validator: (_) => _phoneValidator(
-                  _phoneWithCountry(_country, _phone.text),
-                ),
-              ),
+                validator: (_) => _phoneValidator(_fullPhoneNumber),
+              )
+            else
+              _OtpField(controller: _code, onSubmitted: _verifyCode),
+            if (_error != null) ...[
               const SizedBox(height: 14),
-              _AccountField(
-                controller: _password,
-                label: 'Password',
-                hint: 'Enter your password',
-                icon: DocmacIconlyLight.lock,
-                obscureText: _obscure,
-                validator: _passwordValidator,
-                suffix: IconButton(
-                  tooltip: _obscure ? 'Show password' : 'Hide password',
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(_obscure
-                      ? DocmacIconlyLight.show
-                      : DocmacIconlyLight.hide),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _AccountError(message: _error!),
-              ],
-              const SizedBox(height: 22),
-              _PrimaryButton(
-                label: 'Sign in',
-                loading: _loading,
-                onPressed: _signIn,
-              ),
-              const SizedBox(height: 16),
-              _BottomLink(
-                prompt: 'New to Docmac?',
-                action: 'Create an account',
-                onTap: () => context.go('/register'),
+              _AccountError(message: _error!),
+            ],
+            const SizedBox(height: 22),
+            _PrimaryButton(
+              label: _step == 0 ? 'Send code' : 'Verify and sign in',
+              loading: _loading,
+              onPressed: _step == 0 ? _sendCode : _verifyCode,
+            ),
+            if (_step == 1) ...[
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: _loading ? null : _sendCode,
+                child: const Text('Didn\'t receive a code? Send again'),
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+            _BottomLink(
+              prompt: 'New to Docmac?',
+              action: 'Create an account',
+              onTap: () => context.go('/register'),
+            ),
+          ],
         ),
       );
 
@@ -120,8 +178,8 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 }
 
-/// A deliberately complete, gated signup journey. Phone authentication alone
-/// never opens Orbit; it only unlocks the rest of account setup.
+/// A deliberately complete, gated signup journey. Phone verification unlocks
+/// the profile steps; only a completed profile opens Orbit on later launches.
 class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key});
 
@@ -146,6 +204,18 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   String? _error;
 
   String get _fullPhoneNumber => _phoneWithCountry(_country, _phone.text);
+
+  @override
+  void initState() {
+    super.initState();
+    // A verified phone session can survive an interrupted first-time setup.
+    // Resume at the profile step rather than asking for the same OTP again.
+    final user = ref.read(authServiceProvider).currentUser;
+    if (user?.phoneNumber != null) {
+      _phone.text = user!.phoneNumber!;
+      _step = 2;
+    }
+  }
 
   @override
   void dispose() {
@@ -247,7 +317,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   Future<void> _continueUsername() async {
     final username = _username.text.trim().replaceFirst(RegExp(r'^@'), '');
     if (!RegExp(r'^[a-zA-Z0-9_]{3,20}$').hasMatch(username)) {
-      return setState(() => _error = 'Use 3–20 letters, numbers, or underscores.');
+      return setState(
+          () => _error = 'Use 3–20 letters, numbers, or underscores.');
     }
     setState(() {
       _loading = true;
@@ -257,7 +328,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       final available =
           await ref.read(authServiceProvider).isUsernameAvailable(username);
       if (!available) throw const UsernameUnavailableException();
-      if (mounted) _goTo(4);
+      if (mounted) await _complete();
     } on UsernameUnavailableException {
       if (mounted) setState(() => _error = 'That username is already taken.');
     } on FirebaseException catch (error) {
@@ -274,31 +345,15 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
-  void _continuePassword() {
-    final passwordError = _passwordValidator(_password.text);
-    if (passwordError != null) return setState(() => _error = passwordError);
-    if (_password.text != _confirmPassword.text) {
-      return setState(() => _error = 'Your passwords do not match.');
-    }
-    _goTo(5);
-  }
-
   Future<void> _complete() async {
-    final email = _email.text.trim();
-    if (!_emailValidator(email)) {
-      return setState(() => _error = 'Enter a valid email address.');
-    }
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       await ref.read(authServiceProvider).completePhoneSignUp(
-            phoneNumber: _fullPhoneNumber,
             username: _username.text,
-            password: _password.text,
             displayName: _name.text,
-            contactEmail: email,
           );
       if (mounted) context.go('/orbit');
     } on UsernameUnavailableException {
@@ -316,6 +371,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  // Kept as a defensive route for an already-mounted legacy signup screen.
+  // New OTP onboarding completes directly after the username is confirmed.
+  Future<void> _continuePassword() => _complete();
 
   void _goTo(int step) {
     setState(() {
@@ -428,7 +487,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
             _AccountError(message: _error!),
           ],
           const SizedBox(height: 22),
-          _PrimaryButton(label: details.action, loading: _loading, onPressed: submit),
+          _PrimaryButton(
+              label: details.action, loading: _loading, onPressed: submit),
           if (_step == 1) ...[
             const SizedBox(height: 10),
             TextButton(
@@ -470,12 +530,33 @@ class _SignupDetail {
 }
 
 const _signupDetails = [
-  _SignupDetail('What’s your\nphone number?', 'We’ll send a secure code to confirm it.', 'Send code', DocmacIconlyLight.call),
-  _SignupDetail('Confirm it’s\nyou.', 'Enter the code we sent you.', 'Verify and continue', DocmacIconlyLight.shieldDone),
-  _SignupDetail('Tell us your\nname.', 'Use the name your people will recognise.', 'Continue', DocmacIconlyLight.user),
-  _SignupDetail('Claim your\nusername.', 'This is your one-of-a-kind Docmac identity.', 'Check availability', DocmacIconlyLight.profile),
-  _SignupDetail('Keep it\nprivate.', 'Create a password to protect your account.', 'Continue', DocmacIconlyLight.lock),
-  _SignupDetail('Add your\nemail.', 'We’ll keep it with your account for important updates.', 'Finish setup', DocmacIconlyLight.message),
+  _SignupDetail(
+      'What’s your\nphone number?',
+      'We’ll send a secure code to confirm it.',
+      'Send code',
+      DocmacIconlyLight.call),
+  _SignupDetail('Confirm it’s\nyou.', 'Enter the code we sent you.',
+      'Verify and continue', DocmacIconlyLight.shieldDone),
+  _SignupDetail(
+      'Tell us your\nname.',
+      'Use the name your people will recognise.',
+      'Continue',
+      DocmacIconlyLight.user),
+  _SignupDetail(
+      'Claim your\nusername.',
+      'This is your one-of-a-kind Docmac identity.',
+      'Finish setup',
+      DocmacIconlyLight.profile),
+  _SignupDetail(
+      'Keep it\nprivate.',
+      'Create a password to protect your account.',
+      'Continue',
+      DocmacIconlyLight.lock),
+  _SignupDetail(
+      'Add your\nemail.',
+      'We’ll keep it with your account for important updates.',
+      'Finish setup',
+      DocmacIconlyLight.message),
 ];
 
 class _AccountScaffold extends StatelessWidget {
@@ -536,7 +617,8 @@ class _AccountScaffold extends StatelessWidget {
                       color: scheme.primaryContainer,
                       borderRadius: BorderRadius.circular(23),
                     ),
-                    child: Icon(icon, color: scheme.onPrimaryContainer, size: 28),
+                    child:
+                        Icon(icon, color: scheme.onPrimaryContainer, size: 28),
                   ),
                   const SizedBox(height: 28),
                   Text(
@@ -558,14 +640,17 @@ class _AccountScaffold extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(description, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
+                  Text(description,
+                      style:
+                          theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
                   const SizedBox(height: 30),
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: scheme.outlineVariant.withValues(alpha: .65)),
+                      border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: .65)),
                     ),
                     child: child,
                   ),
@@ -588,10 +673,15 @@ class _BrandLockup extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(9),
-            child: Image.asset('assets/images/docmac_logo.png', width: 28, height: 28),
+            child: Image.asset('assets/images/docmac_logo.png',
+                width: 28, height: 28),
           ),
           const SizedBox(width: 8),
-          Text('Docmac', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+          Text('Docmac',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w800)),
         ],
       );
 }
@@ -612,7 +702,9 @@ class _SignupProgress extends StatelessWidget {
             height: 4,
             margin: EdgeInsets.only(right: index == 5 ? 0 : 5),
             decoration: BoxDecoration(
-              color: index <= step ? scheme.primary : scheme.surfaceContainerHighest,
+              color: index <= step
+                  ? scheme.primary
+                  : scheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -648,7 +740,8 @@ class _PhoneField extends StatelessWidget {
             alignment: Alignment.centerLeft,
             minimumSize: const Size.fromHeight(56),
             side: BorderSide(color: scheme.outlineVariant),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           child: Row(children: [
             Text(country.flag, style: const TextStyle(fontSize: 22)),
@@ -682,7 +775,9 @@ class _PhoneField extends StatelessWidget {
           keyboardType: TextInputType.phone,
           prefixText: country.code,
           validator: validator,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\-\s]'))],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\-\s]'))
+          ],
         ),
       ],
     );
@@ -774,11 +869,13 @@ class _LowerCaseTextInputFormatter extends TextInputFormatter {
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
-  ) => newValue.copyWith(text: newValue.text.toLowerCase());
+  ) =>
+      newValue.copyWith(text: newValue.text.toLowerCase());
 }
 
 class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({required this.label, required this.loading, required this.onPressed});
+  const _PrimaryButton(
+      {required this.label, required this.loading, required this.onPressed});
   final String label;
   final bool loading;
   final VoidCallback onPressed;
@@ -788,14 +885,16 @@ class _PrimaryButton extends StatelessWidget {
         onPressed: loading ? null : onPressed,
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
         ),
         child: loading
             ? _SignalLoader(color: Theme.of(context).colorScheme.onPrimary)
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(width: 9),
                   const Icon(DocmacIconlyLight.arrowRight, size: 18),
                 ],
@@ -838,7 +937,8 @@ class _SignalLoaderState extends State<_SignalLoader>
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            final pulse = .86 + (math.sin(_controller.value * math.pi * 2) * .14);
+            final pulse =
+                .86 + (math.sin(_controller.value * math.pi * 2) * .14);
             return Stack(
               alignment: Alignment.center,
               children: [
@@ -866,7 +966,8 @@ class _SignalLoaderState extends State<_SignalLoader>
 }
 
 class _BottomLink extends StatelessWidget {
-  const _BottomLink({required this.prompt, required this.action, required this.onTap});
+  const _BottomLink(
+      {required this.prompt, required this.action, required this.onTap});
   final String prompt;
   final String action;
   final VoidCallback onTap;
@@ -875,7 +976,11 @@ class _BottomLink extends StatelessWidget {
   Widget build(BuildContext context) => Center(
         child: TextButton(
           onPressed: onTap,
-          child: Text.rich(TextSpan(text: '$prompt ', children: [TextSpan(text: action, style: const TextStyle(fontWeight: FontWeight.w800))])),
+          child: Text.rich(TextSpan(text: '$prompt ', children: [
+            TextSpan(
+                text: action,
+                style: const TextStyle(fontWeight: FontWeight.w800))
+          ])),
         ),
       );
 }
@@ -894,9 +999,15 @@ class _AccountError extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(children: [
-        Icon(DocmacIconlyLight.infoCircle, color: scheme.onErrorContainer, size: 18),
+        Icon(DocmacIconlyLight.infoCircle,
+            color: scheme.onErrorContainer, size: 18),
         const SizedBox(width: 9),
-        Expanded(child: Text(message, style: TextStyle(color: scheme.onErrorContainer, fontSize: 12, height: 1.35))),
+        Expanded(
+            child: Text(message,
+                style: TextStyle(
+                    color: scheme.onErrorContainer,
+                    fontSize: 12,
+                    height: 1.35))),
       ]),
     );
   }
@@ -912,18 +1023,23 @@ String _maskedPhone(String phoneNumber) => phoneNumber.length <= 6
     ? phoneNumber
     : '${phoneNumber.substring(0, 4)} ••• ${phoneNumber.substring(phoneNumber.length - 3)}';
 
-Future<ContactCountry?> _showCountryPicker(BuildContext context, ContactCountry _) =>
+Future<ContactCountry?> _showCountryPicker(
+        BuildContext context, ContactCountry _) =>
     context.push<ContactCountry>('/register/country');
 
-String? _phoneValidator(String? value) => value != null && RegExp(r'^\+[1-9][0-9]{7,14}$').hasMatch(value.replaceAll(RegExp(r'[\s()-]'), ''))
+String? _phoneValidator(String? value) => value != null &&
+        RegExp(r'^\+[1-9][0-9]{7,14}$')
+            .hasMatch(value.replaceAll(RegExp(r'[\s()-]'), ''))
     ? null
     : 'Enter a valid phone number with country code.';
 
-String? _passwordValidator(String? value) => value != null && value.length >= 6 && value.length <= 24
-    ? null
-    : 'Use a password from 6 to 24 characters.';
+String? _passwordValidator(String? value) =>
+    value != null && value.length >= 6 && value.length <= 24
+        ? null
+        : 'Use a password from 6 to 24 characters.';
 
-bool _emailValidator(String email) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
+bool _emailValidator(String email) =>
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
 
 String _usernameCheckMessage(FirebaseException error) {
   debugPrint(
@@ -960,7 +1076,7 @@ String _authMessage(FirebaseAuthException error) {
     case 'wrong-password':
     case 'user-not-found':
     case 'invalid-credential':
-      return 'The phone number or password is incorrect.';
+      return 'The phone number or verification code is incorrect.';
     case 'network-request-failed':
       return 'Check your internet connection and try again.';
     case 'quota-exceeded':

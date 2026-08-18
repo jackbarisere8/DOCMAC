@@ -34,9 +34,8 @@ import '../../shared/widgets/app_shell.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/loading',
-    // Authenticated phone verification is intentionally not a redirect
-    // trigger. The signup page owns the complete setup journey and sends the
-    // person to Orbit only after every required profile step is saved.
+    // Startup restores only completed phone-authenticated profiles. A verified
+    // phone without a completed profile remains in the signup journey.
     routes: [
       GoRoute(
         path: '/loading',

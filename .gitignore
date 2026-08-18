@@ -51,3 +51,7 @@ app.*.map.json
 /android/app/release
 /android/.gradle_home/
 /android/build/
+# Android release-signing material. Keep the keystore and its passwords out of
+# source control; losing the keystore prevents future updates to a published app.
+/android/key.properties
+/android/keystore/
