@@ -97,6 +97,7 @@ class AuthService {
   Future<void> completePhoneSignUp({
     required String username,
     String? displayName,
+    String? contactEmail,
   }) async {
     final user = _firebaseAuth.currentUser;
     if (user == null || user.phoneNumber == null) {
@@ -113,6 +114,7 @@ class AuthService {
     }
 
     final name = displayName?.trim();
+    final email = contactEmail?.trim();
     await user.updateDisplayName(
       name?.isNotEmpty == true ? name : normalizedUsername,
     );
@@ -147,6 +149,7 @@ class AuthService {
             'displayName': name?.isNotEmpty == true ? name : normalizedUsername,
             'onboardingComplete': true,
             'phoneNumber': user.phoneNumber,
+            if (email?.isNotEmpty == true) 'contactEmail': email,
             'createdAt': FieldValue.serverTimestamp(),
           },
           SetOptions(merge: true));

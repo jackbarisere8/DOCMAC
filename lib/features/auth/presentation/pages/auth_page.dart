@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../../contacts/presentation/pages/contact_pages.dart';
+import '../../../me/presentation/profile_media_store.dart';
 import '../../data/auth_service.dart';
 import '../providers/auth_provider.dart';
 
@@ -213,7 +217,7 @@ class _PhoneAuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -488,6 +492,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _code = TextEditingController();
   final _name = TextEditingController();
   final _username = TextEditingController();
+  // These only support the pre-profile fallback branch below. Post-OTP
+  // onboarding never displays a password field.
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   final _email = TextEditingController();
@@ -498,6 +504,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   String? _verificationId;
   int? _resendToken;
   String? _error;
+  Uint8List? _profileImageBytes;
 
   String get _fullPhoneNumber => _phoneWithCountry(_country, _phone.text);
 
@@ -624,7 +631,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       final available =
           await ref.read(authServiceProvider).isUsernameAvailable(username);
       if (!available) throw const UsernameUnavailableException();
-      if (mounted) await _complete();
+      if (mounted) _goTo(4);
     } on UsernameUnavailableException {
       if (mounted) setState(() => _error = 'That username is already taken.');
     } on FirebaseException catch (error) {
@@ -641,7 +648,16 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
-  Future<void> _complete() async {
+  Future<void> _continueEmail() async {
+    final email = _email.text.trim();
+    if (email.isNotEmpty && !_emailValidator(email)) {
+      setState(() => _error = 'Enter a valid email address or skip this step.');
+      return;
+    }
+    await _complete(contactEmail: email.isEmpty ? null : email);
+  }
+
+  Future<void> _complete({String? contactEmail}) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -650,6 +666,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       await ref.read(authServiceProvider).completePhoneSignUp(
             username: _username.text,
             displayName: _name.text,
+            contactEmail: contactEmail,
           );
       if (mounted) context.go('/orbit');
     } on UsernameUnavailableException {
@@ -668,9 +685,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
-  // Kept as a defensive route for an already-mounted legacy signup screen.
-  // New OTP onboarding completes directly after the username is confirmed.
-  Future<void> _continuePassword() => _complete();
+  // This is only retained for already-built legacy widget trees. New signup
+  // screens never navigate to a password step.
+  Future<void> _continuePassword() => _continueEmail();
 
   void _goTo(int step) {
     setState(() {
@@ -694,6 +711,98 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Every signup step uses the same full-height onboarding surface. This
+    // avoids switching back to the previous card-based design for phone OTP.
+    if (_step <= 1) {
+      final isPhoneStep = _step == 0;
+      return _ProfileSetupScaffold(
+        step: _step,
+        loading: _loading,
+        error: _error,
+        title: isPhoneStep ? 'Your phone number' : 'Confirm your number',
+        description: isPhoneStep
+            ? 'Choose your country and enter the number linked to your account.'
+            : 'Enter the six-digit code we sent to ${_maskedPhone(_fullPhoneNumber)}.',
+        primaryAction: isPhoneStep ? 'Send code' : 'Verify and continue',
+        onClose: () => context.go('/'),
+        onBack: _back,
+        onContinue: isPhoneStep ? _sendCode : _verifyCode,
+        footer: isPhoneStep
+            ? _BottomLink(
+                prompt: 'Already have an account?',
+                action: 'Sign in',
+                onTap: () => context.go('/auth'),
+              )
+            : TextButton(
+                onPressed: _loading ? null : _sendCode,
+                child: const Text('Didn’t receive a code? Send again'),
+              ),
+        field: isPhoneStep
+            ? _PhoneField(
+                controller: _phone,
+                country: _country,
+                onChooseCountry: _chooseCountry,
+                validator: (_) => _phoneValidator(_fullPhoneNumber),
+              )
+            : _OtpField(controller: _code, onSubmitted: _verifyCode),
+      );
+    }
+
+    // The post-OTP profile sequence collects a name, username, and optional
+    // email. Password fields are deliberately not part of this journey.
+    if (_step >= 2) {
+      return _ProfileSetupScaffold(
+        step: _step - 2,
+        loading: _loading,
+        error: _error,
+        onClose: () => context.go('/'),
+        onBack: _back,
+        onContinue: switch (_step) {
+          2 => _continueName,
+          3 => _continueUsername,
+          _ => _continueEmail,
+        },
+        onSkip: _step == 4 ? () => _complete() : null,
+        avatar: _step == 2
+            ? _ProfileSetupAvatar(
+                imageBytes: _profileImageBytes,
+                onPickImage: _pickProfileImage,
+              )
+            : null,
+        field: switch (_step) {
+          2 => _ProfileSetupField(
+              key: const Key('signup-full-name'),
+              controller: _name,
+              hint: 'Full name',
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              onSubmitted: _continueName,
+            ),
+          3 => _ProfileSetupField(
+              key: const Key('signup-username'),
+              controller: _username,
+              hint: 'Username',
+              prefixText: '@',
+              autocorrect: false,
+              enableSuggestions: false,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+                const _LowerCaseTextInputFormatter(),
+              ],
+              onSubmitted: _continueUsername,
+            ),
+          _ => _ProfileSetupField(
+              key: const Key('signup-email'),
+              controller: _email,
+              hint: 'Email address (optional)',
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              onSubmitted: _continueEmail,
+            ),
+        },
+      );
+    }
+
     final content = switch (_step) {
       0 => _PhoneField(
           controller: _phone,
@@ -815,6 +924,327 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     final country = await _showCountryPicker(context, _country);
     if (country != null && mounted) setState(() => _country = country);
   }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 86,
+        maxWidth: 1200,
+      );
+      if (image == null) return;
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+      setState(() => _profileImageBytes = bytes);
+      ProfileMediaStore.avatarBytes.value = bytes;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'We could not open the camera. Try again.');
+      }
+    }
+  }
+}
+
+/// The post-OTP profile flow mirrors the calm, spacious mobile composition in
+/// the approved reference: one piece of information at a time and a bottom
+/// action that is always easy to reach.
+class _ProfileSetupScaffold extends StatelessWidget {
+  const _ProfileSetupScaffold({
+    required this.step,
+    required this.loading,
+    required this.error,
+    required this.field,
+    required this.onClose,
+    required this.onBack,
+    required this.onContinue,
+    this.title,
+    this.description,
+    this.primaryAction,
+    this.onSkip,
+    this.avatar,
+    this.footer,
+  });
+
+  final int step;
+  final bool loading;
+  final String? error;
+  final Widget field;
+  final VoidCallback onClose;
+  final VoidCallback onBack;
+  final VoidCallback onContinue;
+  final String? title;
+  final String? description;
+  final String? primaryAction;
+  final VoidCallback? onSkip;
+  final Widget? avatar;
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final defaultCopy = switch (step) {
+      0 => (
+          title: 'Profile info',
+          description: 'Please add the name people will know you by.',
+        ),
+      1 => (
+          title: 'Choose a username',
+          description: 'This will be your unique Docmac identity.',
+        ),
+      _ => (
+          title: 'Add your email',
+          description: 'An email helps us contact you about your account.',
+        ),
+    };
+    final copy = (
+      title: title ?? defaultCopy.title,
+      description: description ?? defaultCopy.description,
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        tooltip: step == 0 ? 'Close signup' : 'Previous step',
+                        onPressed: step == 0 ? onClose : onBack,
+                        icon: Icon(
+                          step == 0
+                              ? Icons.close_rounded
+                              : Icons.arrow_back_rounded,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => ScaffoldMessenger.of(context)
+                            .showSnackBar(const SnackBar(
+                          content: Text('Your phone number is used to sign in.'),
+                        )),
+                        icon: const Icon(Icons.help_outline_rounded, size: 18),
+                        label: const Text('Help'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 56),
+                  Text(
+                    copy.title,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    copy.description,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (step == 2) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      'This step is optional.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (avatar != null) ...[
+                    const SizedBox(height: 34),
+                    Center(child: avatar!),
+                    const SizedBox(height: 34),
+                  ] else
+                    const SizedBox(height: 78),
+                  field,
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      error!,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: loading ? null : onContinue,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: accent.withValues(alpha: .55),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.2,
+                            ),
+                          )
+                        : Text(
+                            primaryAction ?? 'Next',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                  ),
+                  if (onSkip != null) ...[
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: loading ? null : onSkip,
+                      child: const Text('Skip'),
+                    ),
+                  ],
+                  if (footer != null) ...[
+                    const SizedBox(height: 4),
+                    footer!,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSetupField extends StatelessWidget {
+  const _ProfileSetupField({
+    super.key,
+    required this.controller,
+    required this.hint,
+    required this.onSubmitted,
+    this.prefixText,
+    this.keyboardType,
+    this.textCapitalization = TextCapitalization.none,
+    this.textInputAction = TextInputAction.done,
+    this.inputFormatters,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
+    this.autofillHints,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final VoidCallback onSubmitted;
+  final String? prefixText;
+  final TextInputType? keyboardType;
+  final TextCapitalization textCapitalization;
+  final TextInputAction textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool autocorrect;
+  final bool enableSuggestions;
+  final Iterable<String>? autofillHints;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return TextField(
+      controller: controller,
+      autofocus: true,
+      keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
+      textInputAction: textInputAction,
+      inputFormatters: inputFormatters,
+      autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
+      autofillHints: autofillHints,
+      onSubmitted: (_) => onSubmitted(),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixText: prefixText,
+        prefixStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        filled: false,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: accent, width: 1.8),
+        ),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: accent, width: 2.4),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSetupAvatar extends StatelessWidget {
+  const _ProfileSetupAvatar({
+    required this.imageBytes,
+    required this.onPickImage,
+  });
+
+  final Uint8List? imageBytes;
+  final VoidCallback onPickImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      width: 128,
+      height: 128,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF0F4F1),
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: imageBytes == null
+                    ? const Icon(Icons.person_outline_rounded,
+                        color: Color(0xFF7F8D84), size: 54)
+                    : Image.memory(imageBytes!, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -3,
+            bottom: 1,
+            child: Material(
+              color: accent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onPickImage,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(11),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: Colors.white, size: 23),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SignupDetail {
@@ -892,64 +1322,57 @@ class _AccountScaffold extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton.filledTonal(
+                      IconButton(
                         tooltip: onBack == null ? 'Back' : 'Previous step',
                         onPressed: onBack ?? () => context.go('/'),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: Colors.black87),
                       ),
-                      const _BrandLockup(),
+                      TextButton.icon(
+                        onPressed: () => ScaffoldMessenger.of(context)
+                            .showSnackBar(const SnackBar(
+                          content: Text('We use your phone number to sign you in.'),
+                        )),
+                        icon: const Icon(Icons.help_outline_rounded, size: 18),
+                        label: const Text('Help'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
-                  if (step != null) ...[
-                    const SizedBox(height: 28),
-                    _SignupProgress(step: step!),
-                  ],
-                  const SizedBox(height: 38),
-                  Container(
-                    width: 66,
-                    height: 66,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(23),
-                    ),
-                    child:
-                        Icon(icon, color: scheme.onPrimaryContainer, size: 28),
-                  ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 84),
                   Text(
                     eyebrow,
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onSurface,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
                     ),
                   ),
                   const SizedBox(height: 9),
                   Text(
                     title,
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.headlineLarge?.copyWith(
-                      fontSize: 31,
-                      height: 1.06,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.15,
+                      fontSize: 29,
+                      height: 1.12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.8,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(description,
-                      style:
-                          theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
-                  const SizedBox(height: 30),
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: .65)),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.45,
+                      color: scheme.onSurfaceVariant,
                     ),
-                    child: child,
                   ),
+                  const SizedBox(height: 64),
+                  child,
                 ],
               ),
             ),
