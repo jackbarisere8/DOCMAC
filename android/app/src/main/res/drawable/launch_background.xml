@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keep the OS launch surface seamless; Flutter renders the first UI. -->
+<!-- Match the Docmac link logo while Flutter renders its first frame. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <item android:drawable="#2677F9" />
 </layer-list>
