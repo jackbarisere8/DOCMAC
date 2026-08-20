@@ -12,7 +12,7 @@ class _ChatThemePageState extends State<ChatThemePage> {
   int _selected = 0;
 
   static const _themes = [
-    (Color(0xFF2A0C1B), Color(0xFFBE2C55)),
+    (Color(0xFFEFF5FF), Color(0xFF2677F9)),
     (Color(0xFFF4F0E8), Color(0xFFBDEFC3)),
     (Color(0xFFF0EEE9), Color(0xFF15A66A)),
     (Color(0xFFF9EAF7), Color(0xFF6650DF)),
@@ -239,8 +239,8 @@ class ChatColorPage extends StatefulWidget {
 class _ChatColorPageState extends State<ChatColorPage> {
   int _selected = 0;
   static const _colors = [
-    Color(0xFFBE2C55),
-    Color(0xFFFFE0EB),
+    Color(0xFF2677F9),
+    Color(0xFFE7F0FF),
     Color(0xFF6348DD),
     Color(0xFFE5DFFF),
     Color(0xFFAF4BDC),
@@ -305,7 +305,7 @@ class WallpaperPage extends StatefulWidget {
 class _WallpaperPageState extends State<WallpaperPage> {
   int _selected = 0;
   static const _wallpapers = [
-    Color(0xFF2A0C1B),
+    Color(0xFF0A3D91),
     Color(0xFFD4B9F8),
     Color(0xFFF3A8D1),
     Color(0xFFF5B8B3),

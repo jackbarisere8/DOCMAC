@@ -330,7 +330,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/contacts/new',
-        builder: (context, state) => const NewContactPage(),
+        builder: (context, state) => NewContactPage(
+          initialPhone: state.extra is String ? state.extra as String : null,
+        ),
       ),
       GoRoute(
         path: '/contacts/country',

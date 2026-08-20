@@ -10,7 +10,7 @@ final ThemeData lightTheme = ThemeData(
   colorScheme: const ColorScheme.light(
     primary: AppColors.primary,
     onPrimary: Colors.white,
-    primaryContainer: Color(0xFFFFE0EB),
+    primaryContainer: AppColors.accent,
     onPrimaryContainer: AppColors.lightTextPrimary,
     secondary: AppColors.primary,
     onSecondary: Colors.white,
@@ -81,7 +81,7 @@ final ThemeData lightTheme = ThemeData(
   ),
   textButtonTheme: TextButtonThemeData(
     style: TextButton.styleFrom(
-      foregroundColor: AppColors.lightTextPrimary,
+      foregroundColor: AppColors.primary,
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
@@ -104,7 +104,7 @@ final ThemeData lightTheme = ThemeData(
     labelTextStyle: WidgetStateProperty.resolveWith(
       (states) => TextStyle(
         color: states.contains(WidgetState.selected)
-            ? AppColors.lightTextPrimary
+            ? AppColors.primary
             : AppColors.lightTextSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ final ThemeData lightTheme = ThemeData(
     iconTheme: WidgetStateProperty.resolveWith(
       (states) => IconThemeData(
         color: states.contains(WidgetState.selected)
-            ? AppColors.lightTextPrimary
+            ? AppColors.primary
             : AppColors.lightTextSecondary,
         size: 21,
       ),

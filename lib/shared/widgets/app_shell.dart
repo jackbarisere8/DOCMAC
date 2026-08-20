@@ -41,59 +41,102 @@ class _AppNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
-    return NavigationBar(
-      selectedIndex: selectedIndex,
-      onDestinationSelected: onSelected,
-      backgroundColor: colorScheme.surface,
-      elevation: 0,
-      height: 64,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      indicatorColor: Colors.transparent,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(DocmacIconlyLight.home),
-          selectedIcon: _SelectedNavIcon(icon: DocmacIconlyBold.home),
-          label: 'Orbit',
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              _NavItem(
+                label: 'Orbit',
+                icon: DocmacIconlyLight.home,
+                selectedIcon: DocmacIconlyBold.home,
+                selected: selectedIndex == 0,
+                onTap: () => onSelected(0),
+              ),
+              _NavItem(
+                label: 'Talk',
+                icon: DocmacIconlyLight.chat,
+                selectedIcon: DocmacIconlyBold.chat,
+                selected: selectedIndex == 1,
+                onTap: () => onSelected(1),
+              ),
+              _NavItem(
+                label: 'Live',
+                icon: DocmacIconlyLight.voice,
+                selectedIcon: DocmacIconlyBold.voice,
+                selected: selectedIndex == 2,
+                onTap: () => onSelected(2),
+              ),
+              _NavItem(
+                label: 'Me',
+                icon: DocmacIconlyLight.profile,
+                selectedIcon: DocmacIconlyBold.profile,
+                selected: selectedIndex == 3,
+                onTap: () => onSelected(3),
+              ),
+            ],
+          ),
         ),
-        NavigationDestination(
-          icon: Icon(DocmacIconlyLight.chat),
-          selectedIcon: _SelectedNavIcon(icon: DocmacIconlyBold.chat),
-          label: 'Talk',
-        ),
-        NavigationDestination(
-          icon: Icon(DocmacIconlyLight.voice),
-          selectedIcon: _SelectedNavIcon(icon: DocmacIconlyBold.voice),
-          label: 'Live',
-        ),
-        NavigationDestination(
-          icon: Icon(DocmacIconlyLight.profile),
-          selectedIcon: _SelectedNavIcon(icon: DocmacIconlyBold.profile),
-          label: 'Me',
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _SelectedNavIcon extends StatelessWidget {
-  const _SelectedNavIcon({required this.icon});
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+    required this.selected,
+    required this.onTap,
+  });
 
+  final String label;
   final IconData icon;
+  final IconData selectedIcon;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 36,
-      height: 28,
-      decoration: BoxDecoration(
-        color: scheme.secondary.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(10),
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(selected ? selectedIcon : icon, color: color, size: 21),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: scheme.onSurface, size: 19),
     );
   }
 }

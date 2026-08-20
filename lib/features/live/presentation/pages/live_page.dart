@@ -192,7 +192,7 @@ class _NextSignal extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.brandBase, Color(0xFF56132E)],
+            colors: [AppColors.brandBase, Color(0xFF155CC4)],
           ),
           borderRadius: BorderRadius.circular(24),
         ),
@@ -469,11 +469,32 @@ class _KeypadSheet extends StatefulWidget {
 class _KeypadSheetState extends State<_KeypadSheet> {
   String _number = '';
 
+  void _addToContacts() {
+    final router = GoRouter.of(context);
+    final number = _number;
+    Navigator.of(context).pop();
+    router.push('/contacts/new', extra: number);
+  }
+
   @override
   Widget build(BuildContext context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: _number.isEmpty
+                    ? const SizedBox(key: ValueKey('no-contact-action'))
+                    : IconButton(
+                        key: const ValueKey('contact-action'),
+                        tooltip: 'Add to contacts',
+                        onPressed: _addToContacts,
+                        icon: const Icon(Icons.person_add_alt_1_outlined),
+                      ),
+              ),
+            ),
             Text(_number.isEmpty ? 'Enter a number' : _number, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 18),
             for (final row in const [

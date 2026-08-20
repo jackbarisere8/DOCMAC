@@ -32,17 +32,8 @@ class FoundryPage extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colors.onPrimary.withValues(alpha: .14),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(DocmacIconlyLight.work,
-                      color: colors.onPrimary, size: 26),
-                ),
+                Icon(DocmacIconlyLight.work,
+                    color: colors.onPrimary, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -182,15 +173,9 @@ class _FoundryItem extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 5),
         onTap: onTap,
-        leading: Container(
-          width: 42,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: .1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: Theme.of(context).colorScheme.secondary),
+        leading: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         title: Text(title),
         subtitle: Text(subtitle),

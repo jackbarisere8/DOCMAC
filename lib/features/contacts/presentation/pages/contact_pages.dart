@@ -361,7 +361,9 @@ class _ContactSettingsPageState extends State<ContactSettingsPage> {
 }
 
 class NewContactPage extends StatefulWidget {
-  const NewContactPage({super.key});
+  const NewContactPage({super.key, this.initialPhone});
+
+  final String? initialPhone;
 
   @override
   State<NewContactPage> createState() => _NewContactPageState();
@@ -370,9 +372,15 @@ class NewContactPage extends StatefulWidget {
 class _NewContactPageState extends State<NewContactPage> {
   final _firstName = TextEditingController();
   final _lastName = TextEditingController();
-  final _phone = TextEditingController();
+  late final TextEditingController _phone;
   ContactCountry _country = docmacCountries.first;
   bool _syncToPhone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _phone = TextEditingController(text: widget.initialPhone ?? '');
+  }
 
   @override
   void dispose() {

@@ -143,14 +143,9 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Icon(icon, color: Theme.of(context).colorScheme.secondary),
+        leading: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         title: Text(label),
         subtitle: Text(subtitle),

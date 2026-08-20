@@ -49,34 +49,12 @@ class _MePageState extends ConsumerState<MePage> {
               children: [
                 Text('Me', style: Theme.of(context).textTheme.headlineLarge),
                 const Spacer(),
-                Container(
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: PopupMenuButton<String>(
-                    tooltip: 'Profile options',
-                    color: colors.surface,
-                    surfaceTintColor: Colors.transparent,
-                    onSelected: (selection) {
-                      if (selection == 'settings') context.push('/settings');
-                    },
-                    icon:
-                        Icon(DocmacIconlyLight.moreCircle,
-                            color: colors.secondary),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'settings',
-                        child: Row(
-                          children: [
-                            Icon(DocmacIconlyLight.setting),
-                            SizedBox(width: 10),
-                            Text('Settings'),
-                          ],
-                        ),
-                      ),
-                    ],
+                IconButton(
+                  tooltip: 'Settings',
+                  onPressed: () => context.push('/settings'),
+                  icon: Icon(
+                    DocmacIconlyLight.setting,
+                    color: colors.onSurface,
                   ),
                 ),
               ],

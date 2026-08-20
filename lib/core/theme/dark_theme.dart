@@ -10,11 +10,11 @@ final ThemeData darkTheme = ThemeData(
   colorScheme: const ColorScheme.dark(
     primary: AppColors.primary,
     onPrimary: Colors.white,
-    primaryContainer: Color(0xFF5A1731),
+    primaryContainer: Color(0xFF123C7A),
     onPrimaryContainer: AppColors.accent,
     secondary: AppColors.primary,
     onSecondary: Colors.white,
-    secondaryContainer: Color(0xFF5A1731),
+    secondaryContainer: Color(0xFF123C7A),
     onSecondaryContainer: AppColors.accent,
     tertiary: AppColors.accent,
     onTertiary: AppColors.brandBase,
@@ -81,7 +81,7 @@ final ThemeData darkTheme = ThemeData(
   ),
   textButtonTheme: TextButtonThemeData(
     style: TextButton.styleFrom(
-      foregroundColor: AppColors.darkTextPrimary,
+      foregroundColor: AppColors.primary,
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
@@ -104,7 +104,7 @@ final ThemeData darkTheme = ThemeData(
     labelTextStyle: WidgetStateProperty.resolveWith(
       (states) => TextStyle(
         color: states.contains(WidgetState.selected)
-            ? AppColors.darkTextPrimary
+            ? AppColors.primary
             : AppColors.darkTextSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ final ThemeData darkTheme = ThemeData(
     iconTheme: WidgetStateProperty.resolveWith(
       (states) => IconThemeData(
         color: states.contains(WidgetState.selected)
-            ? AppColors.darkTextPrimary
+            ? AppColors.primary
             : AppColors.darkTextSecondary,
         size: 21,
       ),
@@ -122,12 +122,12 @@ final ThemeData darkTheme = ThemeData(
   switchTheme: SwitchThemeData(
     thumbColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.selected)
-          ? AppColors.accent
+          ? AppColors.primary
           : AppColors.darkDivider,
     ),
     trackColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.selected)
-          ? AppColors.accent.withValues(alpha: 0.4)
+          ? AppColors.primary.withValues(alpha: 0.4)
           : AppColors.darkDivider.withValues(alpha: 0.6),
     ),
   ),

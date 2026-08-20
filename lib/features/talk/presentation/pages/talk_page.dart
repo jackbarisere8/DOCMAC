@@ -91,6 +91,11 @@ class _TalkPageState extends State<TalkPage> {
                                 onMore: _handleSelectedThreadMenu,
                               ),
                         const SizedBox(height: 18),
+                        _TalkSearch(
+                          controller: _searchController,
+                          onChanged: (value) => setState(() => _query = value),
+                        ),
+                        const SizedBox(height: 14),
                         SizedBox(
                           height: 38,
                           child: ListView(
@@ -128,21 +133,6 @@ class _TalkPageState extends State<TalkPage> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-                SliverAppBar(
-                  pinned: true,
-                  automaticallyImplyLeading: false,
-                  backgroundColor: colors.surfaceContainerLowest,
-                  surfaceTintColor: Colors.transparent,
-                  toolbarHeight: 64,
-                  titleSpacing: 0,
-                  title: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _TalkSearch(
-                      controller: _searchController,
-                      onChanged: (value) => setState(() => _query = value),
                     ),
                   ),
                 ),
@@ -511,11 +501,7 @@ class _TalkHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Open camera',
             onPressed: onCamera,
-            style: IconButton.styleFrom(
-              backgroundColor: colors.surface,
-              side: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-            icon: Icon(DocmacIconlyLight.camera, color: colors.secondary),
+            icon: Icon(DocmacIconlyLight.camera, color: colors.onSurface),
           ),
           const SizedBox(width: 4),
           PopupMenuButton<String>(

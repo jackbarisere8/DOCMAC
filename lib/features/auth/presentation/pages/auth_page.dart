@@ -124,57 +124,353 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 
   @override
-  Widget build(BuildContext context) => _AccountScaffold(
-        step: null,
-        eyebrow: 'WELCOME BACK',
-        title: _step == 0 ? 'Good to see\nyou again.' : 'Confirm it\'s\nyou.',
-        description: _step == 0
-            ? 'Use the phone number linked to your Docmac account.'
-            : 'We sent a six-digit code to ${_maskedPhone(_fullPhoneNumber)}.',
-        icon:
-            _step == 0 ? DocmacIconlyLight.call : DocmacIconlyLight.shieldDone,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_step == 0)
-              _PhoneField(
+  Widget build(BuildContext context) => _PhoneAuthScaffold(
+        verifying: _step == 1,
+        loading: _loading,
+        onBack: _step == 0 ? () => context.go('/') : _returnToPhoneEntry,
+        onContinue: _step == 0 ? _confirmAndSendCode : _verifyCode,
+        child: _step == 0
+            ? _MinimalPhoneEntry(
                 controller: _phone,
                 country: _country,
                 onChooseCountry: _chooseCountry,
-                validator: (_) => _phoneValidator(_fullPhoneNumber),
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                error: _error,
               )
-            else
-              _OtpField(controller: _code, onSubmitted: _verifyCode),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              _AccountError(message: _error!),
-            ],
-            const SizedBox(height: 22),
-            _PrimaryButton(
-              label: _step == 0 ? 'Send code' : 'Verify and sign in',
-              loading: _loading,
-              onPressed: _step == 0 ? _sendCode : _verifyCode,
-            ),
-            if (_step == 1) ...[
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: _loading ? null : _sendCode,
-                child: const Text('Didn\'t receive a code? Send again'),
+            : _MinimalOtpEntry(
+                controller: _code,
+                phoneNumber: _fullPhoneNumber,
+                error: _error,
+                onSubmitted: _verifyCode,
+                onResend: _loading ? null : _sendCode,
               ),
-            ],
-            const SizedBox(height: 16),
-            _BottomLink(
-              prompt: 'New to Docmac?',
-              action: 'Create an account',
-              onTap: () => context.go('/register'),
-            ),
-          ],
-        ),
       );
+
+  void _returnToPhoneEntry() {
+    setState(() {
+      _step = 0;
+      _code.clear();
+      _verificationId = null;
+      _error = null;
+    });
+  }
+
+  Future<void> _confirmAndSendCode() async {
+    final phoneError = _phoneValidator(_fullPhoneNumber);
+    if (phoneError != null) {
+      setState(() => _error = phoneError);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm your number'),
+        content: Text(
+          'We will send a six-digit verification code to\n$_fullPhoneNumber.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Edit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _sendCode();
+  }
 
   Future<void> _chooseCountry() async {
     final country = await _showCountryPicker(context, _country);
     if (country != null && mounted) setState(() => _country = country);
+  }
+}
+
+/// A focused, phone-first sign-in surface. It intentionally uses Docmac's
+/// neutral layout and blue action color instead of copying another app's UI.
+class _PhoneAuthScaffold extends StatelessWidget {
+  const _PhoneAuthScaffold({
+    required this.verifying,
+    required this.loading,
+    required this.onBack,
+    required this.onContinue,
+    required this.child,
+  });
+
+  final bool verifying;
+  final bool loading;
+  final VoidCallback onBack;
+  final VoidCallback onContinue;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: scheme.surface,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: verifying ? 'Edit phone number' : 'Back',
+                  onPressed: loading ? null : onBack,
+                  icon: Icon(
+                    verifying ? Icons.close_rounded : Icons.arrow_back_rounded,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 82,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _RoundPhoneAction(
+                verifying: verifying,
+                loading: loading,
+                onPressed: onContinue,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MinimalPhoneEntry extends StatelessWidget {
+  const _MinimalPhoneEntry({
+    required this.controller,
+    required this.country,
+    required this.onChooseCountry,
+    required this.onChanged,
+    required this.error,
+  });
+
+  final TextEditingController controller;
+  final ContactCountry country;
+  final VoidCallback onChooseCountry;
+  final ValueChanged<String> onChanged;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      children: [
+        Text(
+          'Your phone number',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontSize: 25,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Confirm your country code and enter the phone number\nlinked to your Docmac account.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+        ),
+        const SizedBox(height: 38),
+        OutlinedButton(
+          onPressed: onChooseCountry,
+          style: OutlinedButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            minimumSize: const Size.fromHeight(64),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            side: BorderSide(color: scheme.outlineVariant),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: Row(
+            children: [
+              Text(country.flag, style: const TextStyle(fontSize: 21)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  country.name,
+                  style: TextStyle(color: scheme.onSurface, fontSize: 16),
+                ),
+              ),
+              Text(country.code, style: TextStyle(color: scheme.onSurfaceVariant)),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          onChanged: onChanged,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\-\s]')),
+          ],
+          decoration: InputDecoration(
+            labelText: 'Phone number',
+            prefixText: '${country.code}  ',
+            hintText: '801 234 5678',
+            filled: false,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: scheme.outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: scheme.primary, width: 2),
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 12),
+          Text(error!, style: TextStyle(color: scheme.error, fontSize: 13)),
+        ],
+      ],
+    );
+  }
+}
+
+class _MinimalOtpEntry extends StatelessWidget {
+  const _MinimalOtpEntry({
+    required this.controller,
+    required this.phoneNumber,
+    required this.error,
+    required this.onSubmitted,
+    required this.onResend,
+  });
+
+  final TextEditingController controller;
+  final String phoneNumber;
+  final String? error;
+  final VoidCallback onSubmitted;
+  final VoidCallback? onResend;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      children: [
+        Text(
+          'Verify your number',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontSize: 25,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Enter the six-digit code sent to\n${_maskedPhone(phoneNumber)}.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+        ),
+        const SizedBox(height: 36),
+        TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => onSubmitted(),
+          autofillHints: const [AutofillHints.oneTimeCode],
+          maxLength: 6,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            letterSpacing: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          decoration: InputDecoration(
+            counterText: '',
+            hintText: '------',
+            filled: false,
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: scheme.outlineVariant, width: 2),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: scheme.primary, width: 2),
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 12),
+          Text(error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error, fontSize: 13)),
+        ],
+        const SizedBox(height: 18),
+        TextButton(
+          onPressed: onResend,
+          child: const Text('Didn\'t receive a code? Send again'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundPhoneAction extends StatelessWidget {
+  const _RoundPhoneAction({
+    required this.verifying,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final bool verifying;
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton.filled(
+      tooltip: verifying ? 'Verify code' : 'Continue',
+      onPressed: loading ? null : onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        fixedSize: const Size(60, 60),
+      ),
+      icon: loading
+          ? SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: scheme.onPrimary,
+              ),
+            )
+          : Icon(verifying ? Icons.check_rounded : Icons.arrow_forward_rounded),
+    );
   }
 }
 

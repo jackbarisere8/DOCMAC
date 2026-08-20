@@ -759,26 +759,32 @@ class _RelayAvatar extends StatelessWidget {
   final double size;
   final bool editable;
   @override
-  Widget build(BuildContext context) =>
-      Stack(clipBehavior: Clip.none, children: [
-        CircleAvatar(
-          radius: size / 2,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-          child: Icon(DocmacIconlyLight.discovery, size: size * .45),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(clipBehavior: Clip.none, children: [
+        Center(
+          child: Icon(
+            DocmacIconlyLight.discovery,
+            size: size * .45,
+            color: scheme.onSurface,
+          ),
         ),
         if (editable)
           Positioned(
             right: -2,
             bottom: -2,
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Icon(DocmacIconlyLight.camera,
-                  size: 15, color: Theme.of(context).colorScheme.onPrimary),
+            child: Icon(
+              DocmacIconlyLight.camera,
+              size: 18,
+              color: scheme.primary,
             ),
           ),
-      ]);
+      ]),
+    );
+  }
 }
 
 class _SelectRow extends StatelessWidget {
