@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../core/ui/docmac_community_icons.dart';
 
 class TalkPage extends StatefulWidget {
   const TalkPage({super.key});
@@ -440,7 +441,12 @@ class _ArchiveLink extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           child: Row(
             children: [
-              Icon(DocmacIconlyLight.folder, color: colors.secondary),
+              DocmacCommunityIcon(
+                asset: DocmacCommunityIcons.archive,
+                color: colors.secondary,
+                size: 23,
+                semanticLabel: 'Archived talks',
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text('Archived',
@@ -466,15 +472,24 @@ String _threadRoute(_Thread thread) => thread.isCircle
     : '/person/${thread.name.split(' ').first.toLowerCase()}';
 
 class _TalkMenuLabel extends StatelessWidget {
-  const _TalkMenuLabel(this.icon, this.label);
+  const _TalkMenuLabel(this.icon, this.label, {this.asset});
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) => Row(
         children: [
-          Icon(icon, size: 19, color: Theme.of(context).colorScheme.secondary),
+          if (asset == null)
+            Icon(icon, size: 19, color: Theme.of(context).colorScheme.secondary)
+          else
+            DocmacCommunityIcon(
+              asset: asset!,
+              size: 19,
+              color: Theme.of(context).colorScheme.secondary,
+              semanticLabel: label,
+            ),
           const SizedBox(width: 12),
           Text(label),
         ],
@@ -578,14 +593,18 @@ class _TalkSelectionBar extends StatelessWidget {
           IconButton(
             tooltip: 'Archive talk',
             onPressed: onArchive,
-            icon: const Icon(DocmacIconlyLight.folder),
+            icon: const DocmacCommunityIcon(
+              asset: DocmacCommunityIcons.archive,
+              semanticLabel: 'Archive talk',
+            ),
           ),
           IconButton(
             tooltip: isPinned ? 'Unpin talk' : 'Pin talk',
             onPressed: onPin,
-            icon: Icon(
-              DocmacIconlyLight.bookmark,
+            icon: DocmacCommunityIcon(
+              asset: DocmacCommunityIcons.talkPin,
               color: isPinned ? Theme.of(context).colorScheme.primary : null,
+              semanticLabel: isPinned ? 'Unpin talk' : 'Pin talk',
             ),
           ),
           PopupMenuButton<String>(
@@ -613,8 +632,9 @@ class _TalkSelectionBar extends StatelessWidget {
               PopupMenuItem(
                 value: 'pin',
                 child: _TalkMenuLabel(
-                  DocmacIconlyLight.bookmark,
+                  null,
                   isPinned ? 'Unpin talk' : 'Pin talk',
+                  asset: DocmacCommunityIcons.talkPin,
                 ),
               ),
               const PopupMenuItem(
@@ -774,8 +794,8 @@ class _ThreadTile extends StatelessWidget {
                         ),
                         if (isPinned) ...[
                           const SizedBox(width: 6),
-                          Icon(
-                            DocmacIconlyLight.bookmark,
+                          DocmacCommunityIcon(
+                            asset: DocmacCommunityIcons.talkPin,
                             size: 15,
                             color: Theme.of(context).colorScheme.primary,
                             semanticLabel: 'Pinned talk',

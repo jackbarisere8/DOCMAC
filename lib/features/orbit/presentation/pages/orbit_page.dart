@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ui/docmac_community_icons.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../me/presentation/profile_media_store.dart';
@@ -51,19 +52,35 @@ class _OrbitPageState extends State<OrbitPage> {
                   const SizedBox(height: 12),
                   _InnerOrbit(onTap: () => context.push('/people')),
                   const SizedBox(height: 30),
-                  const _RowHeading(title: 'Moments', action: 'See archive'),
+                  _RowHeading(
+                    title: 'Moments',
+                    action: 'See archive',
+                    onTap: () => context.push('/moments'),
+                  ),
                   const SizedBox(height: 12),
                   const SizedBox(height: 136, child: _MomentStrip()),
                   const SizedBox(height: 30),
-                  const _RowHeading(title: 'Forge', action: 'Explore ideas'),
+                  _RowHeading(
+                    title: 'Forge',
+                    action: 'Explore ideas',
+                    onTap: () => context.push('/forge'),
+                  ),
                   const SizedBox(height: 12),
                   _ForgeEntry(onTap: () => context.push('/forge')),
                   const SizedBox(height: 30),
-                  const _RowHeading(title: 'Recent Drops', action: 'View Relays'),
+                  _RowHeading(
+                    title: 'Recent Drops',
+                    action: 'View Relays',
+                    onTap: () => context.push('/relays'),
+                  ),
                   const SizedBox(height: 12),
                   _RelayEntry(onTap: () => context.push('/relays')),
                   const SizedBox(height: 30),
-                  const _RowHeading(title: 'Active now', action: 'View all'),
+                  _RowHeading(
+                    title: 'Active now',
+                    action: 'View all',
+                    onTap: () => context.push('/people'),
+                  ),
                   const SizedBox(height: 12),
                   _ActivePeople(query: _query),
                   const SizedBox(height: 30),
@@ -109,23 +126,22 @@ class _TopBar extends ConsumerWidget {
         ),
         InkWell(
           onTap: () => context.push('/notifications'),
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(DocmacIconlyLight.notification,
-                    color: Theme.of(context).colorScheme.primary),
+                DocmacCommunityIcon(
+                  asset: DocmacCommunityIcons.notification,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 24,
+                  semanticLabel: 'Arrivals',
+                ),
                 Positioned(
-                  right: 10,
-                  top: 10,
+                  right: 7,
+                  top: 7,
                   child: Container(
                     width: 7,
                     height: 7,
@@ -133,7 +149,9 @@ class _TopBar extends ConsumerWidget {
                       color: Theme.of(context).colorScheme.error,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.surface,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLowest,
                         width: 1.5,
                       ),
                     ),
@@ -416,11 +434,15 @@ class _PulseCard extends StatelessWidget {
 }
 
 class _RowHeading extends StatelessWidget {
-  const _RowHeading({required this.title, required this.action, this.onTap});
+  const _RowHeading({
+    required this.title,
+    required this.action,
+    required this.onTap,
+  });
 
   final String title;
   final String action;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -432,23 +454,31 @@ class _RowHeading extends StatelessWidget {
                 fontSize: 18,
                 fontWeight: FontWeight.w800)),
         const Spacer(),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-            child: Row(
-              children: [
-                Text(action,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    )),
-                const SizedBox(width: 4),
-                Icon(DocmacIconlyLight.arrowRight,
-                    size: 14, color: Theme.of(context).colorScheme.primary),
-              ],
+        Semantics(
+          button: true,
+          label: '$action: $title',
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+              child: Row(
+                children: [
+                  Text(action,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      )),
+                  const SizedBox(width: 5),
+                  DocmacCommunityIcon(
+                    asset: DocmacCommunityIcons.seeMore,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 15,
+                    semanticLabel: action,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -507,8 +537,12 @@ class _InnerOrbit extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                     color: scheme.secondaryContainer, shape: BoxShape.circle),
-                child: Icon(DocmacIconlyLight.arrowRight,
-                    size: 15, color: scheme.onSecondaryContainer),
+                child: DocmacCommunityIcon(
+                  asset: DocmacCommunityIcons.seeMore,
+                  color: scheme.onSecondaryContainer,
+                  size: 15,
+                  semanticLabel: 'View people',
+                ),
               ),
             ],
           ),
@@ -565,7 +599,11 @@ class _ForgeEntry extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(DocmacIconlyLight.arrowRight, color: colors.onPrimary),
+              DocmacCommunityIcon(
+                asset: DocmacCommunityIcons.seeMore,
+                color: colors.onPrimary,
+                semanticLabel: 'Open Forge',
+              ),
             ],
           ),
         ),
@@ -600,8 +638,12 @@ class _RelayEntry extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
-                child: Icon(DocmacIconlyLight.discovery,
-                    color: colors.onPrimaryContainer),
+                child: DocmacCommunityIcon(
+                  asset: DocmacCommunityIcons.relay,
+                  color: colors.onPrimaryContainer,
+                  size: 23,
+                  semanticLabel: 'Docmac Relay',
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -609,17 +651,24 @@ class _RelayEntry extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Docmac Relay',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800)),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 3),
-                    Text('A calmer way to share, talk and stay close is taking shape.',
+                    Text(
+                        'A calmer way to share, talk and stay close is taking shape.',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
-              Icon(DocmacIconlyLight.arrowRight, color: colors.primary),
+              DocmacCommunityIcon(
+                asset: DocmacCommunityIcons.seeMore,
+                color: colors.primary,
+                semanticLabel: 'Open Docmac Relay',
+              ),
             ],
           ),
         ),
@@ -786,8 +835,7 @@ class _PersonRow extends StatelessWidget {
               ),
               child: Text(initial,
                   style: TextStyle(
-                      color: AppColors.brandBase,
-                      fontWeight: FontWeight.w800)),
+                      color: AppColors.brandBase, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -1,4 +1,4 @@
-import 'package:docmac_app/core/ui/docmac_iconly.dart';
+import 'package:docmac_app/core/ui/docmac_community_icons.dart';
 import 'package:docmac_app/features/talk/presentation/pages/talk_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +26,14 @@ void main() {
     await tester.tap(find.byTooltip('Pin talk'));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(DocmacIconlyLight.bookmark), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is DocmacCommunityIcon &&
+            widget.semanticLabel == 'Pinned talk',
+      ),
+      findsOneWidget,
+    );
     expect(
       tester.getTopLeft(find.text('Weekend crew')).dy,
       lessThan(tester.getTopLeft(find.text('Jack Wilson')).dy),

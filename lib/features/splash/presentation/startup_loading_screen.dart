@@ -29,7 +29,7 @@ class _StartupLoadingScreenState extends State<StartupLoadingScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1250),
+      duration: const Duration(milliseconds: 1400),
     )..repeat();
     _timer = Timer(const Duration(milliseconds: 2100), _routeFromStartup);
   }
@@ -86,16 +86,7 @@ class _StartupLoadingScreenState extends State<StartupLoadingScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(19),
-                    ),
-                    child: const DocmacMark(size: 44),
-                  ),
+                  const DocmacMark(size: 58),
                   const SizedBox(width: 15),
                   Text(
                     'Docmac',
@@ -112,24 +103,14 @@ class _StartupLoadingScreenState extends State<StartupLoadingScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: scheme.primaryContainer.withValues(alpha: .55),
-                      border: Border.all(
-                        color: scheme.primary.withValues(alpha: .23),
-                      ),
-                    ),
-                    child: AnimatedBuilder(
-                      animation: _controller,
-                      builder: (context, _) => _OrbitSignalLoader(
-                        progress: _controller.value,
-                        active: scheme.primary,
-                        resting: scheme.onSurfaceVariant.withValues(alpha: .23),
-                      ),
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) => _AuroraLoader(
+                      progress: MediaQuery.disableAnimationsOf(context)
+                          ? .18
+                          : _controller.value,
+                      active: scheme.primary,
+                      resting: scheme.onSurfaceVariant.withValues(alpha: .18),
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -150,9 +131,11 @@ class _StartupLoadingScreenState extends State<StartupLoadingScreen>
   }
 }
 
-/// A small orbit of signals gives the app its own loading signature.
-class _OrbitSignalLoader extends StatelessWidget {
-  const _OrbitSignalLoader({
+/// A layered progress arc gives the launch experience a crisp, modern motion
+/// signature while preserving a static accessible state when animations are
+/// disabled at system level.
+class _AuroraLoader extends StatelessWidget {
+  const _AuroraLoader({
     required this.progress,
     required this.active,
     required this.resting,
@@ -164,10 +147,10 @@ class _OrbitSignalLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        width: 45,
-        height: 45,
+        width: 52,
+        height: 52,
         child: CustomPaint(
-          painter: _OrbitSignalPainter(
+          painter: _AuroraLoaderPainter(
             progress: progress,
             active: active,
             resting: resting,
@@ -176,8 +159,8 @@ class _OrbitSignalLoader extends StatelessWidget {
       );
 }
 
-class _OrbitSignalPainter extends CustomPainter {
-  const _OrbitSignalPainter({
+class _AuroraLoaderPainter extends CustomPainter {
+  const _AuroraLoaderPainter({
     required this.progress,
     required this.active,
     required this.resting,
@@ -190,34 +173,71 @@ class _OrbitSignalPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = size.width * .31;
+    final outerRadius = size.width * .36;
+    final outerRect = Rect.fromCircle(center: center, radius: outerRadius);
+    final startAngle = -math.pi / 2 + (progress * math.pi * 2);
+    const arcSpan = math.pi * 1.34;
+
+    final track = Paint()
+      ..color = resting
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.3
+      ..strokeCap = StrokeCap.round;
     canvas.drawCircle(
       center,
-      radius,
-      Paint()
-        ..color = resting
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+      outerRadius,
+      track,
     );
-    for (var index = 0; index < 3; index++) {
-      final phase = (progress - index / 3) % 1;
-      final angle = (progress * math.pi * 2) + (index * math.pi * 2 / 3);
-      final pulse = .42 + (math.sin(phase * math.pi) * .58);
-      final point = Offset(
-        center.dx + math.cos(angle) * radius,
-        center.dy + math.sin(angle) * radius,
-      );
-      canvas.drawCircle(
-        point,
-        3.5 + (pulse * 1.5),
-        Paint()..color = Color.lerp(resting, active, pulse)!,
-      );
-    }
-    canvas.drawCircle(center, 3.8, Paint()..color = active);
+
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.3
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: startAngle,
+        endAngle: startAngle + arcSpan,
+        colors: [
+          active.withValues(alpha: .20),
+          active.withValues(alpha: .68),
+          active,
+        ],
+        stops: const [0, .56, 1],
+      ).createShader(outerRect);
+    canvas.drawArc(outerRect, startAngle, arcSpan, false, arcPaint);
+
+    final innerRadius = size.width * .205;
+    final innerRect = Rect.fromCircle(center: center, radius: innerRadius);
+    final innerPaint = Paint()
+      ..color = active.withValues(alpha: .34)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      innerRect,
+      startAngle + math.pi * .45,
+      math.pi * .58,
+      false,
+      innerPaint,
+    );
+
+    final headAngle = startAngle + arcSpan;
+    final head = Offset(
+      center.dx + math.cos(headAngle) * outerRadius,
+      center.dy + math.sin(headAngle) * outerRadius,
+    );
+    canvas.drawCircle(
+      head,
+      5.5,
+      Paint()
+        ..color = active.withValues(alpha: .20)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawCircle(head, 2.75, Paint()..color = active);
+    canvas.drawCircle(center, 3.2, Paint()..color = active);
   }
 
   @override
-  bool shouldRepaint(_OrbitSignalPainter oldDelegate) =>
+  bool shouldRepaint(_AuroraLoaderPainter oldDelegate) =>
       oldDelegate.progress != progress ||
       oldDelegate.active != active ||
       oldDelegate.resting != resting;

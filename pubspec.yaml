@@ -21,6 +21,7 @@ dependencies:
   provider: ^6.1.2
   record: ^7.1.1
   shared_preferences: ^2.2.3
+  flutter_svg: ^2.1.0
   # Supplies the font assets used by core/ui/docmac_iconly.dart.
   iconly: ^1.0.1
 
@@ -33,3 +34,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    # Flutter does not bundle assets in nested directories automatically.
+    - assets/icons/community/free_icon_pack/
+    - assets/icons/community/smoooth/outline/

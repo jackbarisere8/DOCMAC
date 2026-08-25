@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/ui/docmac_community_icons.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -79,7 +80,7 @@ class SettingsPage extends StatelessWidget {
                 subtitle: 'Wallpaper and message preferences',
                 onTap: () => context.push('/chat/theme')),
             _SettingsRow(
-                icon: DocmacIconlyLight.notification,
+                asset: DocmacCommunityIcons.notification,
                 label: 'Arrivals',
                 subtitle: 'Sounds, calls, badges, and invitations',
                 onTap: () => context.push('/notifications')),
@@ -130,12 +131,15 @@ class SettingsPage extends StatelessWidget {
 
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow(
-      {required this.icon,
+      {this.icon,
+      this.asset,
       required this.label,
       required this.subtitle,
-      required this.onTap});
+      required this.onTap})
+      : assert(icon != null || asset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? asset;
   final String label;
   final String subtitle;
   final VoidCallback onTap;
@@ -143,10 +147,16 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 4),
-        leading: Icon(
-          icon,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
+        leading: asset == null
+            ? Icon(
+                icon,
+                color: Theme.of(context).colorScheme.onSurface,
+              )
+            : DocmacCommunityIcon(
+                asset: asset!,
+                color: Theme.of(context).colorScheme.onSurface,
+                semanticLabel: label,
+              ),
         title: Text(label),
         subtitle: Text(subtitle),
         trailing: const Icon(DocmacIconlyLight.arrowRight, size: 18),
@@ -368,7 +378,8 @@ class AppLanguageSettingsPage extends StatefulWidget {
   const AppLanguageSettingsPage({super.key});
 
   @override
-  State<AppLanguageSettingsPage> createState() => _AppLanguageSettingsPageState();
+  State<AppLanguageSettingsPage> createState() =>
+      _AppLanguageSettingsPageState();
 }
 
 class _AppLanguageSettingsPageState extends State<AppLanguageSettingsPage> {

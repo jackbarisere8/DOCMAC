@@ -1,33 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/ui/docmac_iconly.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/ui/docmac_community_icons.dart';
 import '../../features/live/presentation/pages/live_page.dart';
 import '../../features/orbit/presentation/pages/orbit_page.dart';
 import '../../features/me/presentation/pages/me_page.dart';
 import '../../features/talk/presentation/pages/talk_page.dart';
 
-class AppShell extends StatelessWidget {
-  const AppShell({super.key});
+class AppShell extends StatefulWidget {
+  const AppShell({super.key, this.pages})
+      : assert(pages == null || pages.length == 4);
+
+  /// Allows lightweight shell navigation tests without initializing feature
+  /// dependencies. Production uses the four standard tab pages.
+  final List<Widget>? pages;
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  static const _destinations = ['/orbit', '/talk', '/live', '/me'];
+
+  late final PageController _pageController;
+  var _selectedIndex = 0;
+  var _hasSyncedRoute = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final routeIndex = _indexForLocation(
+      GoRouterState.of(context).matchedLocation,
+    );
+    if (!_hasSyncedRoute) {
+      _hasSyncedRoute = true;
+      _selectedIndex = routeIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(routeIndex);
+        }
+      });
+      return;
+    }
+
+    // Routes such as /talk can still open the shell directly. Keep that entry
+    // point in sync without routing tab changes through a new Scaffold.
+    if (routeIndex != _selectedIndex) {
+      _selectedIndex = routeIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(routeIndex);
+        }
+      });
+    }
+  }
+
+  int _indexForLocation(String location) {
+    final index = _destinations.indexOf(location);
+    return index < 0 ? 0 : index;
+  }
+
+  void _selectPage(int index) {
+    if (index == _selectedIndex) return;
+
+    setState(() => _selectedIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _handlePageChanged(int index) {
+    if (index != _selectedIndex) {
+      setState(() => _selectedIndex = index);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
-    const destinations = ['/orbit', '/talk', '/live', '/me'];
-    final selectedIndex = destinations.indexOf(location);
-
-    final page = switch (location) {
-      '/talk' => const TalkPage(),
-      '/live' => const LivePage(),
-      '/me' => const MePage(),
-      _ => const OrbitPage(),
-    };
-
     return Scaffold(
-      body: page,
+      // The PageView moves only the tab content. Keeping the navigation bar
+      // outside it makes the bar remain stationary, like WhatsApp's tabs.
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _handlePageChanged,
+        children: widget.pages ?? const [
+          OrbitPage(),
+          TalkPage(),
+          LivePage(),
+          MePage(),
+        ],
+      ),
       bottomNavigationBar: _AppNavigation(
-        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-        onSelected: (index) => context.go(destinations[index]),
+        selectedIndex: _selectedIndex,
+        onSelected: _selectPage,
       ),
     );
   }
@@ -56,29 +137,29 @@ class _AppNavigation extends StatelessWidget {
             children: [
               _NavItem(
                 label: 'Orbit',
-                icon: DocmacIconlyLight.home,
-                selectedIcon: DocmacIconlyBold.home,
+                icon: DocmacCommunityIcons.home,
+                selectedIcon: DocmacCommunityIcons.home,
                 selected: selectedIndex == 0,
                 onTap: () => onSelected(0),
               ),
               _NavItem(
                 label: 'Talk',
-                icon: DocmacIconlyLight.chat,
-                selectedIcon: DocmacIconlyBold.chat,
+                icon: DocmacCommunityIcons.talk,
+                selectedIcon: DocmacCommunityIcons.talk,
                 selected: selectedIndex == 1,
                 onTap: () => onSelected(1),
               ),
               _NavItem(
                 label: 'Live',
-                icon: DocmacIconlyLight.voice,
-                selectedIcon: DocmacIconlyBold.voice,
+                icon: DocmacCommunityIcons.live,
+                selectedIcon: DocmacCommunityIcons.live,
                 selected: selectedIndex == 2,
                 onTap: () => onSelected(2),
               ),
               _NavItem(
                 label: 'Me',
-                icon: DocmacIconlyLight.profile,
-                selectedIcon: DocmacIconlyBold.profile,
+                icon: DocmacCommunityIcons.profile,
+                selectedIcon: DocmacCommunityIcons.profile,
                 selected: selectedIndex == 3,
                 onTap: () => onSelected(3),
               ),
@@ -100,18 +181,25 @@ class _NavItem extends StatelessWidget {
   });
 
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+  final String icon;
+  final String selectedIcon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    // Use a deeper selected blue in light mode and a high-contrast neutral
+    // color when inactive. The SVG wrapper applies these colors to every path.
+    final color = selected
+        ? (Theme.of(context).brightness == Brightness.light
+            ? AppColors.brandBase
+            : scheme.primary)
+        : scheme.onSurface;
 
     return Expanded(
       child: Semantics(
+        key: ValueKey('app-nav-${label.toLowerCase()}'),
         button: true,
         selected: selected,
         label: label,
@@ -121,7 +209,12 @@ class _NavItem extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(selected ? selectedIcon : icon, color: color, size: 21),
+                DocmacCommunityIcon(
+                  asset: selected ? selectedIcon : icon,
+                  color: color,
+                  size: 21,
+                  semanticLabel: label,
+                ),
                 const SizedBox(height: 4),
                 Text(
                   label,

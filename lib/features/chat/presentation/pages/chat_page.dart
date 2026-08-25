@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../../core/ui/docmac_community_icons.dart';
+
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
 
@@ -34,6 +36,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isRecordingPaused = false;
   bool _recordOnce = false;
   _Message? _selectedMessage;
+  _Message? _pinnedMessage;
 
   @override
   void initState() {
@@ -219,21 +222,30 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _showMessageActions(_Message message) {
+    final isPinned = _pinnedMessage == message;
     showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(112, 126, 18, 0),
-      items: const [
+      items: [
         PopupMenuItem(value: 'replies', child: Text('View thread')),
         PopupMenuItem(value: 'security', child: Text('Verify privacy code')),
         PopupMenuItem(value: 'keep', child: Text('Save to Keepsakes')),
         PopupMenuItem(value: 'copy', child: Text('Copy')),
         PopupMenuItem(value: 'edit', child: Text('Edit')),
-        PopupMenuItem(value: 'pin', child: Text('Pin')),
+        PopupMenuItem(value: 'pin', child: Text(isPinned ? 'Unpin' : 'Pin')),
         PopupMenuItem(value: 'note', child: Text('Add to note')),
         PopupMenuItem(value: 'reply', child: Text('Create quick reply')),
       ],
     ).then((value) {
       if (!mounted || value == null) return;
+      if (value == 'pin') {
+        setState(() {
+          _pinnedMessage = isPinned ? null : message;
+          _selectedMessage = null;
+        });
+        _showNotice(isPinned ? 'Message unpinned' : 'Message pinned to chat');
+        return;
+      }
       setState(() => _selectedMessage = null);
       final label = switch (value) {
         'replies' => 'Thread opened',
@@ -241,7 +253,6 @@ class _ChatPageState extends State<ChatPage> {
         'keep' => 'Saved to Keepsakes',
         'copy' => 'Message copied',
         'edit' => 'Edit mode is ready',
-        'pin' => 'Message pinned',
         'note' => 'Added to your note',
         _ => 'Quick reply created',
       };
@@ -280,6 +291,14 @@ class _ChatPageState extends State<ChatPage> {
                     },
                   ),
             Divider(height: 1, color: Theme.of(context).dividerColor),
+            if (_pinnedMessage != null)
+              _PinnedMessageRail(
+                message: _pinnedMessage!,
+                onUnpin: () {
+                  setState(() => _pinnedMessage = null);
+                  _showNotice('Message unpinned');
+                },
+              ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
@@ -309,9 +328,7 @@ class _ChatPageState extends State<ChatPage> {
                     _ChatBubble(
                       message: message,
                       isSelected: message == _selectedMessage,
-                      onLongPress: message.isMine
-                          ? () {}
-                          : () => _selectMessage(message),
+                      onLongPress: () => _selectMessage(message),
                     ),
                 ],
               ),
@@ -546,6 +563,85 @@ class _ChatMessageSearchDelegate extends SearchDelegate<void> {
           onTap: () => close(context, null),
         );
       },
+    );
+  }
+}
+
+/// Keeps the conversation's pinned message in view without interrupting the
+/// natural chronology of the chat itself.
+class _PinnedMessageRail extends StatelessWidget {
+  const _PinnedMessageRail({required this.message, required this.onUnpin});
+
+  final _Message message;
+  final VoidCallback onUnpin;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final preview = message.isVoice
+        ? 'Voice message · ${message.formattedDuration}'
+        : message.text;
+
+    return Material(
+      color: colors.surface,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 68),
+        padding: const EdgeInsets.fromLTRB(20, 10, 10, 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Theme.of(context).dividerColor),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: DocmacCommunityIcon(
+                asset: DocmacCommunityIcons.talkPin,
+                size: 20,
+                color: colors.onPrimaryContainer,
+                semanticLabel: 'Pinned message',
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pinned message',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Unpin message',
+              onPressed: onUnpin,
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
