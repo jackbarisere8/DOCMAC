@@ -180,10 +180,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AppShell(),
       ),
       GoRoute(
-        path: '/talk/archive',
-        builder: (context, state) => const TalkArchivePage(),
-      ),
-      GoRoute(
         path: '/live',
         builder: (context, state) => const AppShell(),
       ),
