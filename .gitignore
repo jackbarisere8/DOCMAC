@@ -55,3 +55,16 @@ app.*.map.json
 # source control; losing the keystore prevents future updates to a published app.
 /android/key.properties
 /android/keystore/
+
+# Credentials and locally injected configuration. Firebase client config is
+# intentionally versioned; never add server credentials or signing material.
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pem
+**/*service-account*.json
+**/*serviceAccountKey*.json
+**/*firebase-adminsdk*.json

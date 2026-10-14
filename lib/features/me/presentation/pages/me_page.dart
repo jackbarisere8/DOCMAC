@@ -221,7 +221,13 @@ class _MePageState extends ConsumerState<MePage> {
     } on AuthServiceUnavailableException {
       // The local profile remains editable when Firebase is not configured.
     } catch (_) {
-      // The local profile remains editable when the account service is offline.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update your name online. Changes saved locally.'),
+          ),
+        );
+      }
     }
   }
 

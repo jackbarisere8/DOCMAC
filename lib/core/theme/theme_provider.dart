@@ -6,6 +6,7 @@ class ThemeProvider extends ChangeNotifier {
   static const _prefsKey = 'docmac_theme_mode';
 
   ThemeMode _themeMode = ThemeMode.system;
+  SharedPreferences? _preferences;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -15,9 +16,9 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Loads the saved preference before the first application frame.
   Future<void> init() async {
-    final preferences = await SharedPreferences.getInstance();
+    _preferences = await SharedPreferences.getInstance();
     _themeMode =
-        _fromString(preferences.getString(_prefsKey)) ?? ThemeMode.system;
+        _fromString(_preferences!.getString(_prefsKey)) ?? ThemeMode.system;
     _initialized = true;
     notifyListeners();
   }
@@ -28,7 +29,7 @@ class ThemeProvider extends ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
 
-    final preferences = await SharedPreferences.getInstance();
+    final preferences = _preferences ?? await SharedPreferences.getInstance();
     await preferences.setString(_prefsKey, _toString(mode));
   }
 

@@ -186,9 +186,10 @@ class _NewTalkPageState extends State<NewTalkPage> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final normalizedQuery = _query.toLowerCase();
     final matches = _contacts
         .where((contact) =>
-            contact.$1.toLowerCase().contains(_query.toLowerCase()))
+            contact.$1.toLowerCase().contains(normalizedQuery))
         .toList();
     return Scaffold(
       appBar: AppBar(
@@ -402,6 +403,18 @@ class _NewContactPageState extends State<NewContactPage> {
       );
       return;
     }
+    final localNumber = _phone.text.replaceAll(RegExp(r'[\s()\-]'), '');
+    final number = localNumber.startsWith('+')
+        ? localNumber
+        : '${_country.code.replaceAll(' ', '')}${localNumber.replaceFirst(RegExp(r'^0+'), '')}';
+    if (!RegExp(r'^\+[1-9][0-9]{7,14}$').hasMatch(number)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid phone number for the selected country.'),
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content:
@@ -484,12 +497,12 @@ class _CountryPickerPageState extends State<CountryPickerPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final countryQuery = _query.trim().toLowerCase();
     final countries = docmacCountries
         .where((country) {
-          final query = _query.trim().toLowerCase();
-          return query.isEmpty ||
-              country.name.toLowerCase().contains(query) ||
-              country.code.replaceAll(' ', '').contains(query);
+          return countryQuery.isEmpty ||
+              country.name.toLowerCase().contains(countryQuery) ||
+              country.code.replaceAll(' ', '').contains(countryQuery);
         })
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));

@@ -855,14 +855,18 @@ class _PersonRow extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(9),
+            InkWell(
+              onTap: () => context.push('/chat?person=${name.toLowerCase()}'),
+              borderRadius: BorderRadius.circular(9),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(DocmacIconlyLight.chat,
+                    size: 16, color: Theme.of(context).colorScheme.primary),
               ),
-              child: Icon(DocmacIconlyLight.chat,
-                  size: 16, color: Theme.of(context).colorScheme.primary),
             ),
           ],
         ),

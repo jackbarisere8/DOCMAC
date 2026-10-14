@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class AppUser {
   const AppUser({
     required this.id,
@@ -19,9 +21,11 @@ class AppUser {
       email: map['email'] as String,
       displayName: map['displayName'] as String?,
       photoUrl: map['photoUrl'] as String?,
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'].toString())
-          : null,
+      createdAt: map['createdAt'] is Timestamp
+          ? (map['createdAt'] as Timestamp).toDate()
+          : map['createdAt'] != null
+              ? DateTime.tryParse(map['createdAt'].toString())
+              : null,
     );
   }
 

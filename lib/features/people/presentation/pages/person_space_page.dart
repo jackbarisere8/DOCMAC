@@ -8,7 +8,7 @@ class PersonSpacePage extends StatelessWidget {
 
   final String personId;
 
-  _Person get _person => _people[personId] ?? _people['emma']!;
+  _Person? get _person => _people[personId];
 
   static const _people = <String, _Person>{
     'emma': _Person('Emma Clarke', 'EC', 'Available',
@@ -17,6 +17,12 @@ class PersonSpacePage extends StatelessWidget {
         'Taking the scenic route home.', true),
     'david': _Person('David Okafor', 'DO', 'Quiet',
         'Making thoughtful things with good people.', false),
+    'davidm': _Person('David Mensah', 'DM', 'Design Circle',
+        'Making thoughtful things with good people.', false),
+    'amara': _Person('Amara Okafor', 'AO', 'Active 12m ago',
+        'Exploring, learning, and building every day.', true),
+    'noraw': _Person('Nora Williams', 'NW', 'Sunday Notes',
+        'Writing, thinking, and finding the right words.', false),
     'tobi': _Person('Tobi Adeyemi', 'TA', 'Last active Monday',
         'Always up for a new idea.', false),
   };
@@ -25,6 +31,23 @@ class PersonSpacePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final current = _person;
+    if (current == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Person')),
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.person_off_outlined,
+                size: 48, color: colors.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('Person not found',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text('No profile matches "$personId".',
+                style: Theme.of(context).textTheme.bodyMedium),
+          ]),
+        ),
+      );
+    }
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -62,7 +85,7 @@ class PersonSpacePage extends StatelessWidget {
           children: [
             _TalkTab(
               person: current,
-              onTalk: () => context.push('/chat?person=$personId'),
+              onTalk: () => context.push('/talk/person/$personId'),
               onLive: () => context.push('/live/call/$personId'),
             ),
             _LiveTab(
@@ -86,9 +109,10 @@ class PersonSpacePage extends StatelessWidget {
   }
 
   void _handleOption(BuildContext context, String option) {
+    final name = _person?.name ?? 'This person';
     final message = switch (option) {
-      'share' => '${_person.name}’s profile is ready to share.',
-      'block' => 'Block controls will keep ${_person.name} out of your Orbit.',
+      'share' => "$name\u2019s profile is ready to share.",
+      'block' => 'Block controls will keep $name out of your Orbit.',
       _ => 'Thanks. Your report will be reviewed privately.',
     };
     ScaffoldMessenger.of(context)
@@ -271,12 +295,12 @@ class _MomentsTab extends StatelessWidget {
           const _MomentCard(
               icon: Icons.menu_book_outlined,
               title: 'A good read',
-              subtitle: 'Emma · 2h left'),
+              subtitle: 'Emma \u00b7 2h left'),
           const SizedBox(height: 12),
           const _MomentCard(
               icon: Icons.wb_sunny_outlined,
               title: 'Slow Sunday',
-              subtitle: 'You · 8h left'),
+              subtitle: 'You \u00b7 8h left'),
         ],
       );
 }

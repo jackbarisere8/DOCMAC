@@ -2,29 +2,59 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../../../core/ui/docmac_community_icons.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/models/chat_message.dart';
+import '../providers/chat_providers.dart';
 
-class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+class ChatPage extends ConsumerStatefulWidget {
+  const ChatPage({
+    super.key,
+    this.chatId = 'jack',
+    this.personName = 'Jack Wilson',
+    this.personInitial = 'J',
+    this.status = 'Active now',
+  });
+
+  /// Firestore `chats/{chatId}` document id. Threaded from Talk inbox
+  /// (`TalkThread.chatId`) and the router (`/talk/person/:personId`,
+  /// `/chat?person=`). Curated preview ids (`jack`, `emma`, …) match the
+  /// Talk fallback so deep links stay stable before chats are provisioned.
+  final String chatId;
+  final String personName;
+  final String personInitial;
+  final String status;
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  ConsumerState<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends ConsumerState<ChatPage> {
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
   final _audioRecorder = AudioRecorder();
-  final _messages = <_Message>[
-    const _Message(
-        'Hey Jack, are we still on for the walk later?', false, '6:18 PM'),
-    const _Message(
-        'Definitely. I found a quieter route by the water.', true, '6:20 PM'),
-    const _Message('Perfect. I will bring the coffee.', false, '6:21 PM'),
-  ];
+  final _focusNode = FocusNode();
+
+  /// Preview-mode outbox (signed out): provider stream is static curated
+  /// data, so local sends append here instead of Firestore.
+  final _previewOutbox = <ChatMessage>[];
+
+  /// Voice notes are local-only in this preview (no audio field in
+  /// `ChatMessage` / rules). They render inline with an on-device caption.
+  final _voiceNotes = <_VoiceNote>[];
+
+  /// Client-side hides for More → Clear (server history is immutable;
+  /// rules deny deletes, so Clear only hides on this device).
+  final _hiddenIds = <String>{};
+
+  /// Read receipts already flipped this session (avoids update loops).
+  final _markedRead = <String>{};
 
   Timer? _recordingTicker;
   DateTime? _recordingStartedAt;
@@ -35,8 +65,10 @@ class _ChatPageState extends State<ChatPage> {
   bool _pressingRecord = false;
   bool _isRecordingPaused = false;
   bool _recordOnce = false;
-  _Message? _selectedMessage;
-  _Message? _pinnedMessage;
+  bool _sending = false;
+  String? _selectedMessageId;
+  String? _pinnedMessageId;
+  String? _replyToText;
 
   @override
   void initState() {
@@ -50,6 +82,8 @@ class _ChatPageState extends State<ChatPage> {
     _messageController
       ..removeListener(_updateComposer)
       ..dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
     _audioRecorder.dispose();
     super.dispose();
   }
@@ -61,14 +95,105 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _sendMessage() {
-    final message = _messageController.text.trim();
-    if (message.isEmpty) return;
-    setState(() {
-      _messages.add(_Message(message, true, 'Now'));
-      _messageController.clear();
-      _showAttachments = false;
-    });
+  String? get _uid => ref.read(currentUserProvider)?.id;
+
+  bool _isMine(ChatMessage message) {
+    final uid = _uid;
+    if (uid != null) return message.senderId == uid;
+    return message.senderId == 'preview-me';
+  }
+
+  String _formatTime(DateTime value) {
+    final local = value.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${local.hour >= 12 ? 'PM' : 'AM'}';
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _sending) return;
+    final uid = _uid;
+
+    if (uid == null) {
+      // Preview mode: no auth, so append locally and stay honest with the
+      // banner above the composer ("Preview — sign in to sync").
+      HapticFeedback.selectionClick();
+      setState(() {
+        _previewOutbox.add(ChatMessage(
+          id: 'preview-local-${DateTime.now().millisecondsSinceEpoch}',
+          chatId: widget.chatId,
+          senderId: 'preview-me',
+          text: text,
+          createdAt: DateTime.now(),
+        ));
+        _messageController.clear();
+        _showAttachments = false;
+        _replyToText = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+      return;
+    }
+
+    setState(() => _sending = true);
+    try {
+      final message = ChatMessage(
+        id: '${uid}_${DateTime.now().millisecondsSinceEpoch}',
+        chatId: widget.chatId,
+        senderId: uid,
+        text: text,
+        createdAt: DateTime.now(),
+      );
+      await ref
+          .read(chatRepositoryProvider)
+          .sendMessage(chatId: widget.chatId, message: message);
+      if (!mounted) return;
+      setState(() {
+        _messageController.clear();
+        _showAttachments = false;
+        _replyToText = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+              'Could not send. Check your connection and try again.'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _sendMessage,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _scrollToLatest() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _markVisibleRead(List<ChatMessage> messages) {
+    final uid = _uid;
+    if (uid == null) return;
+    for (final message in messages) {
+      if (message.senderId != uid &&
+          !message.isRead &&
+          !_markedRead.contains(message.id)) {
+        _markedRead.add(message.id);
+        ref.read(chatRepositoryProvider).markAsRead(
+              chatId: widget.chatId,
+              messageId: message.id,
+            ).catchError((_) => null);
+      }
+    }
   }
 
   Future<void> _beginRecording() async {
@@ -134,10 +259,15 @@ class _ChatPageState extends State<ChatPage> {
       _recordingDuration = Duration.zero;
       _recordingStartedAt = null;
       if (path != null) {
-        _messages
-            .add(_Message.voice(path, duration, 'Now', viewOnce: viewOnce));
+        _voiceNotes.add(_VoiceNote(
+          path: path,
+          duration: duration,
+          viewOnce: viewOnce,
+          createdAt: DateTime.now(),
+        ));
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
   }
 
   Future<void> _cancelRecording() async {
@@ -155,10 +285,32 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _showAttachmentMessage(String name) {
+  void _showAttachmentOptions() {
     setState(() => _showAttachments = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$name picker will open here.')),
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Attachments'),
+        content: const Text(
+          'Photos, GIFs and files arrive in a later update — text and '
+          'voice notes work today. Voice notes stay on this device in '
+          'this preview.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _beginRecording();
+            },
+            icon: const Icon(Icons.mic_rounded),
+            label: const Text('Record voice'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -172,7 +324,7 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted) setState(() => _isRecordingPaused = !_isRecordingPaused);
   }
 
-  void _handleChatMenu(String selection) {
+  void _handleChatMenu(String selection, List<ChatMessage> messages) {
     switch (selection) {
       case 'theme':
         context.push('/chat/theme');
@@ -181,25 +333,53 @@ class _ChatPageState extends State<ChatPage> {
         context.push('/chat/disappearing');
         return;
       case 'more':
-        _showMoreActions();
+        _showMoreActions(messages);
         return;
       case 'media':
-        _showNotice(
-            'Your shared media, links, and documents will appear here.');
+        _showMediaSheet(messages);
         return;
       case 'search':
         showSearch<void>(
           context: context,
-          delegate: _ChatMessageSearchDelegate(_messages),
+          delegate: _ChatMessageSearchDelegate(messages, _uid),
         );
         return;
       case 'label':
-        _showNotice('This talk can be organised with an Orbit label.');
+        context.push('/orbit');
         return;
     }
   }
 
-  void _showMoreActions() {
+  void _showMediaSheet(List<ChatMessage> messages) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Shared media',
+                  style: Theme.of(sheetContext).textTheme.headlineSmall),
+              const SizedBox(height: 6),
+              Text(
+                messages.isEmpty
+                    ? 'Nothing shared here yet. Media, links and docs will live together once attachments land.'
+                    : '${messages.length} text messages. Media, links and docs will live here once attachments land.',
+                style: Theme.of(sheetContext).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMoreActions(List<ChatMessage> messages) {
     showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(170, 140, 18, 0),
@@ -211,149 +391,171 @@ class _ChatPageState extends State<ChatPage> {
     ).then((value) {
       if (!mounted || value == null) return;
       if (value == 'clear') {
-        setState(() => _messages.clear());
-        _showNotice('Talk cleared from this device.');
+        _confirmClear(messages);
       } else if (value == 'export') {
-        _showNotice('Your conversation export is being prepared.');
+        final transcript = messages
+            .map((m) =>
+                '[${_formatTime(m.createdAt)}] ${_isMine(m) ? 'You' : widget.personName}: ${m.text}')
+            .join('\n');
+        Clipboard.setData(ClipboardData(
+          text: transcript.isEmpty ? '(empty talk)' : transcript,
+        ));
+        HapticFeedback.selectionClick();
       } else {
-        _showNotice('Talk shortcut added.');
+        Clipboard.setData(ClipboardData(text: widget.personName));
+        HapticFeedback.selectionClick();
       }
     });
   }
 
-  void _showMessageActions(_Message message) {
-    final isPinned = _pinnedMessage == message;
+  Future<void> _confirmClear(List<ChatMessage> messages) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear this talk?'),
+        content: const Text(
+          'Messages hide on this device only. Conversation history stays '
+          'in Firestore (deletes are denied by security rules).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _hiddenIds.addAll(messages.map((m) => m.id));
+        _selectedMessageId = null;
+        _pinnedMessageId = null;
+      });
+    }
+  }
+
+  void _showMessageActions(ChatMessage message) {
+    final isPinned = _pinnedMessageId == message.id;
     showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(112, 126, 18, 0),
       items: [
-        PopupMenuItem(value: 'replies', child: Text('View thread')),
-        PopupMenuItem(value: 'security', child: Text('Verify privacy code')),
-        PopupMenuItem(value: 'keep', child: Text('Save to Keepsakes')),
-        PopupMenuItem(value: 'copy', child: Text('Copy')),
-        PopupMenuItem(value: 'edit', child: Text('Edit')),
+        const PopupMenuItem(value: 'copy', child: Text('Copy')),
         PopupMenuItem(value: 'pin', child: Text(isPinned ? 'Unpin' : 'Pin')),
-        PopupMenuItem(value: 'note', child: Text('Add to note')),
-        PopupMenuItem(value: 'reply', child: Text('Create quick reply')),
+        const PopupMenuItem(value: 'details', child: Text('Details')),
+        const PopupMenuItem(value: 'forward', child: Text('Forward')),
       ],
     ).then((value) {
       if (!mounted || value == null) return;
-      if (value == 'pin') {
-        setState(() {
-          _pinnedMessage = isPinned ? null : message;
-          _selectedMessage = null;
-        });
-        _showNotice(isPinned ? 'Message unpinned' : 'Message pinned to chat');
-        return;
+      switch (value) {
+        case 'pin':
+          HapticFeedback.selectionClick();
+          setState(() {
+            _pinnedMessageId = isPinned ? null : message.id;
+            _selectedMessageId = null;
+          });
+          return;
+        case 'copy':
+          Clipboard.setData(ClipboardData(text: message.text));
+          HapticFeedback.selectionClick();
+          setState(() => _selectedMessageId = null);
+          return;
+        case 'details':
+          setState(() => _selectedMessageId = null);
+          _showMessageDetails(message);
+          return;
+        case 'forward':
+          setState(() => _selectedMessageId = null);
+          context.push('/chat/forward');
+          return;
       }
-      setState(() => _selectedMessage = null);
-      final label = switch (value) {
-        'replies' => 'Thread opened',
-        'security' => 'Privacy code is ready to verify',
-        'keep' => 'Saved to Keepsakes',
-        'copy' => 'Message copied',
-        'edit' => 'Edit mode is ready',
-        'note' => 'Added to your note',
-        _ => 'Quick reply created',
-      };
-      _showNotice(label);
     });
   }
 
-  void _showNotice(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+  void _showMessageDetails(ChatMessage message) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Message details'),
+        content: Text(
+          'From: ${_isMine(message) ? 'You' : widget.personName}\n'
+          'Sent: ${_formatTime(message.createdAt)}\n'
+          'Status: ${message.isRead ? 'Read' : 'Sent'}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _selectMessage(_Message message) {
-    setState(() => _selectedMessage = message);
+  void _selectMessage(ChatMessage message) {
+    HapticFeedback.selectionClick();
+    setState(() => _selectedMessageId = message.id);
+  }
+
+  ChatMessage? _byId(List<ChatMessage> messages, String? id) {
+    if (id == null) return null;
+    for (final message in messages) {
+      if (message.id == id) return message;
+    }
+    for (final local in _previewOutbox) {
+      if (local.id == id) return local;
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
+    final preview = _uid == null;
 
     return Scaffold(
       backgroundColor: colors.surfaceContainerLowest,
       body: SafeArea(
         child: Column(
           children: [
-            _selectedMessage == null
-                ? _ChatHeader(onMenuSelected: _handleChatMenu)
-                : _MessageSelectionBar(
-                    onClose: () => setState(() => _selectedMessage = null),
-                    onArchive: _archiveSelectedTalk,
-                    onMore: () => _showMessageActions(_selectedMessage!),
-                    onForward: () {
-                      setState(() => _selectedMessage = null);
-                      context.push('/chat/forward');
-                    },
+            messagesAsync.when(
+              data: (server) {
+                final visible = [
+                  ...server,
+                  ..._previewOutbox,
+                ].where((m) => !_hiddenIds.contains(m.id)).toList();
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _markVisibleRead(visible),
+                );
+                final selected = _byId(visible, _selectedMessageId);
+                final pinned = _byId(visible, _pinnedMessageId);
+                return Expanded(
+                  child: _ChatBody(
+                    state: this,
+                    colors: colors,
+                    messages: visible,
+                    selected: selected,
+                    pinned: pinned,
+                    preview: preview,
                   ),
-            Divider(height: 1, color: Theme.of(context).dividerColor),
-            if (_pinnedMessage != null)
-              _PinnedMessageRail(
-                message: _pinnedMessage!,
-                onUnpin: () {
-                  setState(() => _pinnedMessage = null);
-                  _showNotice('Message unpinned');
-                },
-              ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
-                children: [
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? colors.surfaceContainerHighest
-                            : colors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text('TODAY',
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontSize: 11,
-                                    letterSpacing: 1.1,
-                                  )),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  for (final message in _messages)
-                    _ChatBubble(
-                      message: message,
-                      isSelected: message == _selectedMessage,
-                      onLongPress: () => _selectMessage(message),
-                    ),
-                ],
-              ),
-            ),
-            _ChatComposer(
-              controller: _messageController,
-              hasMessageText: _hasMessageText,
-              showAttachments: _showAttachments,
-              isRecording: _isRecording,
-              isRecordingPaused: _isRecordingPaused,
-              recordOnce: _recordOnce,
-              recordingDuration: _recordingDuration,
-              onToggleAttachments: () {
-                if (!_isRecording) {
-                  setState(() => _showAttachments = !_showAttachments);
-                }
+                );
               },
-              onAttachmentSelected: _showAttachmentMessage,
-              onSend: _sendMessage,
-              onRecordStart: _beginRecording,
-              onRecordEnd: _finishRecording,
-              onRecordCancel: _cancelRecording,
-              onToggleRecordingPause: _toggleRecordingPause,
-              onToggleRecordOnce: () =>
-                  setState(() => _recordOnce = !_recordOnce),
+              loading: () => const Expanded(child: _ChatLoadingList()),
+              error: (error, _) => Expanded(
+                child: _ChatErrorBody(
+                  onRetry: () =>
+                      ref.invalidate(chatMessagesProvider(widget.chatId)),
+                  fallback: curatedChatMessages(widget.chatId),
+                  state: this,
+                ),
+              ),
             ),
           ],
         ),
@@ -362,14 +564,357 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _archiveSelectedTalk() {
-    setState(() => _selectedMessage = null);
-    _showNotice('This talk has been moved to your archived chats.');
+    HapticFeedback.mediumImpact();
+    setState(() => _selectedMessageId = null);
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/talk');
+    }
+  }
+
+  // Public selection/composer helpers for [_ChatBody] (calling `setState`
+  // on another State object is illegal, so the body goes through these).
+  void closeSelection() => setState(() => _selectedMessageId = null);
+
+  void replyTo(ChatMessage message) {
+    setState(() {
+      _selectedMessageId = null;
+      _replyToText = message.text;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void showDetails(ChatMessage message) {
+    setState(() => _selectedMessageId = null);
+    _showMessageDetails(message);
+  }
+
+  void forwardSelected() {
+    setState(() => _selectedMessageId = null);
+    context.push('/chat/forward');
+  }
+
+  void openMessageActions(ChatMessage message) => _showMessageActions(message);
+
+  void unpinMessage() => setState(() => _pinnedMessageId = null);
+
+  void clearReply() => setState(() => _replyToText = null);
+
+  void toggleAttachments() {
+    if (!_isRecording) {
+      setState(() => _showAttachments = !_showAttachments);
+    }
+  }
+
+  void toggleRecordOnce() => setState(() => _recordOnce = !_recordOnce);
+
+  void selectMessage(ChatMessage message) => _selectMessage(message);
+}
+
+class _ChatBody extends StatelessWidget {
+  const _ChatBody({
+    required this.state,
+    required this.colors,
+    required this.messages,
+    required this.selected,
+    required this.pinned,
+    required this.preview,
+  });
+
+  final _ChatPageState state;
+  final ColorScheme colors;
+  final List<ChatMessage> messages;
+  final ChatMessage? selected;
+  final ChatMessage? pinned;
+  final bool preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final widget = state.widget;
+    final sel = selected;
+    final pin = pinned;
+    return Column(
+      children: [
+        sel == null
+            ? _ChatHeader(
+                name: widget.personName,
+                initial: widget.personInitial,
+                status: widget.status,
+                onMenuSelected: (value) =>
+                    state._handleChatMenu(value, messages),
+              )
+            : _MessageSelectionBar(
+                onClose: state.closeSelection,
+                onReply: () => state.replyTo(sel),
+                onDetails: () => state.showDetails(sel),
+                onDelete: () {
+                  state.closeSelection();
+                  showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Delete message?'),
+                      content: const Text(
+                        'Messages cannot be deleted — Firestore rules keep '
+                        'conversation history immutable. Clear the talk from '
+                        'More → Clear to hide it on this device.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(),
+                          child: const Text('Got it'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                onForward: state.forwardSelected,
+                onArchive: state._archiveSelectedTalk,
+                onMore: () => state.openMessageActions(sel),
+              ),
+        Divider(height: 1, color: Theme.of(context).dividerColor),
+        if (preview)
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            color: colors.primaryContainer.withValues(alpha: .5),
+            child: Text(
+              'Preview — sign in to sync talks.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+            ),
+          ),
+        if (pin != null)
+          _PinnedMessageRail(
+            message: pin,
+            isMine: state._isMine(pin),
+            time: state._formatTime(pin.createdAt),
+            onUnpin: state.unpinMessage,
+          ),
+        Expanded(
+          child: messages.isEmpty && state._voiceNotes.isEmpty
+              ? _ChatEmptyState(name: widget.personName)
+              : ListView(
+                  controller: state._scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+                  children: [
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness ==
+                                  Brightness.dark
+                              ? colors.surfaceContainerHighest
+                              : colors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text('TODAY',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  fontSize: 11,
+                                  letterSpacing: 1.1,
+                                )),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    for (final message in messages)
+                      _ChatBubble(
+                        message: message,
+                        isMine: state._isMine(message),
+                        time: state._formatTime(message.createdAt),
+                        isSelected:
+                            message.id == state._selectedMessageId,
+                        onLongPress: () =>
+                            state._selectMessage(message),
+                      ),
+                    for (final voice in state._voiceNotes)
+                      _VoiceBubble(note: voice),
+                  ],
+                ),
+        ),
+        if (state._replyToText != null)
+          _ReplyStrip(
+            text: state._replyToText!,
+            onClose: state.clearReply,
+          ),
+        _ChatComposer(
+          controller: state._messageController,
+          focusNode: state._focusNode,
+          hasMessageText: state._hasMessageText,
+          showAttachments: state._showAttachments,
+          isRecording: state._isRecording,
+          isRecordingPaused: state._isRecordingPaused,
+          recordOnce: state._recordOnce,
+          recordingDuration: state._recordingDuration,
+          sending: state._sending,
+          onToggleAttachments: state.toggleAttachments,
+          onAttachmentSelected: (_) => state._showAttachmentOptions(),
+          onSend: state._sendMessage,
+          onRecordStart: state._beginRecording,
+          onRecordEnd: state._finishRecording,
+          onRecordCancel: state._cancelRecording,
+          onToggleRecordingPause: state._toggleRecordingPause,
+          onToggleRecordOnce: state.toggleRecordOnce,
+        ),
+      ],
+    );
+  }
+}
+
+class _ChatEmptyState extends StatelessWidget {
+  const _ChatEmptyState({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Icon(Icons.forum_outlined,
+                    size: 34, color: scheme.onPrimaryContainer),
+              ),
+              const SizedBox(height: 18),
+              Text('No messages yet',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 7),
+              Text(
+                'Say hello to $name — messages sync to Firestore once this talk is provisioned.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatLoadingList extends StatelessWidget {
+  const _ChatLoadingList();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+      children: List.generate(
+        3,
+        (index) => Align(
+          alignment:
+              index.isEven ? Alignment.centerLeft : Alignment.centerRight,
+          child: Container(
+            width: 220,
+            height: 48,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: .5),
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatErrorBody extends StatelessWidget {
+  const _ChatErrorBody({
+    required this.onRetry,
+    required this.fallback,
+    required this.state,
+  });
+
+  final VoidCallback onRetry;
+  final List<ChatMessage> fallback;
+  final _ChatPageState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.errorContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off_outlined,
+                  color: scheme.onErrorContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Could not load messages. This talk may not be provisioned yet — showing preview.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: scheme.onErrorContainer),
+                ),
+              ),
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            controller: state._scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+            children: [
+              for (final message in fallback)
+                _ChatBubble(
+                  message: message,
+                  isMine: state._isMine(message),
+                  time: state._formatTime(message.createdAt),
+                  isSelected: false,
+                  onLongPress: () => state._selectMessage(message),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
 class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.onMenuSelected});
+  const _ChatHeader({
+    required this.name,
+    required this.initial,
+    required this.status,
+    required this.onMenuSelected,
+  });
 
+  final String name;
+  final String initial;
+  final String status;
   final ValueChanged<String> onMenuSelected;
 
   @override
@@ -380,8 +925,14 @@ class _ChatHeader extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Back to Talk',
-            onPressed: () => context.pop(),
+            tooltip: 'Back to talks',
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/talk');
+              }
+            },
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
           ),
           const SizedBox(width: 6),
@@ -389,21 +940,22 @@ class _ChatHeader extends StatelessWidget {
             radius: 25,
             backgroundColor: colors.primary,
             foregroundColor: colors.onPrimary,
-            child: const Text('J',
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+            child: Text(initial,
+                style:
+                    const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Jack Wilson',
+                Text(name,
                     style: Theme.of(context)
                         .textTheme
                         .headlineSmall
                         ?.copyWith(fontSize: 19)),
                 const SizedBox(height: 2),
-                Text('Active now',
+                Text(status,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: colors.onSurfaceVariant,
                         )),
@@ -411,13 +963,15 @@ class _ChatHeader extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Call Jack',
-            onPressed: () {},
+            tooltip: 'Call $name',
+            onPressed: () => context
+                .push('/live/call/${name.toLowerCase().split(' ').first}'),
             icon: Icon(Icons.call_outlined, color: colors.primary),
           ),
           IconButton(
             tooltip: 'Start video call',
-            onPressed: () {},
+            onPressed: () => context
+                .push('/live/call/${name.toLowerCase().split(' ').first}'),
             icon: Icon(Icons.videocam_outlined, color: colors.primary),
           ),
           PopupMenuButton<String>(
@@ -455,15 +1009,21 @@ class _ChatHeader extends StatelessWidget {
 class _MessageSelectionBar extends StatelessWidget {
   const _MessageSelectionBar({
     required this.onClose,
+    required this.onReply,
+    required this.onDetails,
+    required this.onDelete,
+    required this.onForward,
     required this.onArchive,
     required this.onMore,
-    required this.onForward,
   });
 
   final VoidCallback onClose;
+  final VoidCallback onReply;
+  final VoidCallback onDetails;
+  final VoidCallback onDelete;
+  final VoidCallback onForward;
   final VoidCallback onArchive;
   final VoidCallback onMore;
-  final VoidCallback onForward;
 
   @override
   Widget build(BuildContext context) {
@@ -482,15 +1042,15 @@ class _MessageSelectionBar extends StatelessWidget {
           const Spacer(),
           IconButton(
               tooltip: 'Reply',
-              onPressed: onClose,
+              onPressed: onReply,
               icon: const Icon(Icons.reply_rounded)),
           IconButton(
               tooltip: 'Message details',
-              onPressed: onClose,
+              onPressed: onDetails,
               icon: const Icon(Icons.info_outline_rounded)),
           IconButton(
               tooltip: 'Delete',
-              onPressed: onClose,
+              onPressed: onDelete,
               icon: const Icon(Icons.delete_outline_rounded)),
           IconButton(
               tooltip: 'Forward',
@@ -512,11 +1072,49 @@ class _MessageSelectionBar extends StatelessWidget {
   }
 }
 
+class _ReplyStrip extends StatelessWidget {
+  const _ReplyStrip({required this.text, required this.onClose});
+
+  final String text;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: .5),
+        border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.reply_rounded, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          IconButton(
+            tooltip: 'Cancel reply',
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatMessageSearchDelegate extends SearchDelegate<void> {
-  _ChatMessageSearchDelegate(this.messages)
+  _ChatMessageSearchDelegate(this.messages, this.uid)
       : super(searchFieldLabel: 'Search in this talk');
 
-  final List<_Message> messages;
+  final List<ChatMessage> messages;
+  final String? uid;
 
   @override
   List<Widget>? buildActions(BuildContext context) => [
@@ -554,12 +1152,17 @@ class _ChatMessageSearchDelegate extends SearchDelegate<void> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final message = matches[index];
+        final mine = uid != null
+            ? message.senderId == uid
+            : message.senderId == 'preview-me';
         return ListTile(
           leading: Icon(
-            message.isMine ? Icons.reply_rounded : Icons.person_outline_rounded,
+            mine ? Icons.reply_rounded : Icons.person_outline_rounded,
           ),
           title: Text(message.text),
-          subtitle: Text(message.time),
+          subtitle: Text(
+            '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+          ),
           onTap: () => close(context, null),
         );
       },
@@ -570,17 +1173,21 @@ class _ChatMessageSearchDelegate extends SearchDelegate<void> {
 /// Keeps the conversation's pinned message in view without interrupting the
 /// natural chronology of the chat itself.
 class _PinnedMessageRail extends StatelessWidget {
-  const _PinnedMessageRail({required this.message, required this.onUnpin});
+  const _PinnedMessageRail({
+    required this.message,
+    required this.isMine,
+    required this.time,
+    required this.onUnpin,
+  });
 
-  final _Message message;
+  final ChatMessage message;
+  final bool isMine;
+  final String time;
   final VoidCallback onUnpin;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final preview = message.isVoice
-        ? 'Voice message · ${message.formattedDuration}'
-        : message.text;
 
     return Material(
       color: colors.surface,
@@ -624,7 +1231,7 @@ class _PinnedMessageRail extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    preview,
+                    message.text,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -649,12 +1256,14 @@ class _PinnedMessageRail extends StatelessWidget {
 class _ChatComposer extends StatelessWidget {
   const _ChatComposer({
     required this.controller,
+    required this.focusNode,
     required this.hasMessageText,
     required this.showAttachments,
     required this.isRecording,
     required this.isRecordingPaused,
     required this.recordOnce,
     required this.recordingDuration,
+    required this.sending,
     required this.onToggleAttachments,
     required this.onAttachmentSelected,
     required this.onSend,
@@ -666,12 +1275,14 @@ class _ChatComposer extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool hasMessageText;
   final bool showAttachments;
   final bool isRecording;
   final bool isRecordingPaused;
   final bool recordOnce;
   final Duration recordingDuration;
+  final bool sending;
   final VoidCallback onToggleAttachments;
   final ValueChanged<String> onAttachmentSelected;
   final VoidCallback onSend;
@@ -706,14 +1317,14 @@ class _ChatComposer extends StatelessWidget {
                         : 'Add attachment',
                     onPressed: onToggleAttachments,
                     style: IconButton.styleFrom(
-                      backgroundColor: showAttachments
-                          ? colors.primary
-                          : colors.surfaceContainerHighest,
+                      backgroundColor:
+                          showAttachments ? colors.primary : Colors.transparent,
                     ),
                     icon: Icon(
                       showAttachments ? Icons.close_rounded : Icons.add_rounded,
                       color:
                           showAttachments ? colors.onPrimary : colors.onSurface,
+                      size: 26,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -729,6 +1340,7 @@ class _ChatComposer extends StatelessWidget {
                           )
                         : TextField(
                             controller: controller,
+                            focusNode: focusNode,
                             onSubmitted: (_) => onSend(),
                             minLines: 1,
                             maxLines: 4,
@@ -744,10 +1356,19 @@ class _ChatComposer extends StatelessWidget {
                     duration: const Duration(milliseconds: 160),
                     child: hasMessageText
                         ? IconButton.filled(
-                            key: const ValueKey('send'),
+                            key: const ValueKey('talk-send-message'),
                             tooltip: 'Send message',
-                            onPressed: onSend,
-                            icon: const Icon(Icons.send_rounded),
+                            onPressed: sending ? null : onSend,
+                            icon: sending
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.send_rounded),
                           )
                         : GestureDetector(
                             key: const ValueKey('record'),
@@ -760,7 +1381,7 @@ class _ChatComposer extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: isRecording
                                     ? colors.error.withValues(alpha: 0.16)
-                                    : colors.secondary.withValues(alpha: 0.16),
+                                    : colors.primary.withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.center,
@@ -768,9 +1389,9 @@ class _ChatComposer extends StatelessWidget {
                                 isRecording
                                     ? Icons.send_rounded
                                     : Icons.mic_rounded,
-                                color: isRecording
-                                    ? colors.error
-                                    : colors.secondary,
+                                color:
+                                    isRecording ? colors.error : colors.primary,
+                                size: 22,
                               ),
                             ),
                           ),
@@ -924,11 +1545,15 @@ class _AttachmentOption extends StatelessWidget {
 class _ChatBubble extends StatelessWidget {
   const _ChatBubble({
     required this.message,
+    required this.isMine,
+    required this.time,
     required this.isSelected,
     required this.onLongPress,
   });
 
-  final _Message message;
+  final ChatMessage message;
+  final bool isMine;
+  final String time;
   final bool isSelected;
   final VoidCallback onLongPress;
 
@@ -936,10 +1561,10 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bubbleColor = message.isMine
+    final bubbleColor = isMine
         ? colors.primary
         : (isDark ? colors.surfaceContainerHighest : colors.surface);
-    final textColor = message.isMine ? colors.onPrimary : colors.onSurface;
+    final textColor = isMine ? colors.onPrimary : colors.onSurface;
 
     return GestureDetector(
       onLongPress: onLongPress,
@@ -948,14 +1573,13 @@ class _ChatBubble extends StatelessWidget {
             ? colors.primary.withValues(alpha: 0.12)
             : Colors.transparent,
         child: Align(
-          alignment:
-              message.isMine ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 320),
               child: Column(
-                crossAxisAlignment: message.isMine
+                crossAxisAlignment: isMine
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
@@ -967,44 +1591,45 @@ class _ChatBubble extends StatelessWidget {
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
                         topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(message.isMine ? 20 : 5),
-                        bottomRight: Radius.circular(message.isMine ? 5 : 20),
+                        bottomLeft: Radius.circular(isMine ? 20 : 5),
+                        bottomRight: Radius.circular(isMine ? 5 : 20),
                       ),
-                      border: message.isMine
+                      border: isMine
                           ? null
                           : Border.all(color: Theme.of(context).dividerColor),
                     ),
-                    child: message.isVoice
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.mic_rounded,
-                                  color: textColor, size: 19),
-                              const SizedBox(width: 8),
-                              Text(message.formattedDuration,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(color: textColor)),
-                              if (message.viewOnce) ...[
-                                const SizedBox(width: 7),
-                                Icon(Icons.visibility_rounded,
-                                    color: textColor, size: 17),
-                              ],
-                            ],
-                          )
-                        : Text(message.text,
-                            style:
-                                Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: textColor,
-                                      height: 1.35,
-                                    )),
+                    child: Text(message.text,
+                        style:
+                            Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: textColor,
+                                  height: 1.35,
+                                )),
                   ),
                   const SizedBox(height: 5),
-                  Text(message.time,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontSize: 11,
-                          )),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(time,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                fontSize: 11,
+                              )),
+                      if (isMine) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          message.isRead
+                              ? Icons.done_all_rounded
+                              : Icons.done_rounded,
+                          size: 14,
+                          color: message.isRead
+                              ? colors.primary
+                              : colors.onSurfaceVariant,
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1015,27 +1640,79 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class _Message {
-  const _Message(this.text, this.isMine, this.time,
-      {this.audioPath, this.duration, this.viewOnce = false});
+class _VoiceNote {
+  _VoiceNote({
+    required this.path,
+    required this.duration,
+    required this.viewOnce,
+    required this.createdAt,
+  });
 
-  _Message.voice(String path, Duration duration, String time,
-      {bool viewOnce = false})
-      : this('', true, time,
-            audioPath: path, duration: duration, viewOnce: viewOnce);
-
-  final String text;
-  final bool isMine;
-  final String time;
-  final String? audioPath;
-  final Duration? duration;
+  final String path;
+  final Duration duration;
   final bool viewOnce;
+  final DateTime createdAt;
+}
 
-  bool get isVoice => audioPath != null;
+class _VoiceBubble extends StatelessWidget {
+  const _VoiceBubble({required this.note});
 
-  String get formattedDuration {
-    final value = duration ?? Duration.zero;
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '${value.inMinutes}:$seconds';
+  final _VoiceNote note;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final seconds =
+        note.duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 13),
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.mic_rounded,
+                        color: colors.onPrimary, size: 19),
+                    const SizedBox(width: 8),
+                    Text('${note.duration.inMinutes}:$seconds',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(color: colors.onPrimary)),
+                    if (note.viewOnce) ...[
+                      const SizedBox(width: 7),
+                      Icon(Icons.visibility_rounded,
+                          color: colors.onPrimary, size: 17),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text('On this device',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 11,
+                      )),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

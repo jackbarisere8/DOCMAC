@@ -28,7 +28,6 @@ import '../../features/settings/presentation/pages/privacy_page.dart';
 import '../../features/settings/presentation/pages/logout_options_page.dart';
 import '../../features/settings/presentation/pages/data_storage_page.dart';
 import '../../features/settings/presentation/pages/help_feedback_page.dart';
-import '../../features/talk/presentation/pages/talk_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -98,6 +97,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(
+        path: '/notifications/preferences',
+        builder: (context, state) => const ArrivalPreferencesPage(),
+      ),
+      GoRoute(
         path: '/privacy',
         builder: (context, state) => const PrivacyPage(),
       ),
@@ -108,6 +111,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/help',
         builder: (context, state) => const HelpFeedbackPage(),
+      ),
+      GoRoute(
+        path: '/help/center',
+        builder: (context, state) => const HelpCenterPage(),
+      ),
+      GoRoute(
+        path: '/help/feedback',
+        builder: (context, state) => const SendFeedbackPage(),
       ),
       GoRoute(
         path: '/foundry',
@@ -158,6 +169,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/talk/person/:personId',
+        builder: (context, state) {
+          final id = state.pathParameters['personId']!;
+          final info = _personInfo(id);
+          return ChatPage(
+            chatId: state.uri.queryParameters['chat'] ?? id,
+            personName: info.$1,
+            personInitial: info.$2,
+            status: info.$3 ? 'Active now' : 'Last active recently',
+          );
+        },
+      ),
+      GoRoute(
         path: '/live/call/:personId',
         builder: (context, state) => VoiceCallPage(
           personId: state.pathParameters['personId']!,
@@ -169,7 +193,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/app',
-        builder: (context, state) => const AppShell(),
+        redirect: (context, state) => '/orbit',
       ),
       GoRoute(
         path: '/orbit',
@@ -189,7 +213,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/chat',
-        builder: (context, state) => const ChatPage(),
+        builder: (context, state) {
+          final personId = state.uri.queryParameters['person'];
+          final info = personId != null ? _personInfo(personId) : null;
+          return ChatPage(
+            chatId:
+                state.uri.queryParameters['chat'] ?? personId ?? 'jack',
+            personName: info?.$1 ?? 'Jack Wilson',
+            personInitial: info?.$2 ?? 'J',
+            status: (info?.$3 ?? true) ? 'Active now' : 'Last active recently',
+          );
+        },
       ),
       GoRoute(
         path: '/spaces',
@@ -337,3 +371,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Maps a person ID (lowercase slug) to (name, initial, isOnline).
+/// Mirrors the static roster in PersonSpacePage so both surfaces stay in sync.
+(String, String, bool) _personInfo(String id) => switch (id) {
+      'jack' => ('Jack Wilson', 'J', true),
+      'emma' => ('Emma Clarke', 'E', true),
+      'david' => ('David Okafor', 'D', false),
+      'davidm' => ('David Mensah', 'D', false),
+      'amara' => ('Amara Okafor', 'A', true),
+      'noraw' => ('Nora Williams', 'N', false),
+      'tobi' => ('Tobi Adeyemi', 'T', false),
+      _ => (
+          id[0].toUpperCase() + id.substring(1), // capitalise first letter
+          id[0].toUpperCase(),
+          false,
+        ),
+    };

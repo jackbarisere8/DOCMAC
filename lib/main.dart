@@ -10,6 +10,15 @@ import 'config/firebase/firebase_configuration.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 
+/// Phone-auth test verification is deliberately opt-in.  A normal debug run
+/// must retain Firebase's real app-verification flow, just like a release
+/// build. Enable this only with:
+/// `--dart-define=DOCMAC_USE_FIREBASE_TEST_PHONE_AUTH=true`
+const _useFirebaseTestPhoneAuth = bool.fromEnvironment(
+  'DOCMAC_USE_FIREBASE_TEST_PHONE_AUTH',
+  defaultValue: false,
+);
+
 Future<void> initializeFirebase() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!FirebaseConfiguration.isConfigured) {
@@ -23,9 +32,11 @@ Future<void> initializeFirebase() async {
     );
 
     // Firebase Console test numbers are the only phone numbers that work with
-    // this setting. Keeping it behind kDebugMode means release APKs retain
-    // Firebase's normal Play Integrity/reCAPTCHA verification.
-    if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
+    // this setting. It is opt-in so a routine debug run cannot silently
+    // disable Firebase's Play Integrity/reCAPTCHA protection.
+    if (kDebugMode &&
+        _useFirebaseTestPhoneAuth &&
+        defaultTargetPlatform == TargetPlatform.android) {
       await FirebaseAuth.instance.setSettings(
         appVerificationDisabledForTesting: true,
       );

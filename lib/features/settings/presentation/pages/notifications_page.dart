@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
 
@@ -39,11 +40,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         actions: [
           IconButton(
             tooltip: 'Arrival preferences',
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Arrival preferences are ready to customize.')),
-            ),
-            icon: const Icon(DocmacIconlyLight.filter),
+            onPressed: () => context.push('/notifications/preferences'),
+            icon: const Icon(Icons.tune_rounded),
           ),
         ],
       ),
@@ -138,6 +136,313 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
     );
   }
+}
+
+/// Detailed controls for the notifications that arrive across Docmac.
+class ArrivalPreferencesPage extends StatefulWidget {
+  const ArrivalPreferencesPage({super.key});
+
+  @override
+  State<ArrivalPreferencesPage> createState() => _ArrivalPreferencesPageState();
+}
+
+class _ArrivalPreferencesPageState extends State<ArrivalPreferencesPage> {
+  static const _defaults = {
+    'tones': true,
+    'reminders': true,
+    'talkPriority': true,
+    'talkReactions': true,
+    'circlePriority': true,
+    'circleReactions': true,
+    'orbitPriority': true,
+    'orbitReactions': true,
+  };
+
+  late Map<String, bool> _settings = Map.of(_defaults);
+
+  void _toggle(String key, bool value) => setState(() => _settings[key] = value);
+
+  Future<void> _chooseValue({
+    required String title,
+    required String current,
+    required List<String> options,
+  }) async {
+    final selection = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(sheetContext).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              for (final option in options)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(option),
+                  trailing: option == current
+                      ? Icon(Icons.check_rounded,
+                          color: Theme.of(sheetContext).colorScheme.primary)
+                      : null,
+                  onTap: () => Navigator.pop(sheetContext, option),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selection != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$title set to $selection')),
+      );
+    }
+  }
+
+  Future<void> _confirmReset() async {
+    final reset = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset arrival preferences?'),
+        content: const Text(
+          'This resets notification tones, priority controls, reactions, and reminders to their defaults.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (reset == true && mounted) {
+      setState(() => _settings = Map.of(_defaults));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Arrival preferences reset.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Arrival preferences'),
+          actions: [
+            PopupMenuButton<String>(
+              tooltip: 'Arrival preference options',
+              onSelected: (value) {
+                if (value == 'reset') _confirmReset();
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'reset',
+                  child: Text('Reset arrival preferences'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+          children: [
+            _ArrivalToggle(
+              title: 'Conversation tones',
+              subtitle: 'Play sounds for incoming and outgoing messages.',
+              value: _settings['tones']!,
+              onChanged: (value) => _toggle('tones', value),
+            ),
+            _ArrivalToggle(
+              title: 'Reminders',
+              subtitle: 'Get occasional reminders about activity you have not seen.',
+              value: _settings['reminders']!,
+              onChanged: (value) => _toggle('reminders', value),
+            ),
+            const _ArrivalSection('Talk'),
+            _ArrivalChoice(
+              title: 'Notification tone',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Talk notification tone',
+                current: 'Default',
+                options: const ['Default', 'Chime', 'Pulse', 'Silent'],
+              ),
+            ),
+            _ArrivalChoice(
+              title: 'Vibrate',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Talk vibration',
+                current: 'Default',
+                options: const ['Default', 'Short', 'Long', 'Off'],
+              ),
+            ),
+            const _ArrivalChoice(title: 'Popup notification', subtitle: 'Managed by your device', enabled: false),
+            _ArrivalChoice(
+              title: 'Light',
+              subtitle: 'White',
+              onTap: () => _chooseValue(
+                title: 'Talk notification light',
+                current: 'White',
+                options: const ['White', 'Blue', 'Purple', 'Off'],
+              ),
+            ),
+            _ArrivalToggle(
+              title: 'Use high priority notifications',
+              subtitle: 'Show previews at the top of the screen.',
+              value: _settings['talkPriority']!,
+              onChanged: (value) => _toggle('talkPriority', value),
+            ),
+            _ArrivalToggle(
+              title: 'Reaction notifications',
+              subtitle: 'Show notifications for reactions to your messages.',
+              value: _settings['talkReactions']!,
+              onChanged: (value) => _toggle('talkReactions', value),
+            ),
+            const _ArrivalSection('Circles'),
+            _ArrivalChoice(
+              title: 'Notification tone',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Circle notification tone',
+                current: 'Default',
+                options: const ['Default', 'Chime', 'Pulse', 'Silent'],
+              ),
+            ),
+            _ArrivalChoice(
+              title: 'Vibrate',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Circle vibration',
+                current: 'Default',
+                options: const ['Default', 'Short', 'Long', 'Off'],
+              ),
+            ),
+            _ArrivalChoice(
+              title: 'Light',
+              subtitle: 'White',
+              onTap: () => _chooseValue(
+                title: 'Circle notification light',
+                current: 'White',
+                options: const ['White', 'Blue', 'Purple', 'Off'],
+              ),
+            ),
+            _ArrivalToggle(
+              title: 'Use high priority notifications',
+              subtitle: 'Show Circle previews at the top of the screen.',
+              value: _settings['circlePriority']!,
+              onChanged: (value) => _toggle('circlePriority', value),
+            ),
+            _ArrivalToggle(
+              title: 'Reaction notifications',
+              subtitle: 'Show notifications for reactions in Circles.',
+              value: _settings['circleReactions']!,
+              onChanged: (value) => _toggle('circleReactions', value),
+            ),
+            const _ArrivalSection('Live and Orbit'),
+            _ArrivalChoice(
+              title: 'Call ringtone',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Call ringtone',
+                current: 'Default',
+                options: const ['Default', 'Echo', 'Ripple', 'Silent'],
+              ),
+            ),
+            _ArrivalChoice(
+              title: 'Call vibration',
+              subtitle: 'Default',
+              onTap: () => _chooseValue(
+                title: 'Call vibration',
+                current: 'Default',
+                options: const ['Default', 'Short', 'Long', 'Off'],
+              ),
+            ),
+            _ArrivalToggle(
+              title: 'Use high priority notifications',
+              subtitle: 'Show Orbit and Live previews at the top of the screen.',
+              value: _settings['orbitPriority']!,
+              onChanged: (value) => _toggle('orbitPriority', value),
+            ),
+            _ArrivalToggle(
+              title: 'Reaction notifications',
+              subtitle: 'Notify you when people react to your Orbit activity.',
+              value: _settings['orbitReactions']!,
+              onChanged: (value) => _toggle('orbitReactions', value),
+            ),
+          ],
+        ),
+      );
+}
+
+class _ArrivalSection extends StatelessWidget {
+  const _ArrivalSection(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 28, 0, 8),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
+      );
+}
+
+class _ArrivalToggle extends StatelessWidget {
+  const _ArrivalToggle({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile.adaptive(
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        value: value,
+        onChanged: onChanged,
+      );
+}
+
+class _ArrivalChoice extends StatelessWidget {
+  const _ArrivalChoice({
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.enabled = true,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(vertical: 7),
+        enabled: enabled,
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: enabled ? const Icon(Icons.chevron_right_rounded) : null,
+        onTap: onTap,
+      );
 }
 
 class _NotificationTab extends StatelessWidget {

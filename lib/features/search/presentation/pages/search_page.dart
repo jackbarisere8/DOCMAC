@@ -35,10 +35,11 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedQuery = _query.toLowerCase();
     final filtered = _results.where((result) {
       final matchesQuery =
-          result.title.toLowerCase().contains(_query.toLowerCase()) ||
-              result.subtitle.toLowerCase().contains(_query.toLowerCase());
+          result.title.toLowerCase().contains(normalizedQuery) ||
+              result.subtitle.toLowerCase().contains(normalizedQuery);
       final matchesTab = _tab == 0 || result.kind == _tabs[_tab];
       return matchesQuery && matchesTab;
     }).toList();

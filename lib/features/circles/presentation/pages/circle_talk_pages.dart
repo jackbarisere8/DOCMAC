@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
 /// A Circle is Docmac's name for a private group conversation.
@@ -189,7 +190,7 @@ class _CircleTalkPageState extends State<CircleTalkPage> {
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Back to Talk',
-          onPressed: () => context.go('/talk'),
+          onPressed: () => AppBack.to(context, fallback: '/talk'),
           icon: const Icon(DocmacIconlyLight.arrowLeft),
         ),
         titleSpacing: 0,

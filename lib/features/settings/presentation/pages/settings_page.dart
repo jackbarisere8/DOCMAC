@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -402,7 +405,9 @@ class _AppLanguageSettingsPageState extends State<AppLanguageSettingsPage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(language),
                 value: language,
+                // ignore: deprecated_member_use
                 groupValue: _language,
+                // ignore: deprecated_member_use
                 onChanged: (value) {
                   if (value != null) setState(() => _language = value);
                 },
@@ -492,12 +497,19 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
   Future<void> _load() async {
     final preferences = await SharedPreferences.getInstance();
     if (!mounted) return;
+    final hasPin = preferences.getString(_pinKey) != null;
     setState(() {
       _enabled = preferences.getBool(_enabledKey) ?? false;
-      _pinController.text = preferences.getString(_pinKey) ?? '';
+      if (hasPin) _pinController.text = '••••';
       _loading = false;
     });
   }
+
+  static String _hashPin(String pin) =>
+      sha256.convert(utf8.encode(pin)).toString();
+
+  static bool _isHash(String value) =>
+      RegExp(r'^[a-f0-9]{64}$').hasMatch(value);
 
   Future<void> _setEnabled(bool value) async {
     if (value && _pinController.text.trim().length != 4) {
@@ -512,23 +524,26 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
   }
 
   Future<void> _savePasscode() async {
-    if (_pinController.text.trim().length != 4) {
+    final pin = _pinController.text.trim();
+    if (pin.length != 4 || pin == '••••') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Your passcode must contain 4 digits.')),
       );
       return;
     }
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_pinKey, _pinController.text.trim());
+    await preferences.setString(_pinKey, _hashPin(pin));
     if (!mounted) return;
+    _pinController.text = '••••';
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Passcode saved. App lock is ready.')),
     );
   }
 
   Future<void> _lockNow() async {
-    final savedPin = (await SharedPreferences.getInstance()).getString(_pinKey);
-    if (!mounted || savedPin == null || savedPin.length != 4) return;
+    final preferences = await SharedPreferences.getInstance();
+    final savedPin = preferences.getString(_pinKey);
+    if (!mounted || savedPin == null || savedPin.isEmpty) return;
     final unlockController = TextEditingController();
     await showDialog<void>(
       context: context,
@@ -552,7 +567,14 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
         actions: [
           FilledButton(
             onPressed: () {
-              if (unlockController.text == savedPin) {
+              final enteredPin = unlockController.text;
+              final matches = _isHash(savedPin)
+                  ? _hashPin(enteredPin) == savedPin
+                  : enteredPin == savedPin;
+              if (matches) {
+                if (!_isHash(savedPin)) {
+                  preferences.setString(_pinKey, _hashPin(enteredPin));
+                }
                 Navigator.pop(dialogContext);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(

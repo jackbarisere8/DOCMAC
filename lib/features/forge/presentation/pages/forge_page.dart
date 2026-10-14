@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
 /// Forge is Docmac's home for perspectives: ideas that invite a thoughtful
@@ -73,7 +74,8 @@ class _ForgePageState extends State<ForgePage> {
                     children: [
                       IconButton(
                         tooltip: 'Back to Orbit',
-                        onPressed: () => Navigator.of(context).maybePop(),
+                        onPressed: () =>
+                            AppBack.to(context, fallback: '/orbit'),
                         icon: const Icon(DocmacIconlyLight.arrowLeft),
                       ),
                       const SizedBox(width: 6),
@@ -404,7 +406,12 @@ class _CreatePerspectivePageState extends State<CreatePerspectivePage> {
   );
 
   void _publish() {
-    if (_title.text.trim().isEmpty || _body.text.trim().isEmpty) return;
+    if (_title.text.trim().isEmpty || _body.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Give your perspective a title and body before publishing.')),
+      );
+      return;
+    }
     Navigator.of(context).pop(Perspective(author: 'You', handle: '@you', category: _category, title: _title.text.trim(), body: _body.text.trim(), responses: 0, appreciations: 0, insights: 0, age: 'Now', visibility: _visibility));
   }
 }

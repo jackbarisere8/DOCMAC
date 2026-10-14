@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
 /// Call experience shell for Phase 1. Signalling/media transport is intentionally
@@ -60,7 +61,7 @@ class _VoiceCallPageState extends State<VoiceCallPage> {
             Align(
                 alignment: Alignment.topLeft,
                 child: IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => AppBack.to(context, fallback: '/live'),
                     icon: Icon(DocmacIconlyLight.arrowDown,
                         color: colors.onPrimary))),
             const Spacer(),
@@ -108,7 +109,7 @@ class _VoiceCallPageState extends State<VoiceCallPage> {
             ]),
             const SizedBox(height: 26),
             FilledButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => AppBack.to(context, fallback: '/live'),
                 style: FilledButton.styleFrom(
                     backgroundColor: colors.error,
                     foregroundColor: colors.onError,

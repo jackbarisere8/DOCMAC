@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -18,7 +19,7 @@ class LogoutOptionsPage extends ConsumerWidget {
         title: const Text('Leave Docmac'),
         leading: IconButton(
           tooltip: 'Back',
-          onPressed: () => context.pop(),
+          onPressed: () => AppBack.to(context, fallback: '/me'),
           icon: const Icon(DocmacIconlyLight.arrowLeft),
         ),
       ),

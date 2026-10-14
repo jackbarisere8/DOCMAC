@@ -23,8 +23,9 @@ class _PeoplePageState extends State<PeoplePage> {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedQuery = _PeopleProfile.normalizeQuery(_query);
     final matches = _people
-        .where((person) => person.matches(_query))
+        .where((person) => person.matches(normalizedQuery))
         .toList(growable: false);
     return Scaffold(
       appBar: AppBar(
@@ -236,7 +237,8 @@ class _PeopleDiscoverPageState extends State<PeopleDiscoverPage> {
 
   @override
   Widget build(BuildContext context) {
-    final result = _people.where((person) => person.matches(_username)).toList();
+    final normalizedUsername = _PeopleProfile.normalizeQuery(_username);
+    final result = _people.where((person) => person.matches(normalizedUsername)).toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Discover')),
       body: ListView(
@@ -701,9 +703,12 @@ class _PeopleProfile {
   final bool available;
 
   bool matches(String query) {
-    final normalized = query.toLowerCase().replaceFirst('@', '');
-    return name.toLowerCase().contains(normalized) || username.contains(normalized);
+    return name.toLowerCase().contains(query) || username.contains(query);
   }
+
+  /// Normalizes a raw user query for use with [matches].
+  static String normalizeQuery(String raw) =>
+      raw.toLowerCase().replaceFirst('@', '');
 }
 
 void _showNotice(BuildContext context, String message) {

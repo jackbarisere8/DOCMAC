@@ -25,7 +25,7 @@ class _AppShellState extends State<AppShell> {
 
   late final PageController _pageController;
   var _selectedIndex = 0;
-  var _hasSyncedRoute = false;
+  String? _lastSyncedLocation;
 
   @override
   void initState() {
@@ -37,51 +37,39 @@ class _AppShellState extends State<AppShell> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final routeIndex = _indexForLocation(
-      GoRouterState.of(context).matchedLocation,
-    );
-    if (!_hasSyncedRoute) {
-      _hasSyncedRoute = true;
-      _selectedIndex = routeIndex;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _pageController.hasClients) {
-          _pageController.jumpToPage(routeIndex);
-        }
-      });
-      return;
+    final location = GoRouterState.of(context).matchedLocation;
+    if (location != _lastSyncedLocation) {
+      _lastSyncedLocation = location;
+      final routeIndex = _destinations.indexOf(location);
+      if (routeIndex >= 0 && routeIndex != _selectedIndex) {
+        _selectedIndex = routeIndex;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _pageController.hasClients) {
+            _pageController.jumpToPage(routeIndex);
+          }
+        });
+      }
     }
-
-    // Routes such as /talk can still open the shell directly. Keep that entry
-    // point in sync without routing tab changes through a new Scaffold.
-    if (routeIndex != _selectedIndex) {
-      _selectedIndex = routeIndex;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _pageController.hasClients) {
-          _pageController.jumpToPage(routeIndex);
-        }
-      });
-    }
-  }
-
-  int _indexForLocation(String location) {
-    final index = _destinations.indexOf(location);
-    return index < 0 ? 0 : index;
   }
 
   void _selectPage(int index) {
     if (index == _selectedIndex) return;
 
     setState(() => _selectedIndex = index);
+    _lastSyncedLocation = _destinations[index];
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
+    context.go(_destinations[index]);
   }
 
   void _handlePageChanged(int index) {
     if (index != _selectedIndex) {
       setState(() => _selectedIndex = index);
+      _lastSyncedLocation = _destinations[index];
+      context.go(_destinations[index]);
     }
   }
 
@@ -99,12 +87,13 @@ class _AppShellState extends State<AppShell> {
       body: PageView(
         controller: _pageController,
         onPageChanged: _handlePageChanged,
-        children: widget.pages ?? const [
-          OrbitPage(),
-          TalkPage(),
-          LivePage(),
-          MePage(),
-        ],
+        children: widget.pages ??
+            const [
+              OrbitPage(),
+              TalkPage(),
+              LivePage(),
+              MePage(),
+            ],
       ),
       bottomNavigationBar: _AppNavigation(
         selectedIndex: _selectedIndex,
@@ -221,8 +210,7 @@ class _NavItem extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontSize: 10,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w600,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
               ],

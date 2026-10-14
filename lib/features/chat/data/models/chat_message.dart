@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -21,9 +23,16 @@ class ChatMessage {
       chatId: map['chatId'] as String,
       senderId: map['senderId'] as String,
       text: map['text'] as String,
-      createdAt: DateTime.parse(map['createdAt'].toString()),
+      createdAt: _readCreatedAt(map['createdAt']),
       isRead: map['isRead'] as bool? ?? false,
     );
+  }
+
+  static DateTime _readCreatedAt(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 
   Map<String, dynamic> toMap() {
@@ -32,7 +41,8 @@ class ChatMessage {
       'chatId': chatId,
       'senderId': senderId,
       'text': text,
-      'createdAt': createdAt.toIso8601String(),
+      // Firestore rules require a timestamp, not an ISO-8601 string.
+      'createdAt': Timestamp.fromDate(createdAt),
       'isRead': isRead,
     };
   }

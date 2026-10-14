@@ -313,7 +313,8 @@ class _MinimalPhoneEntry extends StatelessWidget {
             minimumSize: const Size.fromHeight(64),
             padding: const EdgeInsets.symmetric(horizontal: 18),
             side: BorderSide(color: scheme.outlineVariant),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: Row(
             children: [
@@ -325,7 +326,8 @@ class _MinimalPhoneEntry extends StatelessWidget {
                   style: TextStyle(color: scheme.onSurface, fontSize: 16),
                 ),
               ),
-              Text(country.code, style: TextStyle(color: scheme.onSurfaceVariant)),
+              Text(country.code,
+                  style: TextStyle(color: scheme.onSurfaceVariant)),
               const SizedBox(width: 6),
               Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
             ],
@@ -430,7 +432,9 @@ class _MinimalOtpEntry extends StatelessWidget {
         ),
         if (error != null) ...[
           const SizedBox(height: 12),
-          Text(error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error, fontSize: 13)),
+          Text(error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.error, fontSize: 13)),
         ],
         const SizedBox(height: 18),
         TextButton(
@@ -497,6 +501,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   final _email = TextEditingController();
+  final _emailCode = TextEditingController();
   ContactCountry _country = docmacCountries.first;
   int _step = 0;
   bool _loading = false;
@@ -530,6 +535,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       _password,
       _confirmPassword,
       _email,
+      _emailCode,
     ]) {
       controller.dispose();
     }
@@ -619,7 +625,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   Future<void> _continueUsername() async {
     final username = _username.text.trim().replaceFirst(RegExp(r'^@'), '');
-    if (!RegExp(r'^[a-zA-Z0-9_]{3,20}$').hasMatch(username)) {
+    if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(username)) {
       return setState(
           () => _error = 'Use 3–20 letters, numbers, or underscores.');
     }
@@ -654,7 +660,20 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       setState(() => _error = 'Enter a valid email address or skip this step.');
       return;
     }
-    await _complete(contactEmail: email.isEmpty ? null : email);
+    if (email.isEmpty) {
+      await _complete();
+      return;
+    }
+    _emailCode.clear();
+    _goTo(5);
+  }
+
+  Future<void> _verifyEmailCode() async {
+    if (_emailCode.text.trim().length != 6) {
+      setState(() => _error = 'Enter the six-digit code sent to your email.');
+      return;
+    }
+    await _complete(contactEmail: _email.text.trim());
   }
 
   Future<void> _complete({String? contactEmail}) async {
@@ -751,16 +770,24 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     // The post-OTP profile sequence collects a name, username, and optional
     // email. Password fields are deliberately not part of this journey.
     if (_step >= 2) {
+      final verifyingEmail = _step == 5;
       return _ProfileSetupScaffold(
         step: _step - 2,
         loading: _loading,
         error: _error,
+        title: verifyingEmail ? 'Check your email' : null,
+        description: verifyingEmail
+            ? 'Enter the six-digit code we sent to ${_maskedEmail(_email.text)}.'
+            : null,
+        primaryAction: verifyingEmail ? 'Verify and continue' : null,
+        header: verifyingEmail ? const _EmailVerificationIllustration() : null,
         onClose: () => context.go('/'),
         onBack: _back,
         onContinue: switch (_step) {
           2 => _continueName,
           3 => _continueUsername,
-          _ => _continueEmail,
+          4 => _continueEmail,
+          _ => _verifyEmailCode,
         },
         onSkip: _step == 4 ? () => _complete() : null,
         avatar: _step == 2
@@ -791,7 +818,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               ],
               onSubmitted: _continueUsername,
             ),
-          _ => _ProfileSetupField(
+          4 => _ProfileSetupField(
               key: const Key('signup-email'),
               controller: _email,
               hint: 'Email address (optional)',
@@ -799,7 +826,17 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               autofillHints: const [AutofillHints.email],
               onSubmitted: _continueEmail,
             ),
+          _ => _EmailCodeInput(
+              controller: _emailCode,
+              onSubmitted: _verifyEmailCode,
+            ),
         },
+        footer: verifyingEmail
+            ? TextButton(
+                onPressed: _loading ? null : () => _goTo(4),
+                child: const Text('Can\'t access this email?'),
+              )
+            : null,
       );
     }
 
@@ -962,6 +999,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
     this.primaryAction,
     this.onSkip,
     this.avatar,
+    this.header,
     this.footer,
   });
 
@@ -977,6 +1015,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
   final String? primaryAction;
   final VoidCallback? onSkip;
   final Widget? avatar;
+  final Widget? header;
   final Widget? footer;
 
   @override
@@ -1029,7 +1068,8 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       TextButton.icon(
                         onPressed: () => ScaffoldMessenger.of(context)
                             .showSnackBar(const SnackBar(
-                          content: Text('Your phone number is used to sign in.'),
+                          content:
+                              Text('Your phone number is used to sign in.'),
                         )),
                         icon: const Icon(Icons.help_outline_rounded, size: 18),
                         label: const Text('Help'),
@@ -1039,7 +1079,11 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 56),
+                  SizedBox(height: header == null ? 56 : 34),
+                  if (header != null) ...[
+                    Center(child: header!),
+                    const SizedBox(height: 24),
+                  ],
                   Text(
                     copy.title,
                     textAlign: TextAlign.center,
@@ -1059,7 +1103,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (step == 2) ...[
+                  if (step == 2 && header == null) ...[
                     const SizedBox(height: 7),
                     Text(
                       'This step is optional.',
@@ -1187,6 +1231,155 @@ class _ProfileSetupField extends StatelessWidget {
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: accent, width: 2.4),
         ),
+      ),
+    );
+  }
+}
+
+/// The email confirmation view deliberately has its own six-cell field. It is
+/// easier to scan than a single line of dots and supports platform OTP autofill.
+class _EmailCodeInput extends StatefulWidget {
+  const _EmailCodeInput({required this.controller, required this.onSubmitted});
+
+  final TextEditingController controller;
+  final VoidCallback onSubmitted;
+
+  @override
+  State<_EmailCodeInput> createState() => _EmailCodeInputState();
+}
+
+class _EmailCodeInputState extends State<_EmailCodeInput> {
+  late final List<TextEditingController> _cells;
+  late final List<FocusNode> _focusNodes;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.controller.text.trim();
+    _cells = List.generate(
+      6,
+      (index) => TextEditingController(
+        text: index < initial.length ? initial[index] : '',
+      ),
+    );
+    _focusNodes = List.generate(6, (_) => FocusNode());
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _cells) {
+      controller.dispose();
+    }
+    for (final focusNode in _focusNodes) {
+      focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  void _handleChanged(int index, String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 1) {
+      for (var offset = 0; offset < digits.length && index + offset < 6; offset++) {
+        _cells[index + offset].text = digits[offset];
+      }
+    }
+    if (digits.isNotEmpty && index < 5) {
+      _focusNodes[index + 1].requestFocus();
+    }
+    final code = _cells.map((cell) => cell.text).join();
+    widget.controller.value = TextEditingValue(
+      text: code,
+      selection: TextSelection.collapsed(offset: code.length),
+    );
+    if (code.length == 6) widget.onSubmitted();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: 'Six digit email verification code',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(6, (index) {
+          return Padding(
+            padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
+            child: SizedBox(
+              width: 44,
+              height: 56,
+              child: TextField(
+                controller: _cells[index],
+                focusNode: _focusNodes[index],
+                autofocus: index == 0,
+                keyboardType: TextInputType.number,
+                textInputAction:
+                    index == 5 ? TextInputAction.done : TextInputAction.next,
+                autofillHints:
+                    index == 0 ? const [AutofillHints.oneTimeCode] : null,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                maxLength: 6,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+                onChanged: (value) => _handleChanged(index, value),
+                onSubmitted: (_) => index == 5
+                    ? widget.onSubmitted()
+                    : _focusNodes[index + 1].requestFocus(),
+                decoration: InputDecoration(
+                  counterText: '',
+                  contentPadding: EdgeInsets.zero,
+                  filled: true,
+                  fillColor: scheme.surfaceContainerLowest,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    borderSide: BorderSide(color: scheme.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    borderSide: BorderSide(color: scheme.primary, width: 2),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _EmailVerificationIllustration extends StatelessWidget {
+  const _EmailVerificationIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 108,
+      height: 84,
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: .68),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.primary.withValues(alpha: .22)),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.mail_outline_rounded, size: 58, color: scheme.primary),
+          Positioned(
+            right: 17,
+            bottom: 13,
+            child: Container(
+              width: 27,
+              height: 27,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLowest,
+                shape: BoxShape.circle,
+                border: Border.all(color: scheme.primary, width: 1.5),
+              ),
+              child: Icon(Icons.check_rounded, size: 17, color: scheme.primary),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1331,7 +1524,8 @@ class _AccountScaffold extends StatelessWidget {
                       TextButton.icon(
                         onPressed: () => ScaffoldMessenger.of(context)
                             .showSnackBar(const SnackBar(
-                          content: Text('We use your phone number to sign you in.'),
+                          content:
+                              Text('We use your phone number to sign you in.'),
                         )),
                         icon: const Icon(Icons.help_outline_rounded, size: 18),
                         label: const Text('Help'),
@@ -1741,6 +1935,14 @@ String _phoneWithCountry(ContactCountry country, String phone) {
 String _maskedPhone(String phoneNumber) => phoneNumber.length <= 6
     ? phoneNumber
     : '${phoneNumber.substring(0, 4)} ••• ${phoneNumber.substring(phoneNumber.length - 3)}';
+
+String _maskedEmail(String email) {
+  final parts = email.trim().split('@');
+  if (parts.length != 2 || parts.first.isEmpty) return 'your email address';
+  final local = parts.first;
+  final visible = local.length == 1 ? local : local.substring(0, 2);
+  return '$visible${'•' * (local.length - visible.length)}@${parts.last}';
+}
 
 Future<ContactCountry?> _showCountryPicker(
         BuildContext context, ContactCountry _) =>

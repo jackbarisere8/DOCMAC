@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
 /// The Foundry is the private creator view of Forge: impact, audience, and
@@ -17,7 +18,7 @@ class FoundryPage extends StatelessWidget {
         title: const Text('Foundry'),
         leading: IconButton(
           tooltip: 'Back',
-          onPressed: () => context.pop(),
+          onPressed: () => AppBack.to(context, fallback: '/me'),
           icon: const Icon(DocmacIconlyLight.arrowLeft),
         ),
       ),

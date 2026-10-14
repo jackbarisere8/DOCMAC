@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
 
@@ -14,20 +18,19 @@ class HelpFeedbackPage extends StatelessWidget {
             _HelpRow(
               icon: DocmacIconlyLight.infoCircle,
               title: 'Help center',
-              subtitle: 'Get help with Docmac',
-              onTap: () => _notice(context, 'Help center is ready to connect.'),
+              subtitle: 'Get help and contact support',
+              onTap: () => context.push('/help/center'),
             ),
             _HelpRow(
               icon: DocmacIconlyLight.edit,
               title: 'Send feedback',
-              subtitle: 'Report a problem or share an idea',
-              onTap: () => _showFeedbackSheet(context),
+              subtitle: 'Report technical issues or share an idea',
+              onTap: () => context.push('/help/feedback'),
             ),
             _HelpRow(
               icon: DocmacIconlyLight.document,
               title: 'Terms and privacy',
-              onTap: () =>
-                  _notice(context, 'Terms and privacy are ready to review.'),
+              onTap: () => _notice(context, 'Terms and privacy are ready to review.'),
             ),
             _HelpRow(
               icon: DocmacIconlyLight.danger,
@@ -44,63 +47,256 @@ class HelpFeedbackPage extends StatelessWidget {
         ),
       );
 
-  static void _showFeedbackSheet(BuildContext context) {
-    final controller = TextEditingController();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Send feedback',
-                style: Theme.of(sheetContext).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              minLines: 3,
-              maxLines: 6,
-              autofocus: true,
-              decoration:
-                  const InputDecoration(hintText: 'Tell us what happened'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                _notice(
-                    context,
-                    controller.text.trim().isEmpty
-                        ? 'Add a message before sending feedback.'
-                        : 'Thanks — your feedback is ready to send.');
-              },
-              child: const Text('Send feedback'),
-            ),
-          ],
-        ),
-      ),
-    ).whenComplete(controller.dispose);
+  static void _notice(BuildContext context, String message) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+class HelpCenterPage extends StatefulWidget {
+  const HelpCenterPage({super.key});
+
+  @override
+  State<HelpCenterPage> createState() => _HelpCenterPageState();
+}
+
+class _HelpCenterPageState extends State<HelpCenterPage> {
+  final _search = TextEditingController();
+  var _query = '';
+
+  static const _topics = [
+    _HelpTopic('Getting started', 'Set up your profile and find your people.', Icons.flag_outlined),
+    _HelpTopic('Talk', 'Messages, archives, media, and conversations.', Icons.forum_outlined),
+    _HelpTopic('Circles and Spaces', 'Groups, communities, and invitations.', Icons.groups_outlined),
+    _HelpTopic('Live', 'Voice rooms, calls, and scheduled sessions.', Icons.call_outlined),
+    _HelpTopic('Privacy and safety', 'Account controls, blocking, and reports.', Icons.shield_outlined),
+    _HelpTopic('Account and access', 'Sign-in, recovery, and account security.', Icons.manage_accounts_outlined),
+  ];
+  static const _articles = [
+    'Start a private talk',
+    'Manage your archive',
+    'Keep your account secure',
+    'Join a Live room',
+  ];
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
-  static void _notice(BuildContext context, String message) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+  bool _matches(String value) =>
+      _query.isEmpty || value.toLowerCase().contains(_query.toLowerCase());
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final topics = _topics.where((item) => _matches('${item.title} ${item.description}')).toList();
+    final articles = _articles.where(_matches).toList();
+    return Scaffold(
+      backgroundColor: scheme.surfaceContainerLowest,
+      appBar: AppBar(title: const Text('Help center')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+            decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(24)),
+            child: Column(children: [
+              Icon(Icons.support_agent_rounded, size: 42, color: scheme.onPrimaryContainer),
+              const SizedBox(height: 8),
+              Text('How can we help?', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _search,
+                onChanged: (value) => setState(() => _query = value.trim()),
+                decoration: InputDecoration(
+                  hintText: 'Search Help Center',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear help search',
+                          onPressed: () {
+                            _search.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 24),
+          Text('Help topics', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (final topic in topics)
+            _HelpCenterRow(icon: topic.icon, title: topic.title, subtitle: topic.description,
+                onTap: () => _articleNotice(context, topic.title)),
+          if (topics.isEmpty && articles.isEmpty)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Center(child: Text('No help topics match that search.'))),
+          if (articles.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text('Popular articles', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final article in articles)
+              _HelpCenterRow(icon: Icons.article_outlined, title: article,
+                  onTap: () => _articleNotice(context, article)),
+          ],
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () => context.push('/help/feedback'),
+            icon: const Icon(Icons.contact_support_outlined),
+            label: const Text('Contact support'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _articleNotice(BuildContext context, String title) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title help is coming next.')));
+}
+
+class SendFeedbackPage extends StatefulWidget {
+  const SendFeedbackPage({super.key});
+
+  @override
+  State<SendFeedbackPage> createState() => _SendFeedbackPageState();
+}
+
+class _SendFeedbackPageState extends State<SendFeedbackPage> {
+  final _feedback = TextEditingController();
+  Uint8List? _attachment;
+  String? _attachmentName;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedback.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _feedback
+      ..removeListener(_refresh)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _refresh() => setState(() {});
+
+  Future<void> _addScreenshot() async {
+    try {
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1440);
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _attachment = bytes;
+        _attachmentName = file.name;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('We could not add that screenshot.')));
+      }
+    }
+  }
+
+  void _submit() {
+    if (_feedback.text.trim().isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks. Your feedback is ready to send.')));
+    context.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _feedback.text.trim().isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: scheme.surfaceContainerLowest,
+      appBar: AppBar(title: const Text('Send feedback')),
+      body: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Describe a technical issue or share an idea. For safety concerns, visit the Help Center first.',
+                style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _feedback,
+              minLines: 6,
+              maxLines: 8,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(hintText: 'Describe the issue or feedback', alignLabelWithHint: true),
+            ),
+            const SizedBox(height: 22),
+            Text('Screenshot (optional)', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text('Remove sensitive information before attaching it.', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 12),
+            _FeedbackAttachment(
+              bytes: _attachment,
+              name: _attachmentName,
+              onAdd: _addScreenshot,
+              onRemove: () => setState(() {
+                _attachment = null;
+                _attachmentName = null;
+              }),
+            ),
+            const Spacer(),
+            Text('By sending, you allow Docmac to review related technical information to help address your feedback.',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: canSubmit ? _submit : null, child: const Text('Send feedback')),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedbackAttachment extends StatelessWidget {
+  const _FeedbackAttachment({required this.bytes, required this.name, required this.onAdd, required this.onRemove});
+
+  final Uint8List? bytes;
+  final String? name;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (bytes == null) {
+      return OutlinedButton.icon(
+        onPressed: onAdd,
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), alignment: Alignment.centerLeft),
+        icon: const Icon(Icons.add_photo_alternate_outlined),
+        label: const Text('Add screenshot'),
+      );
+    }
+    return Container(
+      height: 92,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.memory(bytes!, width: 76, height: 76, fit: BoxFit.cover),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Text(name ?? 'Screenshot', maxLines: 2, overflow: TextOverflow.ellipsis)),
+        IconButton(tooltip: 'Remove screenshot', onPressed: onRemove, icon: const Icon(Icons.close_rounded)),
+      ]),
+    );
+  }
 }
 
 class _HelpRow extends StatelessWidget {
-  const _HelpRow({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.subtitle,
-  });
+  const _HelpRow({required this.icon, required this.title, required this.onTap, this.subtitle});
 
   final IconData icon;
   final String title;
@@ -116,4 +312,31 @@ class _HelpRow extends StatelessWidget {
         trailing: const Icon(DocmacIconlyLight.arrowRight, size: 18),
         onTap: onTap,
       );
+}
+
+class _HelpCenterRow extends StatelessWidget {
+  const _HelpCenterRow({required this.icon, required this.title, required this.onTap, this.subtitle});
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle!, maxLines: 1),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      );
+}
+
+class _HelpTopic {
+  const _HelpTopic(this.title, this.description, this.icon);
+
+  final String title;
+  final String description;
+  final IconData icon;
 }
