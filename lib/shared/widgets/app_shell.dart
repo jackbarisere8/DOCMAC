@@ -198,13 +198,26 @@ class _NavItem extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DocmacCommunityIcon(
-                  asset: selected ? selectedIcon : icon,
-                  color: color,
-                  size: 21,
-                  semanticLabel: label,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? (Theme.of(context).brightness == Brightness.light
+                            ? AppColors.brandBase.withValues(alpha: 0.10)
+                            : scheme.primary.withValues(alpha: 0.14))
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: DocmacCommunityIcon(
+                    asset: selected ? selectedIcon : icon,
+                    color: color,
+                    size: 21,
+                    semanticLabel: label,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   label,
                   style: TextStyle(

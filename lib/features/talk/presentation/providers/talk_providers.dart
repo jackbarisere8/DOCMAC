@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../config/firebase/firebase_configuration.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../data/talk_repository.dart';
@@ -21,16 +20,7 @@ final talkRepositoryProvider =
 /// preview state; signed in streams `chats` where `participantIds`
 /// contains the uid via [ChatRepository.watchUserChats].
 final talkThreadsProvider = StreamProvider<List<TalkThread>>((ref) {
-  try {
-    final user = ref.watch(currentUserProvider);
-    if (!FirebaseConfiguration.isAvailable || user == null) {
-      return Stream.value(curatedTalkThreads);
-    }
-    final repository = ref.watch(chatRepositoryProvider);
-    return repository
-        .watchUserChats(user.id)
-        .handleError((Object _) => curatedTalkThreads);
-  } catch (_) {
-    return Stream.value(curatedTalkThreads);
-  }
+  final user = ref.watch(currentUserProvider);
+  final repository = ref.watch(talkRepositoryProvider);
+  return repository.streamThreads(uid: user?.id);
 });

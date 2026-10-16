@@ -13,16 +13,25 @@ class TalkRepository {
 
   final ChatRepository _chatRepository;
 
-  Stream<List<TalkThread>> streamThreads({String? uid}) {
+  Stream<List<TalkThread>> streamThreads({String? uid}) async* {
+    // Yield curated fallback threads immediately so the inbox displays in 0ms
+    // without frozen skeleton screens while Firestore establishes connection.
+    yield curatedTalkThreads;
+
     if (!FirebaseConfiguration.isAvailable || uid == null || uid.isEmpty) {
-      return Stream.value(curatedTalkThreads);
+      return;
     }
+
     try {
-      return _chatRepository
-          .watchUserChats(uid)
-          .handleError((Object _) => curatedTalkThreads);
+      await for (final threads in _chatRepository.watchUserChats(uid)) {
+        if (threads.isNotEmpty) {
+          yield threads;
+        } else {
+          yield curatedTalkThreads;
+        }
+      }
     } catch (_) {
-      return Stream.value(curatedTalkThreads);
+      yield curatedTalkThreads;
     }
   }
 }

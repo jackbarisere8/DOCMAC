@@ -42,10 +42,28 @@ class _TalkPageState extends ConsumerState<TalkPage> {
   final _lockedTalks = <String>{};
   final _clearedTalks = <String>{};
 
+  late final TextEditingController _searchController;
+
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
     _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  void _resetFilter() {
+    setState(() => _filterIndex = 0);
   }
 
   Future<void> _loadPrefs() async {
@@ -556,6 +574,8 @@ class _TalkPageState extends ConsumerState<TalkPage> {
               ),
             const SizedBox(height: 18),
             _TalkSearch(
+              controller: _searchController,
+              isFiltered: _filterIndex != 0,
               onChanged: (value) => setState(() => _query = value),
               onFilterTap: _showSearchFilters,
             ),
@@ -574,7 +594,12 @@ class _TalkPageState extends ConsumerState<TalkPage> {
             threadsAsync.when(
               data: (all) =>
                   _InboxBody(threads: _visibleThreads(all), state: this),
-              loading: () => const _TalkLoadingList(),
+              loading: () => threadsAsync.hasValue
+                  ? _InboxBody(
+                      threads: _visibleThreads(threadsAsync.requireValue),
+                      state: this,
+                    )
+                  : const _TalkLoadingList(),
               error: (error, _) => _TalkErrorBody(
                 onRetry: () => ref.invalidate(talkThreadsProvider),
                 fallback: _visibleThreads(curatedTalkThreads),
@@ -753,14 +778,46 @@ class _InboxBody extends StatelessWidget {
           isMuted: (thread) => state._mutedTalks.contains(thread.id),
           hasUnreadActivity: state._hasUnreadActivity,
           effectiveUnread: state._effectiveUnread,
+          hasQuery: state._query.trim().isNotEmpty,
+          query: state._query.trim(),
+          filterIndex: state._filterIndex,
+          onClearSearch: state._clearSearch,
+          onResetFilter: state._resetFilter,
+          onStartTalk: () => state._showNewTalkPicker(
+            state.ref.read(talkThreadsProvider).valueOrNull ??
+                curatedTalkThreads,
+          ),
         ),
       ],
     );
   }
 }
 
-class _TalkLoadingList extends StatelessWidget {
+class _TalkLoadingList extends StatefulWidget {
   const _TalkLoadingList();
+
+  @override
+  State<_TalkLoadingList> createState() => _TalkLoadingListState();
+}
+
+class _TalkLoadingListState extends State<_TalkLoadingList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -771,59 +828,73 @@ class _TalkLoadingList extends StatelessWidget {
         const SizedBox(height: 8),
         Text('Inbox', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 14),
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            children: List.generate(
-              3,
-              (index) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: scheme.primaryContainer.withValues(alpha: .6),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 13,
-                            width: 120,
+        AnimatedBuilder(
+          animation: _shimmerController,
+          builder: (context, child) {
+            final opacity = 0.35 + (_shimmerController.value * 0.45);
+            return Container(
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: List.generate(
+                  3,
+                  (index) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      children: [
+                        Opacity(
+                          opacity: opacity,
+                          child: Container(
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
-                              color: scheme.primaryContainer
-                                  .withValues(alpha: .6),
-                              borderRadius: BorderRadius.circular(6),
+                              color: scheme.primaryContainer.withValues(alpha: .7),
+                              borderRadius: BorderRadius.circular(15),
                             ),
                           ),
-                          const SizedBox(height: 7),
-                          Container(
-                            height: 11,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest
-                                  .withValues(alpha: .7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                        ),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Opacity(
+                                opacity: opacity,
+                                child: Container(
+                                  height: 13,
+                                  width: 120,
+                                  decoration: BoxDecoration(
+                                    color: scheme.primaryContainer.withValues(alpha: .7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Opacity(
+                                opacity: opacity,
+                                child: Container(
+                                  height: 11,
+                                  width: index == 0 ? 190 : 150,
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest.withValues(alpha: .8),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -1177,31 +1248,51 @@ class _ArchivedEmptyState extends StatelessWidget {
 }
 
 class _TalkSearch extends StatefulWidget {
-  const _TalkSearch({required this.onChanged, required this.onFilterTap});
+  const _TalkSearch({
+    required this.onChanged,
+    required this.onFilterTap,
+    this.controller,
+    this.isFiltered = false,
+  });
 
   final ValueChanged<String> onChanged;
   final VoidCallback onFilterTap;
+  final TextEditingController? controller;
+  final bool isFiltered;
 
   @override
   State<_TalkSearch> createState() => _TalkSearchState();
 }
 
 class _TalkSearchState extends State<_TalkSearch> {
-  final _controller = TextEditingController();
+  late TextEditingController _controller;
   final _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    _controller = widget.controller ?? TextEditingController();
     _controller.addListener(_refresh);
     _focusNode.addListener(_refresh);
   }
 
   @override
+  void didUpdateWidget(_TalkSearch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != null && widget.controller != _controller) {
+      _controller.removeListener(_refresh);
+      _controller = widget.controller!;
+      _controller.addListener(_refresh);
+    }
+  }
+
+  @override
   void dispose() {
-    _controller
-      ..removeListener(_refresh)
-      ..dispose();
+    if (widget.controller == null) {
+      _controller.dispose();
+    } else {
+      _controller.removeListener(_refresh);
+    }
     _focusNode
       ..removeListener(_refresh)
       ..dispose();
@@ -1218,28 +1309,45 @@ class _TalkSearchState extends State<_TalkSearch> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final focused = _focusNode.hasFocus;
     final hasQuery = _controller.text.isNotEmpty;
+
+    final backgroundColor = isDark
+        ? scheme.surfaceContainerHighest.withValues(alpha: 0.35)
+        : scheme.surfaceContainerHighest.withValues(alpha: 0.55);
+
+    final borderColor = focused ? scheme.primary : theme.dividerColor;
+
     return Semantics(
       textField: true,
       label: 'Search talks',
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        height: 48,
+        padding: const EdgeInsets.only(left: 14, right: 6),
         decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(18),
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: focused ? scheme.primary : Theme.of(context).dividerColor,
-            width: 1,
+            color: borderColor,
+            width: focused ? 1.5 : 1.0,
           ),
         ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded,
-                size: 20, color: scheme.onSurfaceVariant),
+            AnimatedScale(
+              scale: focused ? 1.05 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: focused ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -1247,12 +1355,25 @@ class _TalkSearchState extends State<_TalkSearch> {
                 focusNode: _focusNode,
                 onChanged: widget.onChanged,
                 textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14.5,
+                  letterSpacing: -0.1,
+                ),
+                cursorColor: scheme.primary,
+                cursorWidth: 1.5,
+                decoration: InputDecoration(
                   hintText: 'Search talks, people and moments',
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
+                    fontSize: 14,
+                    letterSpacing: -0.1,
+                  ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   filled: false,
+                  isDense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -1264,14 +1385,50 @@ class _TalkSearchState extends State<_TalkSearch> {
                       key: const ValueKey('clear-talk-search'),
                       tooltip: 'Clear search',
                       onPressed: _clear,
-                      icon: const Icon(Icons.close_rounded, size: 19),
+                      iconSize: 18,
+                      visualDensity: VisualDensity.compact,
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            scheme.onSurface.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.all(6),
+                        minimumSize: const Size(28, 28),
+                      ),
+                      icon: const Icon(Icons.close_rounded),
                     )
-                  : IconButton(
-                      key: const ValueKey('refine-talk-search'),
-                      tooltip: 'Refine talks',
-                      onPressed: widget.onFilterTap,
-                      icon: Icon(Icons.tune_rounded,
-                          size: 19, color: scheme.onSurfaceVariant),
+                  : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          key: const ValueKey('refine-talk-search'),
+                          tooltip: 'Refine talks',
+                          onPressed: widget.onFilterTap,
+                          iconSize: 19,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.tune_rounded,
+                            color: widget.isFiltered
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (widget.isFiltered)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: scheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: scheme.surface,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
             ),
           ],
@@ -1282,11 +1439,12 @@ class _TalkSearchState extends State<_TalkSearch> {
 }
 
 class _FilterPill extends StatelessWidget {
-  const _FilterPill(
-      {required this.label,
-      required this.active,
-      required this.onTap,
-      this.count});
+  const _FilterPill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.count,
+  });
 
   final String label;
   final bool active;
@@ -1303,14 +1461,19 @@ class _FilterPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? scheme.primary : scheme.surface,
+            color: active
+                ? scheme.primary
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-                color:
-                    active ? scheme.primary : Theme.of(context).dividerColor),
+              color: active ? scheme.primary : Theme.of(context).dividerColor,
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1320,7 +1483,8 @@ class _FilterPill extends StatelessWidget {
                 style: TextStyle(
                   color: active ? scheme.onPrimary : scheme.onSurface,
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                  letterSpacing: -0.1,
                 ),
               ),
               if (count != null) ...[
@@ -1353,6 +1517,145 @@ class _FilterPill extends StatelessWidget {
   }
 }
 
+class _EmptyTalksView extends StatelessWidget {
+  const _EmptyTalksView({
+    required this.hasQuery,
+    required this.filterIndex,
+    required this.query,
+    required this.onClearSearch,
+    required this.onResetFilter,
+    required this.onStartTalk,
+  });
+
+  final bool hasQuery;
+  final int filterIndex;
+  final String query;
+  final VoidCallback onClearSearch;
+  final VoidCallback onResetFilter;
+  final VoidCallback onStartTalk;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    final IconData icon;
+    final String title;
+    final String subtitle;
+    final String actionLabel;
+    final VoidCallback action;
+
+    if (hasQuery) {
+      icon = Icons.search_off_rounded;
+      title = 'No talks found';
+      subtitle = 'Nothing matches "$query". Check for typos or try another search.';
+      actionLabel = 'Clear search';
+      action = onClearSearch;
+    } else {
+      switch (filterIndex) {
+        case 1:
+          icon = Icons.done_all_rounded;
+          title = 'All caught up';
+          subtitle = 'You have no unread conversations right now.';
+          actionLabel = 'Show all talks';
+          action = onResetFilter;
+          break;
+        case 2:
+          icon = Icons.groups_outlined;
+          title = 'No circles yet';
+          subtitle = 'Group conversations and shared spaces will show up here.';
+          actionLabel = 'Show all talks';
+          action = onResetFilter;
+          break;
+        case 3:
+          icon = Icons.bookmark_border_rounded;
+          title = 'No saved talks';
+          subtitle = 'Long press any conversation to bookmark it for quick access.';
+          actionLabel = 'Show all talks';
+          action = onResetFilter;
+          break;
+        default:
+          icon = Icons.chat_bubble_outline_rounded;
+          title = 'No conversations yet';
+          subtitle = 'Start a conversation with friends, team members, or clients.';
+          actionLabel = 'Start a talk';
+          action = onStartTalk;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme.dividerColor,
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 26,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: action,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: theme.dividerColor),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              icon: Icon(
+                hasQuery
+                    ? Icons.close_rounded
+                    : (filterIndex != 0
+                        ? Icons.arrow_back_rounded
+                        : Icons.add_rounded),
+                size: 16,
+              ),
+              label: Text(
+                actionLabel,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ThreadCard extends StatelessWidget {
   const _ThreadCard({
     required this.threads,
@@ -1362,6 +1665,12 @@ class _ThreadCard extends StatelessWidget {
     required this.isMuted,
     required this.hasUnreadActivity,
     required this.effectiveUnread,
+    this.hasQuery = false,
+    this.query = '',
+    this.filterIndex = 0,
+    this.onClearSearch,
+    this.onResetFilter,
+    this.onStartTalk,
   });
 
   final List<TalkThread> threads;
@@ -1371,6 +1680,12 @@ class _ThreadCard extends StatelessWidget {
   final bool Function(TalkThread thread) isMuted;
   final bool Function(TalkThread thread) hasUnreadActivity;
   final int Function(TalkThread thread) effectiveUnread;
+  final bool hasQuery;
+  final String query;
+  final int filterIndex;
+  final VoidCallback? onClearSearch;
+  final VoidCallback? onResetFilter;
+  final VoidCallback? onStartTalk;
 
   @override
   Widget build(BuildContext context) {
@@ -1383,9 +1698,13 @@ class _ThreadCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: threads.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('No conversations match this view.')),
+          ? _EmptyTalksView(
+              hasQuery: hasQuery,
+              query: query,
+              filterIndex: filterIndex,
+              onClearSearch: onClearSearch ?? () {},
+              onResetFilter: onResetFilter ?? () {},
+              onStartTalk: onStartTalk ?? () {},
             )
           : Column(
               children: [
@@ -1433,6 +1752,7 @@ class _ThreadRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isUnread = hasUnreadActivity && unreadCount > 0;
     return Semantics(
       button: true,
       label: 'Open talk with ${thread.name}',
@@ -1455,7 +1775,14 @@ class _ThreadRow extends StatelessWidget {
                           child: Text(
                             thread.name,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelLarge,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  fontWeight: isUnread
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                ),
                           ),
                         ),
                         if (isPinned) ...[
@@ -1465,7 +1792,7 @@ class _ThreadRow extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       thread.preview,
                       maxLines: 1,
@@ -1473,7 +1800,15 @@ class _ThreadRow extends StatelessWidget {
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
-                          ?.copyWith(fontSize: 12),
+                          ?.copyWith(
+                            fontSize: 12.5,
+                            color: isUnread
+                                ? scheme.onSurface
+                                : scheme.onSurfaceVariant,
+                            fontWeight: isUnread
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                          ),
                     ),
                   ],
                 ),
@@ -1483,13 +1818,20 @@ class _ThreadRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(thread.time,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontSize: 11.5)),
+                  Text(
+                    thread.time,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 11.5,
+                          color: isUnread
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                          fontWeight: isUnread
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                  ),
                   const SizedBox(height: 7),
-                  if (hasUnreadActivity && unreadCount > 0)
+                  if (isUnread)
                     _CountBadge(count: '$unreadCount')
                   else if (hasUnreadActivity)
                     _NewActivityDot(color: scheme.primary),
@@ -1517,25 +1859,47 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(size * .32),
-      ),
-      child: thread.isGroup
-          ? Icon(Icons.groups_rounded,
-              size: size * .46, color: scheme.onPrimaryContainer)
-          : Text(
-              thread.initial,
-              style: TextStyle(
-                color: scheme.onPrimaryContainer,
-                fontSize: size * .38,
-                fontWeight: FontWeight.w800,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(size * .34),
+          ),
+          child: thread.isGroup
+              ? Icon(Icons.groups_rounded,
+                  size: size * .48, color: scheme.onPrimaryContainer)
+              : Text(
+                  thread.initial,
+                  style: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontSize: size * .38,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+        if (thread.isOnline)
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: scheme.surface,
+                  width: 2,
+                ),
               ),
             ),
+          ),
+      ],
     );
   }
 }
@@ -1549,15 +1913,19 @@ class _CountBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
       decoration: BoxDecoration(
-          color: scheme.primary, borderRadius: BorderRadius.circular(999)),
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(999),
+      ),
       child: Text(
         count,
         style: TextStyle(
-            color: scheme.onPrimary,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800),
+          color: scheme.onPrimary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
       ),
     );
   }
