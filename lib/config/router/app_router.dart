@@ -108,7 +108,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const SignUpPage(),
+        builder: (context, state) => SignUpPage(
+          resume: state.uri.queryParameters['resume'] == 'true',
+        ),
       ),
       GoRoute(
         path: '/register/country',

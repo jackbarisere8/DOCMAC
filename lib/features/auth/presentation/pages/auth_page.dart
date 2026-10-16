@@ -1,6 +1,4 @@
 
-import 'dart:math' as math;
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -123,7 +121,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     final completed =
         await ref.read(authServiceProvider).hasCompletedOnboarding();
     if (!mounted) return;
-    context.go(completed ? '/orbit' : '/register');
+    context.go(completed ? '/orbit' : '/register?resume=true');
   }
 
   @override
@@ -484,7 +482,9 @@ class _RoundPhoneAction extends StatelessWidget {
 /// A deliberately complete, gated signup journey. Phone verification unlocks
 /// the profile steps; only a completed profile opens Orbit on later launches.
 class SignUpPage extends ConsumerStatefulWidget {
-  const SignUpPage({super.key});
+  const SignUpPage({super.key, this.resume = false});
+
+  final bool resume;
 
   @override
   ConsumerState<SignUpPage> createState() => _SignUpPageState();
@@ -495,16 +495,10 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _code = TextEditingController();
   final _name = TextEditingController();
   final _username = TextEditingController();
-  // These only support the pre-profile fallback branch below. Post-OTP
-  // onboarding never displays a password field.
-  final _password = TextEditingController();
-  final _confirmPassword = TextEditingController();
   final _email = TextEditingController();
-  final _emailCode = TextEditingController();
   ContactCountry _country = docmacCountries.first;
   int _step = 0;
   bool _loading = false;
-  bool _obscure = true;
   String? _verificationId;
   int? _resendToken;
   String? _error;
@@ -515,12 +509,14 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   @override
   void initState() {
     super.initState();
-    // A verified phone session can survive an interrupted first-time setup.
-    // Resume at the profile step rather than asking for the same OTP again.
-    final user = ref.read(authServiceProvider).currentUser;
-    if (user?.phoneNumber != null) {
-      _phone.text = user!.phoneNumber!;
-      _step = 2;
+    // Only resume at profile step if explicitly requested (e.g. redirected from
+    // SignInPage after phone verification because profile was incomplete).
+    if (widget.resume) {
+      final user = ref.read(authServiceProvider).currentUser;
+      if (user?.phoneNumber != null) {
+        _phone.text = user!.phoneNumber!;
+        _step = 2;
+      }
     }
   }
 
@@ -531,10 +527,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       _code,
       _name,
       _username,
-      _password,
-      _confirmPassword,
       _email,
-      _emailCode,
     ]) {
       controller.dispose();
     }
@@ -659,20 +652,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       setState(() => _error = 'Enter a valid email address or skip this step.');
       return;
     }
-    if (email.isEmpty) {
-      await _complete();
-      return;
-    }
-    _emailCode.clear();
-    _goTo(5);
-  }
-
-  Future<void> _verifyEmailCode() async {
-    if (_emailCode.text.trim().length != 6) {
-      setState(() => _error = 'Enter the six-digit code sent to your email.');
-      return;
-    }
-    await _complete(contactEmail: _email.text.trim());
+    await _complete(contactEmail: email.isNotEmpty ? email : null);
   }
 
   Future<void> _complete({String? contactEmail}) async {
@@ -703,10 +683,6 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     }
   }
 
-  // This is only retained for already-built legacy widget trees. New signup
-  // screens never navigate to a password step.
-  Future<void> _continuePassword() => _continueEmail();
-
   void _goTo(int step) {
     setState(() {
       _step = step;
@@ -723,238 +699,120 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       _code.clear();
       _verificationId = null;
       _resendToken = null;
+      _goTo(0);
+      return;
+    }
+    if (_step == 2) {
+      if (widget.resume) {
+        context.go('/auth');
+        return;
+      }
+      _code.clear();
+      _verificationId = null;
+      _resendToken = null;
+      _goTo(0);
+      return;
     }
     _goTo(_step - 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Every signup step uses the same full-height onboarding surface. This
-    // avoids switching back to the previous card-based design for phone OTP.
-    if (_step <= 1) {
-      final isPhoneStep = _step == 0;
-      return _ProfileSetupScaffold(
-        step: _step,
-        loading: _loading,
-        error: _error,
-        title: isPhoneStep ? 'Your phone number' : 'Confirm your number',
-        description: isPhoneStep
-            ? 'Choose your country and enter the number linked to your account.'
-            : 'Enter the six-digit code we sent to ${_maskedPhone(_fullPhoneNumber)}.',
-        primaryAction: isPhoneStep ? 'Send code' : 'Verify and continue',
-        onClose: () => context.go('/'),
-        onBack: _back,
-        onContinue: isPhoneStep ? _sendCode : _verifyCode,
-        footer: isPhoneStep
-            ? _BottomLink(
-                prompt: 'Already have an account?',
-                action: 'Sign in',
-                onTap: () => context.go('/auth'),
-              )
-            : TextButton(
-                onPressed: _loading ? null : _sendCode,
-                child: const Text('Didn’t receive a code? Send again'),
-              ),
-        field: isPhoneStep
-            ? _PhoneField(
-                controller: _phone,
-                country: _country,
-                onChooseCountry: _chooseCountry,
-                validator: (_) => _phoneValidator(_fullPhoneNumber),
-              )
-            : _OtpField(controller: _code, onSubmitted: _verifyCode),
-      );
-    }
-
-    // The post-OTP profile sequence collects a name, username, and optional
-    // email. Password fields are deliberately not part of this journey.
-    if (_step >= 2) {
-      final verifyingEmail = _step == 5;
-      return _ProfileSetupScaffold(
-        step: _step - 2,
-        loading: _loading,
-        error: _error,
-        title: verifyingEmail ? 'Check your email' : null,
-        description: verifyingEmail
-            ? 'Enter the six-digit code we sent to ${_maskedEmail(_email.text)}.'
-            : null,
-        primaryAction: verifyingEmail ? 'Verify and continue' : null,
-        header: verifyingEmail ? const _EmailVerificationIllustration() : null,
-        onClose: () => context.go('/'),
-        onBack: _back,
-        onContinue: switch (_step) {
-          2 => _continueName,
-          3 => _continueUsername,
-          4 => _continueEmail,
-          _ => _verifyEmailCode,
-        },
-        onSkip: _step == 4 ? () => _complete() : null,
-        avatar: _step == 2
-            ? _ProfileSetupAvatar(
-                imageBytes: _profileImageBytes,
-                onPickImage: _pickProfileImage,
-              )
-            : null,
-        field: switch (_step) {
-          2 => _ProfileSetupField(
-              key: const Key('signup-full-name'),
-              controller: _name,
-              hint: 'Full name',
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.next,
-              onSubmitted: _continueName,
-            ),
-          3 => _ProfileSetupField(
-              key: const Key('signup-username'),
-              controller: _username,
-              hint: 'Username',
-              prefixText: '@',
-              autocorrect: false,
-              enableSuggestions: false,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
-                const _LowerCaseTextInputFormatter(),
-              ],
-              onSubmitted: _continueUsername,
-            ),
-          4 => _ProfileSetupField(
-              key: const Key('signup-email'),
-              controller: _email,
-              hint: 'Email address (optional)',
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              onSubmitted: _continueEmail,
-            ),
-          _ => _EmailCodeInput(
-              controller: _emailCode,
-              onSubmitted: _verifyEmailCode,
-            ),
-        },
-        footer: verifyingEmail
-            ? TextButton(
-                onPressed: _loading ? null : () => _goTo(4),
-                child: const Text('Can\'t access this email?'),
-              )
-            : null,
-      );
-    }
-
-    final content = switch (_step) {
-      0 => _PhoneField(
-          controller: _phone,
-          country: _country,
-          onChooseCountry: _chooseCountry,
-          validator: (_) => _phoneValidator(_fullPhoneNumber),
-        ),
-      1 => _OtpField(controller: _code, onSubmitted: _verifyCode),
-      2 => _AccountField(
-          controller: _name,
-          label: 'Full name',
-          hint: 'e.g. Ada Okafor',
-          icon: DocmacIconlyLight.user,
-          textCapitalization: TextCapitalization.words,
-          validator: (_) => null,
-        ),
-      3 => _AccountField(
-          controller: _username,
-          label: 'Username',
-          hint: 'adaokafor',
-          icon: DocmacIconlyLight.profile,
-          prefixText: '@',
-          autocorrect: false,
-          enableSuggestions: false,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
-            const _LowerCaseTextInputFormatter(),
-          ],
-          validator: (_) => null,
-        ),
-      4 => Column(
-          children: [
-            _AccountField(
-              controller: _password,
-              label: 'Create a password',
-              hint: '6–24 characters',
-              icon: DocmacIconlyLight.lock,
-              obscureText: _obscure,
-              validator: _passwordValidator,
-              suffix: _visibilityButton(),
-            ),
-            const SizedBox(height: 14),
-            _AccountField(
-              controller: _confirmPassword,
-              label: 'Confirm password',
-              hint: 'Repeat your password',
-              icon: DocmacIconlyLight.password,
-              obscureText: _obscure,
-              validator: _passwordValidator,
-            ),
-          ],
-        ),
-      _ => _AccountField(
-          controller: _email,
-          label: 'Email address',
-          hint: 'you@example.com',
-          icon: DocmacIconlyLight.message,
-          keyboardType: TextInputType.emailAddress,
-          validator: (_) => null,
-        ),
-    };
-    final details = _signupDetails[_step];
-    final submit = switch (_step) {
-      0 => _sendCode,
-      1 => _verifyCode,
-      2 => _continueName,
-      3 => _continueUsername,
-      4 => _continuePassword,
-      _ => _complete,
-    };
-
-    return _AccountScaffold(
-      step: _step,
-      eyebrow: 'CREATE YOUR ACCOUNT',
-      title: details.title,
-      description: _step == 1
-          ? 'We sent a six-digit code to ${_maskedPhone(_fullPhoneNumber)}.'
-          : details.description,
-      icon: details.icon,
+    final isFirstStep = _step == 0;
+    return _ProfileSetupScaffold(
+      isFirstStep: isFirstStep,
+      loading: _loading,
+      error: _error,
+      title: switch (_step) {
+        0 => 'Your phone number',
+        1 => 'Confirm your number',
+        2 => 'Profile info',
+        3 => 'Choose a username',
+        _ => 'Add your email',
+      },
+      description: switch (_step) {
+        0 => 'Choose your country and enter the number linked to your account.',
+        1 => 'Enter the six-digit code we sent to ${_maskedPhone(_fullPhoneNumber)}.',
+        2 => 'Please add the name people will know you by.',
+        3 => 'This will be your unique Docmac identity.',
+        _ => 'An email helps us contact you about your account.',
+      },
+      primaryAction: switch (_step) {
+        0 => 'Send code',
+        1 => 'Verify and continue',
+        2 => 'Next',
+        3 => 'Next',
+        _ => 'Complete setup',
+      },
+      isOptional: _step == 4,
+      onSkip: _step == 4 ? () => _complete() : null,
+      onClose: () => context.go('/'),
       onBack: _back,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          content,
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _AccountError(message: _error!),
-          ],
-          const SizedBox(height: 22),
-          _PrimaryButton(
-              label: details.action, loading: _loading, onPressed: submit),
-          if (_step == 1) ...[
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: _loading ? null : _sendCode,
-              child: const Text('Didn’t receive a code? Send again'),
-            ),
-          ],
-          if (_step == 0) ...[
-            const SizedBox(height: 12),
-            _BottomLink(
-              prompt: 'Already have an account?',
-              action: 'Sign in',
-              onTap: () => context.go('/auth'),
-            ),
-          ],
-        ],
-      ),
+      onContinue: switch (_step) {
+        0 => _sendCode,
+        1 => _verifyCode,
+        2 => _continueName,
+        3 => _continueUsername,
+        _ => _continueEmail,
+      },
+      avatar: _step == 2
+          ? _ProfileSetupAvatar(
+              imageBytes: _profileImageBytes,
+              onPickImage: _pickProfileImage,
+            )
+          : null,
+      field: switch (_step) {
+        0 => _PhoneField(
+            controller: _phone,
+            country: _country,
+            onChooseCountry: _chooseCountry,
+            validator: (_) => _phoneValidator(_fullPhoneNumber),
+          ),
+        1 => _OtpField(controller: _code, onSubmitted: _verifyCode),
+        2 => _ProfileSetupField(
+            key: const Key('signup-full-name'),
+            controller: _name,
+            hint: 'Full name',
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            onSubmitted: _continueName,
+          ),
+        3 => _ProfileSetupField(
+            key: const Key('signup-username'),
+            controller: _username,
+            hint: 'Username',
+            prefixText: '@',
+            autocorrect: false,
+            enableSuggestions: false,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+              const _LowerCaseTextInputFormatter(),
+            ],
+            onSubmitted: _continueUsername,
+          ),
+        _ => _ProfileSetupField(
+            key: const Key('signup-email'),
+            controller: _email,
+            hint: 'Email address (optional)',
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            onSubmitted: _continueEmail,
+          ),
+      },
+      footer: switch (_step) {
+        0 => _BottomLink(
+            prompt: 'Already have an account?',
+            action: 'Sign in',
+            onTap: () => context.go('/auth'),
+          ),
+        1 => TextButton(
+            onPressed: _loading ? null : _sendCode,
+            child: const Text('Didn’t receive a code? Send again'),
+          ),
+        _ => null,
+      },
     );
   }
-
-  Widget _visibilityButton() => IconButton(
-        tooltip: _obscure ? 'Show password' : 'Hide password',
-        onPressed: () => setState(() => _obscure = !_obscure),
-        icon: Icon(_obscure ? DocmacIconlyLight.show : DocmacIconlyLight.hide),
-      );
 
   Future<void> _chooseCountry() async {
     final country = await _showCountryPicker(context, _country);
@@ -986,59 +844,41 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 /// action that is always easy to reach.
 class _ProfileSetupScaffold extends StatelessWidget {
   const _ProfileSetupScaffold({
-    required this.step,
+    required this.isFirstStep,
     required this.loading,
     required this.error,
+    required this.title,
+    required this.description,
+    required this.primaryAction,
     required this.field,
     required this.onClose,
     required this.onBack,
     required this.onContinue,
-    this.title,
-    this.description,
-    this.primaryAction,
+    this.isOptional = false,
     this.onSkip,
     this.avatar,
-    this.header,
     this.footer,
   });
 
-  final int step;
+  final bool isFirstStep;
   final bool loading;
   final String? error;
+  final String title;
+  final String description;
+  final String primaryAction;
   final Widget field;
   final VoidCallback onClose;
   final VoidCallback onBack;
   final VoidCallback onContinue;
-  final String? title;
-  final String? description;
-  final String? primaryAction;
+  final bool isOptional;
   final VoidCallback? onSkip;
   final Widget? avatar;
-  final Widget? header;
   final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
-    final defaultCopy = switch (step) {
-      0 => (
-          title: 'Profile info',
-          description: 'Please add the name people will know you by.',
-        ),
-      1 => (
-          title: 'Choose a username',
-          description: 'This will be your unique Docmac identity.',
-        ),
-      _ => (
-          title: 'Add your email',
-          description: 'An email helps us contact you about your account.',
-        ),
-    };
-    final copy = (
-      title: title ?? defaultCopy.title,
-      description: description ?? defaultCopy.description,
-    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1055,10 +895,10 @@ class _ProfileSetupScaffold extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        tooltip: step == 0 ? 'Close signup' : 'Previous step',
-                        onPressed: step == 0 ? onClose : onBack,
+                        tooltip: isFirstStep ? 'Close signup' : 'Previous step',
+                        onPressed: isFirstStep ? onClose : onBack,
                         icon: Icon(
-                          step == 0
+                          isFirstStep
                               ? Icons.close_rounded
                               : Icons.arrow_back_rounded,
                           color: Colors.black87,
@@ -1078,13 +918,9 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: header == null ? 56 : 34),
-                  if (header != null) ...[
-                    Center(child: header!),
-                    const SizedBox(height: 24),
-                  ],
+                  const SizedBox(height: 56),
                   Text(
-                    copy.title,
+                    title,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       color: theme.colorScheme.onSurface,
@@ -1095,14 +931,14 @@ class _ProfileSetupScaffold extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    copy.description,
+                    description,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontSize: 14,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (step == 2 && header == null) ...[
+                  if (isOptional) ...[
                     const SizedBox(height: 7),
                     Text(
                       'This step is optional.',
@@ -1150,7 +986,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
                             ),
                           )
                         : Text(
-                            primaryAction ?? 'Next',
+                            primaryAction,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                   ),
@@ -1235,154 +1071,6 @@ class _ProfileSetupField extends StatelessWidget {
   }
 }
 
-/// The email confirmation view deliberately has its own six-cell field. It is
-/// easier to scan than a single line of dots and supports platform OTP autofill.
-class _EmailCodeInput extends StatefulWidget {
-  const _EmailCodeInput({required this.controller, required this.onSubmitted});
-
-  final TextEditingController controller;
-  final VoidCallback onSubmitted;
-
-  @override
-  State<_EmailCodeInput> createState() => _EmailCodeInputState();
-}
-
-class _EmailCodeInputState extends State<_EmailCodeInput> {
-  late final List<TextEditingController> _cells;
-  late final List<FocusNode> _focusNodes;
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.controller.text.trim();
-    _cells = List.generate(
-      6,
-      (index) => TextEditingController(
-        text: index < initial.length ? initial[index] : '',
-      ),
-    );
-    _focusNodes = List.generate(6, (_) => FocusNode());
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _cells) {
-      controller.dispose();
-    }
-    for (final focusNode in _focusNodes) {
-      focusNode.dispose();
-    }
-    super.dispose();
-  }
-
-  void _handleChanged(int index, String value) {
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length > 1) {
-      for (var offset = 0; offset < digits.length && index + offset < 6; offset++) {
-        _cells[index + offset].text = digits[offset];
-      }
-    }
-    if (digits.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    }
-    final code = _cells.map((cell) => cell.text).join();
-    widget.controller.value = TextEditingValue(
-      text: code,
-      selection: TextSelection.collapsed(offset: code.length),
-    );
-    if (code.length == 6) widget.onSubmitted();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      label: 'Six digit email verification code',
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(6, (index) {
-          return Padding(
-            padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
-            child: SizedBox(
-              width: 44,
-              height: 56,
-              child: TextField(
-                controller: _cells[index],
-                focusNode: _focusNodes[index],
-                autofocus: index == 0,
-                keyboardType: TextInputType.number,
-                textInputAction:
-                    index == 5 ? TextInputAction.done : TextInputAction.next,
-                autofillHints:
-                    index == 0 ? const [AutofillHints.oneTimeCode] : null,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-                onChanged: (value) => _handleChanged(index, value),
-                onSubmitted: (_) => index == 5
-                    ? widget.onSubmitted()
-                    : _focusNodes[index + 1].requestFocus(),
-                decoration: InputDecoration(
-                  counterText: '',
-                  contentPadding: EdgeInsets.zero,
-                  filled: true,
-                  fillColor: scheme.surfaceContainerLowest,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide(color: scheme.outlineVariant),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide(color: scheme.primary, width: 2),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _EmailVerificationIllustration extends StatelessWidget {
-  const _EmailVerificationIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 108,
-      height: 84,
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: .68),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.primary.withValues(alpha: .22)),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.mail_outline_rounded, size: 58, color: scheme.primary),
-          Positioned(
-            right: 17,
-            bottom: 13,
-            child: Container(
-              width: 27,
-              height: 27,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLowest,
-                shape: BoxShape.circle,
-                border: Border.all(color: scheme.primary, width: 1.5),
-              ),
-              child: Icon(Icons.check_rounded, size: 17, color: scheme.primary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ProfileSetupAvatar extends StatelessWidget {
   const _ProfileSetupAvatar({
@@ -1439,142 +1127,6 @@ class _ProfileSetupAvatar extends StatelessWidget {
   }
 }
 
-class _SignupDetail {
-  const _SignupDetail(this.title, this.description, this.action, this.icon);
-  final String title;
-  final String description;
-  final String action;
-  final IconData icon;
-}
-
-const _signupDetails = [
-  _SignupDetail(
-      'What’s your\nphone number?',
-      'We’ll send a secure code to confirm it.',
-      'Send code',
-      DocmacIconlyLight.call),
-  _SignupDetail('Confirm it’s\nyou.', 'Enter the code we sent you.',
-      'Verify and continue', DocmacIconlyLight.shieldDone),
-  _SignupDetail(
-      'Tell us your\nname.',
-      'Use the name your people will recognise.',
-      'Continue',
-      DocmacIconlyLight.user),
-  _SignupDetail(
-      'Claim your\nusername.',
-      'This is your one-of-a-kind Docmac identity.',
-      'Finish setup',
-      DocmacIconlyLight.profile),
-  _SignupDetail(
-      'Keep it\nprivate.',
-      'Create a password to protect your account.',
-      'Continue',
-      DocmacIconlyLight.lock),
-  _SignupDetail(
-      'Add your\nemail.',
-      'We’ll keep it with your account for important updates.',
-      'Finish setup',
-      DocmacIconlyLight.message),
-];
-
-class _AccountScaffold extends StatelessWidget {
-  const _AccountScaffold({
-    required this.step,
-    required this.eyebrow,
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.child,
-    this.onBack,
-  });
-
-  final int? step;
-  final String eyebrow;
-  final String title;
-  final String description;
-  final IconData icon;
-  final Widget child;
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        tooltip: onBack == null ? 'Back' : 'Previous step',
-                        onPressed: onBack ?? () => context.go('/'),
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            color: Colors.black87),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(
-                          content:
-                              Text('We use your phone number to sign you in.'),
-                        )),
-                        icon: const Icon(Icons.help_outline_rounded, size: 18),
-                        label: const Text('Help'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 84),
-                  Text(
-                    eyebrow,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurface,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 9),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontSize: 29,
-                      height: 1.12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.45,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 64),
-                  child,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _PhoneField extends StatelessWidget {
   const _PhoneField({
@@ -1682,13 +1234,8 @@ class _AccountField extends StatelessWidget {
     required this.icon,
     required this.validator,
     this.keyboardType,
-    this.obscureText = false,
-    this.suffix,
     this.prefixText,
-    this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
-    this.autocorrect = true,
-    this.enableSuggestions = true,
   });
   final TextEditingController controller;
   final String label;
@@ -1696,30 +1243,20 @@ class _AccountField extends StatelessWidget {
   final IconData icon;
   final String? Function(String?) validator;
   final TextInputType? keyboardType;
-  final bool obscureText;
-  final Widget? suffix;
   final String? prefixText;
-  final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
-  final bool autocorrect;
-  final bool enableSuggestions;
 
   @override
   Widget build(BuildContext context) => TextFormField(
         controller: controller,
         keyboardType: keyboardType,
-        obscureText: obscureText,
         validator: validator,
-        textCapitalization: textCapitalization,
         inputFormatters: inputFormatters,
-        autocorrect: autocorrect,
-        enableSuggestions: enableSuggestions,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           prefixIcon: Icon(icon, size: 20),
           prefixText: prefixText == null ? null : '$prefixText ',
-          suffixIcon: suffix,
         ),
       );
 }
@@ -1735,97 +1272,6 @@ class _LowerCaseTextInputFormatter extends TextInputFormatter {
       newValue.copyWith(text: newValue.text.toLowerCase());
 }
 
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton(
-      {required this.label, required this.loading, required this.onPressed});
-  final String label;
-  final bool loading;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => FilledButton(
-        onPressed: loading ? null : onPressed,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(56),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
-        ),
-        child: loading
-            ? _SignalLoader(color: Theme.of(context).colorScheme.onPrimary)
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(label,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 9),
-                  const Icon(DocmacIconlyLight.arrowRight, size: 18),
-                ],
-              ),
-      );
-}
-
-/// A compact animated Iconly mark used while an account action is in flight.
-class _SignalLoader extends StatefulWidget {
-  const _SignalLoader({required this.color});
-  final Color color;
-
-  @override
-  State<_SignalLoader> createState() => _SignalLoaderState();
-}
-
-class _SignalLoaderState extends State<_SignalLoader>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 34,
-        height: 22,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final pulse =
-                .86 + (math.sin(_controller.value * math.pi * 2) * .14);
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Transform.scale(
-                  scale: pulse,
-                  child: Icon(
-                    DocmacIconlyLight.discovery,
-                    color: widget.color.withValues(alpha: .28),
-                    size: 27,
-                  ),
-                ),
-                Transform.rotate(
-                  angle: _controller.value * math.pi * 2,
-                  child: Icon(
-                    DocmacIconlyLight.discovery,
-                    color: widget.color,
-                    size: 21,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      );
-}
 
 class _BottomLink extends StatelessWidget {
   const _BottomLink(
@@ -1847,33 +1293,6 @@ class _BottomLink extends StatelessWidget {
       );
 }
 
-class _AccountError extends StatelessWidget {
-  const _AccountError({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(children: [
-        Icon(DocmacIconlyLight.infoCircle,
-            color: scheme.onErrorContainer, size: 18),
-        const SizedBox(width: 9),
-        Expanded(
-            child: Text(message,
-                style: TextStyle(
-                    color: scheme.onErrorContainer,
-                    fontSize: 12,
-                    height: 1.35))),
-      ]),
-    );
-  }
-}
 
 String _phoneWithCountry(ContactCountry country, String phone) {
   final compact = phone.replaceAll(RegExp(r'[\s()\-]'), '');
@@ -1885,14 +1304,6 @@ String _maskedPhone(String phoneNumber) => phoneNumber.length <= 6
     ? phoneNumber
     : '${phoneNumber.substring(0, 4)} ••• ${phoneNumber.substring(phoneNumber.length - 3)}';
 
-String _maskedEmail(String email) {
-  final parts = email.trim().split('@');
-  if (parts.length != 2 || parts.first.isEmpty) return 'your email address';
-  final local = parts.first;
-  final visible = local.length == 1 ? local : local.substring(0, 2);
-  return '$visible${'•' * (local.length - visible.length)}@${parts.last}';
-}
-
 Future<ContactCountry?> _showCountryPicker(
         BuildContext context, ContactCountry _) =>
     context.push<ContactCountry>('/register/country');
@@ -1902,11 +1313,6 @@ String? _phoneValidator(String? value) => value != null &&
             .hasMatch(value.replaceAll(RegExp(r'[\s()-]'), ''))
     ? null
     : 'Enter a valid phone number with country code.';
-
-String? _passwordValidator(String? value) =>
-    value != null && value.length >= 6 && value.length <= 24
-        ? null
-        : 'Use a password from 6 to 24 characters.';
 
 bool _emailValidator(String email) =>
     RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
