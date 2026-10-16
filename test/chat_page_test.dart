@@ -70,6 +70,13 @@ class MockChatRepository implements ChatRepository {
     markedChatRead.add(chatId);
   }
 
+  @override
+  Future<void> ensureChatExists({
+    required String chatId,
+    required String currentUid,
+    required String peerName,
+  }) async {}
+
   void emit(String chatId, List<ChatMessage> newMessages) {
     messages = List.of(newMessages);
     _controllers[chatId]?.add(snapshot(chatId));

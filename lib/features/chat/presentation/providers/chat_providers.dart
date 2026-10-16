@@ -44,17 +44,24 @@ List<ChatMessage> curatedChatMessages(String chatId) {
 /// `chats/{chatId}/messages` ordered by `createdAt` (see `ChatRepository`
 /// and `firestore.rules` chat-member rule).
 final chatMessagesProvider =
-    StreamProvider.family<List<ChatMessage>, String>((ref, chatId) {
-  // Never crash the chat surface when Firebase is unreachable (tests,
-  // desktop placeholders, offline). Any throw degrades to preview.
+    StreamProvider.family<List<ChatMessage>, String>((ref, chatId) async* {
+  final fallback = curatedChatMessages(chatId);
+  yield fallback;
+
   try {
     final user = ref.watch(currentUserProvider);
     if (!FirebaseConfiguration.isAvailable || user == null) {
-      return Stream.value(curatedChatMessages(chatId));
+      return;
     }
     final repository = ref.watch(chatRepositoryProvider);
-    return repository.streamMessages(chatId);
+    await for (final messages in repository.streamMessages(chatId)) {
+      if (messages.isNotEmpty) {
+        yield messages;
+      } else {
+        yield const <ChatMessage>[];
+      }
+    }
   } catch (_) {
-    return Stream.value(curatedChatMessages(chatId));
+    yield fallback;
   }
 });

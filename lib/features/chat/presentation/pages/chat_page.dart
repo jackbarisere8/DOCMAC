@@ -137,6 +137,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     setState(() => _sending = true);
     try {
+      final repository = ref.read(chatRepositoryProvider);
+      await repository.ensureChatExists(
+        chatId: widget.chatId,
+        currentUid: uid,
+        peerName: widget.personName,
+      );
+
       final message = ChatMessage(
         id: '${uid}_${DateTime.now().millisecondsSinceEpoch}',
         chatId: widget.chatId,
@@ -144,9 +151,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         text: text,
         createdAt: DateTime.now(),
       );
-      await ref
-          .read(chatRepositoryProvider)
-          .sendMessage(chatId: widget.chatId, message: message);
+      await repository.sendMessage(chatId: widget.chatId, message: message);
       if (!mounted) return;
       setState(() {
         _messageController.clear();
@@ -520,44 +525,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
     final preview = _uid == null;
 
+    final fallback = curatedChatMessages(widget.chatId);
+    final serverMessages = messagesAsync.valueOrNull ?? fallback;
+    final visible = [
+      ...serverMessages,
+      ..._previewOutbox,
+    ].where((m) => !_hiddenIds.contains(m.id)).toList();
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _markVisibleRead(visible),
+    );
+    final selected = _byId(visible, _selectedMessageId);
+    final pinned = _byId(visible, _pinnedMessageId);
+
     return Scaffold(
       backgroundColor: colors.surfaceContainerLowest,
       body: SafeArea(
-        child: Column(
-          children: [
-            messagesAsync.when(
-              data: (server) {
-                final visible = [
-                  ...server,
-                  ..._previewOutbox,
-                ].where((m) => !_hiddenIds.contains(m.id)).toList();
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => _markVisibleRead(visible),
-                );
-                final selected = _byId(visible, _selectedMessageId);
-                final pinned = _byId(visible, _pinnedMessageId);
-                return Expanded(
-                  child: _ChatBody(
-                    state: this,
-                    colors: colors,
-                    messages: visible,
-                    selected: selected,
-                    pinned: pinned,
-                    preview: preview,
-                  ),
-                );
-              },
-              loading: () => const Expanded(child: _ChatLoadingList()),
-              error: (error, _) => Expanded(
-                child: _ChatErrorBody(
-                  onRetry: () =>
-                      ref.invalidate(chatMessagesProvider(widget.chatId)),
-                  fallback: curatedChatMessages(widget.chatId),
-                  state: this,
-                ),
-              ),
-            ),
-          ],
+        child: _ChatBody(
+          state: this,
+          colors: colors,
+          messages: visible,
+          selected: selected,
+          pinned: pinned,
+          preview: preview,
+          isLoading: messagesAsync.isLoading && !messagesAsync.hasValue,
+          hasError: messagesAsync.hasError,
+          onRetry: () => ref.invalidate(chatMessagesProvider(widget.chatId)),
         ),
       ),
     );
@@ -620,6 +613,9 @@ class _ChatBody extends StatelessWidget {
     required this.selected,
     required this.pinned,
     required this.preview,
+    this.isLoading = false,
+    this.hasError = false,
+    this.onRetry,
   });
 
   final _ChatPageState state;
@@ -628,6 +624,9 @@ class _ChatBody extends StatelessWidget {
   final ChatMessage? selected;
   final ChatMessage? pinned;
   final bool preview;
+  final bool isLoading;
+  final bool hasError;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -674,7 +673,45 @@ class _ChatBody extends StatelessWidget {
                 onMore: () => state.openMessageActions(sel),
               ),
         Divider(height: 1, color: Theme.of(context).dividerColor),
-        if (preview)
+        if (hasError)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: colors.errorContainer,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.cloud_off_outlined,
+                    size: 18, color: colors.onErrorContainer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Could not load messages. Showing preview.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(
+                          fontSize: 12.5,
+                          color: colors.onErrorContainer,
+                        ),
+                  ),
+                ),
+                if (onRetry != null)
+                  TextButton(
+                    onPressed: onRetry,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('Retry'),
+                  ),
+              ],
+            ),
+          ),
+        if (preview && !hasError)
           Container(
             width: double.infinity,
             padding:
@@ -698,50 +735,52 @@ class _ChatBody extends StatelessWidget {
             onUnpin: state.unpinMessage,
           ),
         Expanded(
-          child: messages.isEmpty && state._voiceNotes.isEmpty
-              ? _ChatEmptyState(name: widget.personName)
-              : ListView(
-                  controller: state._scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+          child: isLoading && messages.isEmpty
+              ? const _ChatLoadingList()
+              : (messages.isEmpty && state._voiceNotes.isEmpty
+                  ? _ChatEmptyState(name: widget.personName)
+                  : ListView(
+                      controller: state._scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                      children: [
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? colors.surfaceContainerHighest
+                                  : colors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text('TODAY',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelLarge
+                                    ?.copyWith(
+                                      fontSize: 11,
+                                      letterSpacing: 1.1,
+                                    )),
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness ==
-                                  Brightness.dark
-                              ? colors.surfaceContainerHighest
-                              : colors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text('TODAY',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(
-                                  fontSize: 11,
-                                  letterSpacing: 1.1,
-                                )),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    for (final message in messages)
-                      _ChatBubble(
-                        message: message,
-                        isMine: state._isMine(message),
-                        time: state._formatTime(message.createdAt),
-                        isSelected:
-                            message.id == state._selectedMessageId,
-                        onLongPress: () =>
-                            state._selectMessage(message),
-                      ),
-                    for (final voice in state._voiceNotes)
-                      _VoiceBubble(note: voice),
-                  ],
-                ),
+                        const SizedBox(height: 24),
+                        for (final message in messages)
+                          _ChatBubble(
+                            message: message,
+                            isMine: state._isMine(message),
+                            time: state._formatTime(message.createdAt),
+                            isSelected:
+                                message.id == state._selectedMessageId,
+                            onLongPress: () =>
+                                state._selectMessage(message),
+                          ),
+                        for (final voice in state._voiceNotes)
+                          _VoiceBubble(note: voice),
+                      ],
+                    )),
         ),
         if (state._replyToText != null)
           _ReplyStrip(
@@ -781,123 +820,93 @@ class _ChatEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(Icons.forum_outlined,
-                    size: 34, color: scheme.onPrimaryContainer),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(24),
               ),
-              const SizedBox(height: 18),
-              Text('No messages yet',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 7),
-              Text(
-                'Say hello to $name — messages sync to Firestore once this talk is provisioned.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      );
-  }
-}
-
-class _ChatLoadingList extends StatelessWidget {
-  const _ChatLoadingList();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
-      children: List.generate(
-        3,
-        (index) => Align(
-          alignment:
-              index.isEven ? Alignment.centerLeft : Alignment.centerRight,
-          child: Container(
-            width: 220,
-            height: 48,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: .5),
-              borderRadius: BorderRadius.circular(20),
+              child: Icon(Icons.forum_outlined,
+                  size: 34, color: scheme.onPrimaryContainer),
             ),
-          ),
+            const SizedBox(height: 18),
+            Text('No messages yet',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 7),
+            Text(
+              'Say hello to $name — messages sync in real time.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ChatErrorBody extends StatelessWidget {
-  const _ChatErrorBody({
-    required this.onRetry,
-    required this.fallback,
-    required this.state,
-  });
+class _ChatLoadingList extends StatefulWidget {
+  const _ChatLoadingList();
 
-  final VoidCallback onRetry;
-  final List<ChatMessage> fallback;
-  final _ChatPageState state;
+  @override
+  State<_ChatLoadingList> createState() => _ChatLoadingListState();
+}
+
+class _ChatLoadingListState extends State<_ChatLoadingList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: scheme.errorContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.cloud_off_outlined,
-                  color: scheme.onErrorContainer),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Could not load messages. This talk may not be provisioned yet — showing preview.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: scheme.onErrorContainer),
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, child) {
+        final opacity = 0.35 + (_shimmerController.value * 0.45);
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+          children: List.generate(
+            3,
+            (index) => Align(
+              alignment:
+                  index.isEven ? Alignment.centerLeft : Alignment.centerRight,
+              child: Opacity(
+                opacity: opacity,
+                child: Container(
+                  width: index == 1 ? 260 : 200,
+                  height: 48,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: .5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
-              TextButton(onPressed: onRetry, child: const Text('Retry')),
-            ],
+            ),
           ),
-        ),
-        Expanded(
-          child: ListView(
-            controller: state._scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
-            children: [
-              for (final message in fallback)
-                _ChatBubble(
-                  message: message,
-                  isMine: state._isMine(message),
-                  time: state._formatTime(message.createdAt),
-                  isSelected: false,
-                  onLongPress: () => state._selectMessage(message),
-                ),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

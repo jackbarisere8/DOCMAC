@@ -96,6 +96,13 @@ class FakeChatRepository implements ChatRepository {
   @override
   Future<void> markChatRead(String chatId, String uid) async {}
 
+  @override
+  Future<void> ensureChatExists({
+    required String chatId,
+    required String currentUid,
+    required String peerName,
+  }) async {}
+
   void dispose() {
     for (final controller in _controllers.values) {
       controller.close();

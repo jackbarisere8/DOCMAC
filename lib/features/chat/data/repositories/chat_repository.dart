@@ -104,6 +104,33 @@ class ChatRepository {
     }).catchError((_) => null);
   }
 
+  /// Ensures that a chat document exists at `chats/{chatId}` so that
+  /// message writes satisfy `isChatMember(chatId)` in firestore.rules.
+  Future<void> ensureChatExists({
+    required String chatId,
+    required String currentUid,
+    required String peerName,
+  }) async {
+    try {
+      final docRef = _db.collection('chats').doc(chatId);
+      final snapshot = await docRef.get();
+      if (!snapshot.exists) {
+        await docRef.set({
+          'id': chatId,
+          'name': peerName,
+          'participantIds': [currentUid, chatId],
+          'isGroup': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMessage': '',
+          'unreadCount': 0,
+        });
+      }
+    } catch (_) {
+      // In tests or offline environments without Firestore, continue gracefully.
+    }
+  }
+
   ChatThread _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
     final participantIds = data['participantIds'];
