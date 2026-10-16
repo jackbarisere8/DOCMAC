@@ -20,8 +20,10 @@ class CallNotifier extends StateNotifier<AsyncValue<List<CallRecord>>> {
   Future<void> loadCalls() async {
     try {
       final calls = await _repository.getCalls();
+      if (!mounted) return;
       state = AsyncValue.data(calls);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
