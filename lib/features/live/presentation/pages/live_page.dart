@@ -1,38 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../data/models/call_record.dart';
+import '../providers/live_providers.dart';
 
 /// Docmac's private call hub: the next connection, useful call tools, and a
-/// concise history in one calm place.
-class LivePage extends StatefulWidget {
+/// persistent, reactive signal history.
+class LivePage extends ConsumerStatefulWidget {
   const LivePage({super.key});
 
   @override
-  State<LivePage> createState() => _LivePageState();
+  ConsumerState<LivePage> createState() => _LivePageState();
 }
 
-class _LivePageState extends State<LivePage> {
-  bool _favoritesOnly = false;
-  bool _missedOnly = false;
-
-  List<_Call> get _visibleCalls => _calls.where((call) {
-        if (_favoritesOnly && !call.favorite) return false;
-        if (_missedOnly && !call.missed) return false;
-        return true;
-      }).toList();
-
+class _LivePageState extends ConsumerState<LivePage> {
   Future<void> _pickPerson() async {
-    final person = await showModalBottomSheet<String>(
+    HapticFeedback.lightImpact();
+    final result = await showModalBottomSheet<(String, String)>(
       context: context,
       showDragHandle: true,
       builder: (context) => const _PeopleSheet(),
     );
-    if (person != null && mounted) context.push('/live/call/$person');
+    if (result != null && mounted) {
+      ref.read(callsNotifierProvider.notifier).logOutgoingCall(
+            target: result.$1,
+            displayName: result.$2,
+          );
+      context.push('/live/call/${result.$1}');
+    }
   }
 
   Future<void> _openKeypad() async {
+    HapticFeedback.lightImpact();
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -73,8 +76,10 @@ class _LivePageState extends State<LivePage> {
 
   @override
   Widget build(BuildContext context) {
-    final calls = _visibleCalls;
+    final calls = ref.watch(filteredCallsProvider);
+    final activeFilter = ref.watch(callFilterProvider);
     final scheme = Theme.of(context).colorScheme;
+
     return ColoredBox(
       color: scheme.surfaceContainerLowest,
       child: SafeArea(
@@ -83,35 +88,48 @@ class _LivePageState extends State<LivePage> {
           children: [
             _Header(onMore: _showOptions),
             const SizedBox(height: 30),
-            Text('Start a signal', style: Theme.of(context).textTheme.headlineSmall),
+            Text('Start a signal',
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
-            Text('Choose how you want to connect.', style: Theme.of(context).textTheme.bodyMedium),
+            Text('Choose how you want to connect.',
+                style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 16),
             _QuickActions(
-              favoritesActive: _favoritesOnly,
+              favoritesActive: activeFilter == CallFilter.favorites,
               onVoice: _pickPerson,
               onSchedule: () => context.push('/live/schedule'),
               onKeypad: _openKeypad,
-              onFavorites: () => setState(() {
-                _favoritesOnly = !_favoritesOnly;
-                if (_favoritesOnly) _missedOnly = false;
-              }),
+              onFavorites: () {
+                HapticFeedback.selectionClick();
+                final notifier = ref.read(callFilterProvider.notifier);
+                notifier.state = activeFilter == CallFilter.favorites
+                    ? CallFilter.all
+                    : CallFilter.favorites;
+              },
             ),
             const SizedBox(height: 28),
             Row(children: [
-              Expanded(child: Text('Recent signals', style: Theme.of(context).textTheme.headlineSmall)),
-              if (_favoritesOnly || _missedOnly)
+              Expanded(
+                child: Text('Recent signals',
+                    style: Theme.of(context).textTheme.headlineSmall),
+              ),
+              if (activeFilter != CallFilter.all)
                 TextButton(
-                  onPressed: () => setState(() {
-                    _favoritesOnly = false;
-                    _missedOnly = false;
-                  }),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(callFilterProvider.notifier).state = CallFilter.all;
+                  },
                   child: const Text('Show all'),
                 )
               else
                 TextButton.icon(
-                  onPressed: () => setState(() => _missedOnly = true),
-                  icon: const Icon(Icons.call_missed_outgoing_rounded, size: 15),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    ref.read(callFilterProvider.notifier).state =
+                        CallFilter.missed;
+                  },
+                  icon:
+                      const Icon(Icons.call_missed_outgoing_rounded, size: 15),
                   label: const Text('Missed'),
                 ),
             ]),
@@ -119,7 +137,26 @@ class _LivePageState extends State<LivePage> {
             if (calls.isEmpty)
               const _EmptyCalls()
             else
-              _CallList(calls: calls, onCall: (call) => context.push('/live/call/${call.personId}')),
+              _CallList(
+                calls: calls,
+                onCall: (call) {
+                  HapticFeedback.lightImpact();
+                  ref.read(callsNotifierProvider.notifier).logOutgoingCall(
+                        target: call.personId,
+                        displayName: call.name,
+                        isVideo: call.video,
+                      );
+                  context.push('/live/call/${call.personId}');
+                },
+                onToggleFavorite: (call) {
+                  ref
+                      .read(callsNotifierProvider.notifier)
+                      .toggleFavorite(call.id);
+                },
+                onDelete: (call) {
+                  ref.read(callsNotifierProvider.notifier).deleteCall(call.id);
+                },
+              ),
           ],
         ),
       ),
@@ -135,9 +172,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Make time together', style: Theme.of(context).textTheme.headlineLarge),
+            Text('Make time together',
+                style: Theme.of(context).textTheme.headlineLarge),
             const SizedBox(height: 3),
-            Text('Call, plan, and stay close.', style: Theme.of(context).textTheme.bodyMedium),
+            Text('Call, plan, and stay close.',
+                style: Theme.of(context).textTheme.bodyMedium),
           ]),
         ),
         _HeaderAction(
@@ -146,12 +185,16 @@ class _Header extends StatelessWidget {
           onTap: () => context.push('/live/schedule'),
         ),
         const SizedBox(width: 8),
-        _HeaderAction(icon: DocmacIconlyLight.moreCircle, label: 'Live options', onTap: onMore),
+        _HeaderAction(
+            icon: DocmacIconlyLight.moreCircle,
+            label: 'Live options',
+            onTap: onMore),
       ]);
 }
 
 class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({required this.icon, required this.label, required this.onTap});
+  const _HeaderAction(
+      {required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -181,7 +224,13 @@ class _HeaderAction extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.favoritesActive, required this.onVoice, required this.onSchedule, required this.onKeypad, required this.onFavorites});
+  const _QuickActions({
+    required this.favoritesActive,
+    required this.onVoice,
+    required this.onSchedule,
+    required this.onKeypad,
+    required this.onFavorites,
+  });
   final bool favoritesActive;
   final VoidCallback onVoice;
   final VoidCallback onSchedule;
@@ -190,18 +239,41 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(children: [
-        Expanded(child: _QuickAction(icon: DocmacIconlyLight.voice, label: 'Voice', onTap: onVoice)),
+        Expanded(
+            child: _QuickAction(
+                icon: DocmacIconlyLight.voice,
+                label: 'Voice',
+                onTap: onVoice)),
         const SizedBox(width: 10),
-        Expanded(child: _QuickAction(icon: DocmacIconlyLight.calendar, label: 'Schedule', onTap: onSchedule)),
+        Expanded(
+            child: _QuickAction(
+                icon: DocmacIconlyLight.calendar,
+                label: 'Schedule',
+                onTap: onSchedule)),
         const SizedBox(width: 10),
-        Expanded(child: _QuickAction(icon: Icons.dialpad_rounded, label: 'Keypad', onTap: onKeypad)),
+        Expanded(
+            child: _QuickAction(
+                icon: Icons.dialpad_rounded,
+                label: 'Keypad',
+                onTap: onKeypad)),
         const SizedBox(width: 10),
-        Expanded(child: _QuickAction(icon: DocmacIconlyLight.heart, label: 'Favourites', active: favoritesActive, onTap: onFavorites)),
+        Expanded(
+            child: _QuickAction(
+          icon: DocmacIconlyLight.heart,
+          label: 'Favourites',
+          active: favoritesActive,
+          onTap: onFavorites,
+        )),
       ]);
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label, required this.onTap, this.active = false});
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -219,31 +291,47 @@ class _QuickAction extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: active ? scheme.primaryContainer : scheme.surface,
-          border: Border.all(color: active ? scheme.onSurface : Theme.of(context).dividerColor),
+          border: Border.all(
+              color: active ? scheme.onSurface : Theme.of(context).dividerColor),
           borderRadius: BorderRadius.circular(17),
         ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: active ? scheme.onSurface : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, size: 17, color: active ? scheme.surface : scheme.onSurface),
-          ),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-        ]),
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color:
+                      active ? scheme.onSurface : scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon,
+                    size: 17,
+                    color: active ? scheme.surface : scheme.onSurface),
+              ),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w700)),
+            ]),
       ),
     );
   }
 }
 
 class _CallList extends StatelessWidget {
-  const _CallList({required this.calls, required this.onCall});
-  final List<_Call> calls;
-  final ValueChanged<_Call> onCall;
+  const _CallList({
+    required this.calls,
+    required this.onCall,
+    required this.onToggleFavorite,
+    required this.onDelete,
+  });
+  final List<CallRecord> calls;
+  final ValueChanged<CallRecord> onCall;
+  final ValueChanged<CallRecord> onToggleFavorite;
+  final ValueChanged<CallRecord> onDelete;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -254,51 +342,143 @@ class _CallList extends StatelessWidget {
         ),
         child: Column(children: [
           for (var index = 0; index < calls.length; index++) ...[
-            _CallRow(call: calls[index], onCall: () => onCall(calls[index])),
-            if (index != calls.length - 1) Divider(height: 1, indent: 72, color: Theme.of(context).dividerColor),
+            _CallRow(
+              call: calls[index],
+              onCall: () => onCall(calls[index]),
+              onToggleFavorite: () => onToggleFavorite(calls[index]),
+              onDelete: () => onDelete(calls[index]),
+            ),
+            if (index != calls.length - 1)
+              Divider(
+                  height: 1,
+                  indent: 72,
+                  color: Theme.of(context).dividerColor),
           ],
         ]),
       );
 }
 
 class _CallRow extends StatelessWidget {
-  const _CallRow({required this.call, required this.onCall});
-  final _Call call;
+  const _CallRow({
+    required this.call,
+    required this.onCall,
+    required this.onToggleFavorite,
+    required this.onDelete,
+  });
+  final CallRecord call;
   final VoidCallback onCall;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onDelete;
+
+  void _showCallMenu(BuildContext context) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  call.favorite
+                      ? Icons.favorite
+                      : Icons.favorite_border_rounded,
+                  color: call.favorite ? Colors.red : null,
+                ),
+                title: Text(call.favorite
+                    ? 'Remove from Favourites'
+                    : 'Add to Favourites'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  onToggleFavorite();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.red),
+                title: const Text('Remove from Recent Calls',
+                    style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  onDelete();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onCall,
+      onLongPress: () => _showCallMenu(context),
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
         child: Row(children: [
           _Avatar(initial: call.initial, tint: call.tint),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(child: Text(call.name, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelLarge)),
-              if (call.favorite) ...[const SizedBox(width: 5), const Icon(DocmacIconlyLight.heart, size: 12)],
-            ]),
-            const SizedBox(height: 4),
-            Row(children: [
-              Icon(call.missed ? Icons.call_missed_outgoing_rounded : Icons.call_made_rounded, size: 14, color: call.missed ? scheme.error : scheme.onSurfaceVariant),
-              const SizedBox(width: 5),
-              Expanded(child: Text(call.detail, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12))),
-            ]),
-          ])),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Row(children: [
+                  Flexible(
+                      child: Text(call.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge)),
+                  if (call.favorite) ...[
+                    const SizedBox(width: 5),
+                    const Icon(DocmacIconlyLight.heart,
+                        size: 12, color: AppColors.accent),
+                  ],
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Icon(
+                    call.missed
+                        ? Icons.call_missed_outgoing_rounded
+                        : (call.isOutgoing
+                            ? Icons.call_made_rounded
+                            : Icons.call_received_rounded),
+                    size: 14,
+                    color: call.missed ? scheme.error : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                      child: Text(call.detail,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontSize: 12))),
+                ]),
+              ])),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(call.when, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10)),
+            Text(call.when,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(fontSize: 10)),
             const SizedBox(height: 8),
             Container(
               width: 31,
               height: 31,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
-              child: Icon(call.video ? DocmacIconlyLight.video : DocmacIconlyLight.voice, size: 16),
+              decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(
+                  call.video ? DocmacIconlyLight.video : DocmacIconlyLight.voice,
+                  size: 16),
             ),
           ]),
         ]),
@@ -317,8 +497,11 @@ class _Avatar extends StatelessWidget {
         width: 46,
         height: 46,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(15)),
-        child: Text(initial, style: const TextStyle(color: AppColors.brandBase, fontWeight: FontWeight.w800)),
+        decoration:
+            BoxDecoration(color: tint, borderRadius: BorderRadius.circular(15)),
+        child: Text(initial,
+            style: const TextStyle(
+                color: AppColors.brandBase, fontWeight: FontWeight.w800)),
       );
 }
 
@@ -336,9 +519,11 @@ class _EmptyCalls extends StatelessWidget {
         child: Column(children: [
           const Icon(DocmacIconlyLight.heart, size: 25),
           const SizedBox(height: 10),
-          Text('Nothing here yet', style: Theme.of(context).textTheme.labelLarge),
+          Text('Nothing here yet',
+              style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 3),
-          Text('Try a different filter or start a new signal.', style: Theme.of(context).textTheme.bodyMedium),
+          Text('Try a different filter or start a new signal.',
+              style: Theme.of(context).textTheme.bodyMedium),
         ]),
       );
 }
@@ -350,33 +535,39 @@ class _PeopleSheet extends StatelessWidget {
   Widget build(BuildContext context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Start a voice signal', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 5),
-            Text('Choose someone who is ready to talk.', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 14),
-            for (final person in _people)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: _Avatar(initial: person.$2, tint: person.$3),
-                title: Text(person.$1),
-                subtitle: Text(person.$4),
-                trailing: const Icon(DocmacIconlyLight.arrowRight, size: 18),
-                onTap: () => Navigator.pop(context, person.$5),
-              ),
-          ]),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Start a voice signal',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 5),
+                Text('Choose someone who is ready to talk.',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 14),
+                for (final person in _people)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: _Avatar(initial: person.$2, tint: person.$3),
+                    title: Text(person.$1),
+                    subtitle: Text(person.$4),
+                    trailing:
+                        const Icon(DocmacIconlyLight.arrowRight, size: 18),
+                    onTap: () => Navigator.pop(context, (person.$5, person.$1)),
+                  ),
+              ]),
         ),
       );
 }
 
-class _KeypadSheet extends StatefulWidget {
+class _KeypadSheet extends ConsumerStatefulWidget {
   const _KeypadSheet();
 
   @override
-  State<_KeypadSheet> createState() => _KeypadSheetState();
+  ConsumerState<_KeypadSheet> createState() => _KeypadSheetState();
 }
 
-class _KeypadSheetState extends State<_KeypadSheet> {
+class _KeypadSheetState extends ConsumerState<_KeypadSheet> {
   String _number = '';
 
   void _addToContacts() {
@@ -384,6 +575,15 @@ class _KeypadSheetState extends State<_KeypadSheet> {
     final number = _number;
     Navigator.of(context).pop();
     router.push('/contacts/new', extra: number);
+  }
+
+  void _initiateCall() {
+    if (_number.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    final dialed = _number;
+    ref.read(callsNotifierProvider.notifier).logOutgoingCall(target: dialed);
+    Navigator.of(context).pop();
+    context.push('/live/call/$dialed');
   }
 
   @override
@@ -405,7 +605,8 @@ class _KeypadSheetState extends State<_KeypadSheet> {
                       ),
               ),
             ),
-            Text(_number.isEmpty ? 'Enter a number' : _number, style: Theme.of(context).textTheme.headlineSmall),
+            Text(_number.isEmpty ? 'Enter a number' : _number,
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 18),
             for (final row in const [
               ['1', '2', '3'],
@@ -415,19 +616,35 @@ class _KeypadSheetState extends State<_KeypadSheet> {
             ])
               Row(children: [
                 for (final key in row)
-                  Expanded(child: Padding(padding: const EdgeInsets.all(5), child: _Key(value: key, onTap: () => setState(() => _number += key)))),
+                  Expanded(
+                      child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: _Key(
+                              value: key,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _number += key);
+                              }))),
               ]),
             const SizedBox(height: 10),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               IconButton(
                 tooltip: 'Delete number',
-                onPressed: _number.isEmpty ? null : () => setState(() => _number = _number.substring(0, _number.length - 1)),
+                onPressed: _number.isEmpty
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        setState(() =>
+                            _number = _number.substring(0, _number.length - 1));
+                      },
                 icon: const Icon(Icons.backspace_outlined),
               ),
               const SizedBox(width: 16),
               FilledButton(
-                onPressed: _number.isEmpty ? null : () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Calling $_number is not available yet.'))),
-                style: FilledButton.styleFrom(shape: const CircleBorder(), padding: const EdgeInsets.all(19)),
+                onPressed: _number.isEmpty ? null : _initiateCall,
+                style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(19)),
                 child: const Icon(DocmacIconlyLight.voice),
               ),
             ]),
@@ -448,22 +665,13 @@ class _Key extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          child: SizedBox(height: 48, child: Center(child: Text(value, style: Theme.of(context).textTheme.headlineSmall))),
+          child: SizedBox(
+              height: 48,
+              child: Center(
+                  child: Text(value,
+                      style: Theme.of(context).textTheme.headlineSmall))),
         ),
       );
-}
-
-class _Call {
-  const _Call({required this.personId, required this.name, required this.initial, required this.detail, required this.when, required this.tint, this.video = false, this.missed = false, this.favorite = false});
-  final String personId;
-  final String name;
-  final String initial;
-  final String detail;
-  final String when;
-  final Color tint;
-  final bool video;
-  final bool missed;
-  final bool favorite;
 }
 
 const _people = [
@@ -471,11 +679,4 @@ const _people = [
   ('David Okafor', 'D', Color(0xFFD9E9F8), 'Last signal yesterday', 'david'),
   ('Tobi Adeyemi', 'T', Color(0xFFE6DFEF), 'Available now', 'tobi'),
   ('Jack Wilson', 'J', Color(0xFFF5E6C8), 'Last signal Monday', 'jack'),
-];
-
-const _calls = [
-  _Call(personId: 'emma', name: 'Emma Clarke', initial: 'E', detail: 'Voice signal · 18 min', when: '6:21 PM', tint: AppColors.accent, favorite: true),
-  _Call(personId: 'david', name: 'David Okafor', initial: 'D', detail: 'Missed video signal', when: '4:40 PM', tint: Color(0xFFD9E9F8), video: true, missed: true),
-  _Call(personId: 'tobi', name: 'Tobi Adeyemi', initial: 'T', detail: 'Voice signal · 42 min', when: 'Yesterday', tint: Color(0xFFE6DFEF), favorite: true),
-  _Call(personId: 'jack', name: 'Jack Wilson', initial: 'J', detail: 'Voice signal · 6 min', when: 'Mon', tint: Color(0xFFF5E6C8)),
 ];
