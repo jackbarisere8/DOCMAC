@@ -105,7 +105,18 @@ class _TopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final photoUrl = ref.watch(currentUserProvider)?.photoUrl;
+    final user = ref.watch(currentUserProvider);
+    final photoUrl = user?.photoUrl;
+
+    // Derive a friendly first name — phone-auth users may have null displayName
+    final displayName = user?.displayName?.trim();
+    final firstName = (displayName?.isNotEmpty == true)
+        ? displayName!.split(' ').first
+        : null;
+    final initial = firstName?.substring(0, 1).toUpperCase() ?? 'D';
+    final greeting =
+        firstName != null ? 'Welcome back, $firstName' : 'Welcome back';
+
     return Row(
       children: [
         Expanded(
@@ -113,7 +124,7 @@ class _TopBar extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Welcome back, Jack',
+                greeting,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 2),
@@ -190,8 +201,8 @@ class _TopBar extends ConsumerWidget {
                   foregroundColor: Theme.of(context).colorScheme.primary,
                   backgroundImage: avatarImage,
                   child: avatarImage == null
-                      ? const Text('J',
-                          style: TextStyle(fontWeight: FontWeight.w800))
+                      ? Text(initial,
+                          style: const TextStyle(fontWeight: FontWeight.w800))
                       : null,
                 ),
               ),
