@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../config/router/app_back.dart';
@@ -80,19 +81,34 @@ class FoundryPage extends StatelessWidget {
             icon: DocmacIconlyLight.wallet,
             title: 'Earnings',
             subtitle: 'Rewards and your earning history',
-            onTap: () => _notice(context, 'Earnings will unlock when Forge Rewards is available.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Creator Earnings',
+              'Rewards and earning history',
+              'Earnings track direct community appreciations and reward allocations for verified perspectives.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.chart,
             title: 'Analytics',
             subtitle: 'Understand reach, reading, and response quality',
-            onTap: () => _notice(context, 'Analytics are preparing your first report.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Creator Analytics',
+              'Reading and response quality',
+              'Analytics reflect verified reader engagement, discussion depth, and qualitative resonance.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.graph,
             title: 'Reach',
             subtitle: 'See how perspectives travel through Forge',
-            onTap: () => _notice(context, 'Reach is measured by real attention, not empty impressions.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Signal Reach',
+              'How perspectives travel',
+              'Reach measures authentic cross-circle circulation and relay distribution.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.document,
@@ -110,25 +126,45 @@ class FoundryPage extends StatelessWidget {
             icon: DocmacIconlyLight.user,
             title: 'Audience',
             subtitle: 'People who return for your ideas',
-            onTap: () => _notice(context, 'Audience insights are on their way.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Audience Analytics',
+              'People who return for your ideas',
+              'Audience metrics track reader retention and signal distribution across your Relays and Drops.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.wallet,
             title: 'Payouts',
             subtitle: 'Set up where your Forge Rewards go',
-            onTap: () => _notice(context, 'Payouts require the Forge Rewards launch.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Creator Payouts',
+              'Set up where your Forge Rewards go',
+              'Docmac connects directly to your verified payout provider to disburse community rewards.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.star,
             title: 'Achievements',
             subtitle: 'Milestones earned through meaningful contribution',
-            onTap: () => _notice(context, 'Your achievements will appear here.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Creator Milestones',
+              'Earned through meaningful contribution',
+              'Milestones celebrate high-signal perspectives, thoughtful commentary, and steady curation.',
+            ),
           ),
           _FoundryItem(
             icon: DocmacIconlyLight.activity,
             title: 'Insights',
             subtitle: 'Patterns that can make your next idea stronger',
-            onTap: () => _notice(context, 'Insights will grow as you publish.'),
+            onTap: () => _showCreatorDetail(
+              context,
+              'Signal Insights',
+              'Patterns that make your ideas stronger',
+              'Insights distill conversation trends, highlight popular themes, and help guide your writing.',
+            ),
           ),
           const SizedBox(height: 14),
           Text('Creator path', style: Theme.of(context).textTheme.titleMedium),
@@ -140,8 +176,49 @@ class FoundryPage extends StatelessWidget {
     );
   }
 
-  static void _notice(BuildContext context, String message) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  static void _showCreatorDetail(
+    BuildContext context,
+    String title,
+    String subtitle,
+    String detail,
+  ) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 6),
+              Text(subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )),
+              const SizedBox(height: 16),
+              Text(detail,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(height: 1.45)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(sheetCtx),
+                  child: const Text('Understood'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Metric extends StatelessWidget {

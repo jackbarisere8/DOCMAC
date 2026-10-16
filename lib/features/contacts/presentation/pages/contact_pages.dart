@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
@@ -332,6 +333,52 @@ class ContactSettingsPage extends StatefulWidget {
 class _ContactSettingsPageState extends State<ContactSettingsPage> {
   bool _saveContacts = true;
 
+  void _showBlockedAccounts(BuildContext context) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Blocked Accounts',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 6),
+              Text(
+                'Blocked people cannot call or message you in your Orbit.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              for (final blocked in const [
+                'Spam Caller (+1 555-0199)',
+                'Unknown Signal (+44 7700 900077)'
+              ])
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      const Icon(Icons.block_rounded, color: Colors.red),
+                  title: Text(blocked),
+                  trailing: TextButton(
+                    onPressed: () {
+                      Navigator.pop(sheetCtx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Unblocked $blocked')),
+                      );
+                    },
+                    child: const Text('Unblock'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Contacts')),
@@ -341,11 +388,8 @@ class _ContactSettingsPageState extends State<ContactSettingsPage> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Blocked accounts'),
-              subtitle: const Text('6'),
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Blocked accounts will appear here.')),
-              ),
+              subtitle: const Text('2'),
+              onTap: () => _showBlockedAccounts(context),
             ),
             const SizedBox(height: 36),
             SwitchListTile(

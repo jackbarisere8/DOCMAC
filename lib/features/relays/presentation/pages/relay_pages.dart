@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
@@ -342,6 +343,7 @@ class _RelayHomePageState extends State<RelayHomePage> {
       };
 
   void _handleMenu(String value) {
+    final relay = RelayStore.current;
     switch (value) {
       case 'drop':
         context.push('/relays/drop');
@@ -356,7 +358,9 @@ class _RelayHomePageState extends State<RelayHomePage> {
         _notice('Tuned-in people management will open here.');
         return;
       case 'share':
-        _notice('Relay link copied.');
+        Clipboard.setData(ClipboardData(text: 'https://docmac.app/@${relay.handle}'));
+        HapticFeedback.selectionClick();
+        _notice('Relay link copied to clipboard.');
         return;
       case 'report':
         _notice('Report options will open here.');

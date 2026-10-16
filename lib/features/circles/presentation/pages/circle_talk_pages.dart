@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../config/router/app_back.dart';
@@ -611,9 +612,13 @@ class _CircleAddMembersPageState extends State<CircleAddMembersPage> {
             icon: DocmacIconlyLight.send,
             title: 'Invite to Circle via link',
             emphasis: true,
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Circle invite link copied.')),
-            ),
+            onTap: () {
+              Clipboard.setData(const ClipboardData(text: 'https://docmac.app/circle/invite'));
+              HapticFeedback.selectionClick();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Circle invite link copied.')),
+              );
+            },
           ),
           for (final person in people)
             CheckboxListTile(
@@ -893,9 +898,13 @@ class _CircleAccessPageState extends State<CircleAccessPage> {
                 trailing: IconButton(
                   tooltip: 'Copy invite link',
                   icon: const Icon(DocmacIconlyLight.document),
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invite link copied.')),
-                  ),
+                  onPressed: () {
+                    Clipboard.setData(const ClipboardData(text: 'https://docmac.app/circle/invite'));
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Invite link copied to clipboard.')),
+                    );
+                  },
                 ),
               ),
             ),

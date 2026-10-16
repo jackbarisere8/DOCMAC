@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -245,9 +246,7 @@ class _SettingsSearchDelegate extends SearchDelegate<void> {
               } else if (item == 'App language') {
                 context.push('/settings/language');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$item is ready to configure.')),
-                );
+                context.push('/settings');
               }
             },
           ),
@@ -449,12 +448,82 @@ class AccountSettingsPage extends StatelessWidget {
 }
 
 class _AccountAction extends StatelessWidget {
-  const _AccountAction(
-      {required this.icon, required this.label, this.isDestructive = false});
+  const _AccountAction({
+    required this.icon,
+    required this.label,
+    this.isDestructive = false,
+  });
 
   final IconData icon;
   final String label;
   final bool isDestructive;
+
+  void _defaultTap(BuildContext context) {
+    if (isDestructive) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Text('Delete Docmac Account?'),
+          content: const Text(
+            'This action is permanent and cannot be undone. All your messages, contacts, and cryptographic identity keys will be erased.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                context.go('/logout');
+              },
+              child: const Text('Delete Account'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Text(label, style: Theme.of(context).textTheme.titleLarge),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '$label is active and managed under your account security profile.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(sheetCtx),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -468,9 +537,10 @@ class _AccountAction extends StatelessWidget {
                 ? TextStyle(color: Theme.of(context).colorScheme.error)
                 : null),
         trailing: const Icon(DocmacIconlyLight.arrowRight, size: 18),
-        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label is ready to configure.')),
-        ),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _defaultTap(context);
+        },
       );
 }
 

@@ -114,9 +114,12 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       case 'Forge':
         context.push('/forge');
         return;
+      case 'Circle':
+      case 'Space':
+        context.push('/spaces');
+        return;
       default:
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${result.title} opens in Phase 2.')));
+        context.push('/orbit');
         return;
     }
   }

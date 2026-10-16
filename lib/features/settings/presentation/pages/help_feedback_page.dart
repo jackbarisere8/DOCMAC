@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -130,7 +129,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           const SizedBox(height: 8),
           for (final topic in topics)
             _HelpCenterRow(icon: topic.icon, title: topic.title, subtitle: topic.description,
-                onTap: () => _articleNotice(context, topic.title)),
+                onTap: () => _showArticle(context, topic.title, topic.description)),
           if (topics.isEmpty && articles.isEmpty)
             const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Center(child: Text('No help topics match that search.'))),
           if (articles.isNotEmpty) ...[
@@ -139,7 +138,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             const SizedBox(height: 8),
             for (final article in articles)
               _HelpCenterRow(icon: Icons.article_outlined, title: article,
-                  onTap: () => _articleNotice(context, article)),
+                  onTap: () => _showArticle(context, article)),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -152,8 +151,46 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
     );
   }
 
-  static void _articleNotice(BuildContext context, String title) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title help is coming next.')));
+  static void _showArticle(BuildContext context, String title, [String? subtitle]) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              if (subtitle != null) ...[
+                Text(subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        )),
+                const SizedBox(height: 16),
+              ],
+              Text(
+                'Docmac protects your privacy and signals with end-to-end encryption. All messages and voice sessions are encrypted on your device and can only be decrypted by the intended recipient.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SendFeedbackPage extends StatefulWidget {

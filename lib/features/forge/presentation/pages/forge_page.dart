@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../config/router/app_back.dart';
@@ -95,7 +96,10 @@ class _ForgePageState extends State<ForgePage> {
                       ),
                       IconButton(
                         tooltip: 'Search Forge',
-                        onPressed: () => _notice('Search is coming with Spaces.'),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          context.push('/search');
+                        },
                         icon: const Icon(DocmacIconlyLight.search),
                       ),
                     ],
@@ -184,9 +188,6 @@ class _ForgePageState extends State<ForgePage> {
 
   Future<void> _openPerspective(Perspective perspective) =>
       context.push('/forge/perspective', extra: perspective);
-
-  void _notice(String message) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(message)));
 }
 
 const _filters = ['Trending', 'Latest', 'Tuned In', 'Technology', 'Culture'];
