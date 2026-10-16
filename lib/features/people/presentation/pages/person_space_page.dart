@@ -1,53 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Phase 1's primary relationship surface. A person is not reduced to a
-/// message thread: Talk, Live and shared activity all begin here.
-class PersonSpacePage extends StatelessWidget {
+import '../../data/models/person_profile.dart';
+import '../providers/people_providers.dart';
+
+/// Docmac relationship surface: Talk, Live, and shared moments unified.
+class PersonSpacePage extends ConsumerWidget {
   const PersonSpacePage({super.key, required this.personId});
 
   final String personId;
 
-  _Person? get _person => _people[personId];
-
-  static const _people = <String, _Person>{
-    'emma': _Person('Emma Clarke', 'EC', 'Available',
-        'Reading, cooking and the occasional long walk.', true),
-    'jack': _Person('Jack Wilson', 'JW', 'Available',
-        'Taking the scenic route home.', true),
-    'david': _Person('David Okafor', 'DO', 'Quiet',
-        'Making thoughtful things with good people.', false),
-    'davidm': _Person('David Mensah', 'DM', 'Design Circle',
-        'Making thoughtful things with good people.', false),
-    'amara': _Person('Amara Okafor', 'AO', 'Active 12m ago',
-        'Exploring, learning, and building every day.', true),
-    'noraw': _Person('Nora Williams', 'NW', 'Sunday Notes',
-        'Writing, thinking, and finding the right words.', false),
-    'tobi': _Person('Tobi Adeyemi', 'TA', 'Last active Monday',
-        'Always up for a new idea.', false),
-  };
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
-    final current = _person;
-    if (current == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Person')),
-        body: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.person_off_outlined,
-                size: 48, color: colors.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text('Person not found',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text('No profile matches "$personId".',
-                style: Theme.of(context).textTheme.bodyMedium),
-          ]),
-        ),
-      );
-    }
+    final repoPerson = ref.watch(personByIdProvider(personId));
+
+    // Fallback if person is a dynamic contact or dialed number
+    final current = repoPerson ??
+        PersonProfile(
+          id: personId,
+          name: personId.length > 1
+              ? personId[0].toUpperCase() + personId.substring(1)
+              : personId.toUpperCase(),
+          initials: personId.substring(0, 1).toUpperCase(),
+          status: 'Active recently',
+          bio: 'Part of your private circle on Docmac.',
+          isOnline: false,
+        );
+
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -62,7 +43,7 @@ class PersonSpacePage extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'Person options',
-              onSelected: (value) => _handleOption(context, value),
+              onSelected: (value) => _handleOption(context, value, current.name),
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'share', child: Text('Share profile')),
                 PopupMenuItem(value: 'block', child: Text('Block person')),
@@ -108,8 +89,7 @@ class PersonSpacePage extends StatelessWidget {
     );
   }
 
-  void _handleOption(BuildContext context, String option) {
-    final name = _person?.name ?? 'This person';
+  void _handleOption(BuildContext context, String option, String name) {
     final message = switch (option) {
       'share' => "$name\u2019s profile is ready to share.",
       'block' => 'Block controls will keep $name out of your Orbit.',
@@ -123,7 +103,7 @@ class PersonSpacePage extends StatelessWidget {
 class _LiveTab extends StatelessWidget {
   const _LiveTab({required this.person, required this.onCall});
 
-  final _Person person;
+  final PersonProfile person;
   final VoidCallback onCall;
 
   @override
@@ -134,13 +114,13 @@ class _LiveTab extends StatelessWidget {
             Icon(Icons.graphic_eq_rounded,
                 size: 46, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 16),
-            Text('Meet ${person.name.split(' ').first} live',
+            Text('Meet ${person.shortName} live',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              person.isAvailable
-                  ? '${person.name.split(' ').first} is available for a voice call.'
-                  : 'You can start a voice call when ${person.name.split(' ').first} is ready.',
+              person.isOnline
+                  ? '${person.shortName} is available for a voice call.'
+                  : 'You can start a voice call when ${person.shortName} is ready.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -158,7 +138,7 @@ class _TalkTab extends StatelessWidget {
   const _TalkTab(
       {required this.person, required this.onTalk, required this.onLive});
 
-  final _Person person;
+  final PersonProfile person;
   final VoidCallback onTalk;
   final VoidCallback onLive;
 
@@ -197,9 +177,9 @@ class _TalkTab extends StatelessWidget {
                   icon: Icons.add_reaction_outlined,
                   title: 'Share a moment',
                   detail:
-                      'Let ${person.name.split(' ').first} see a day-in-the-life update',
+                      'Let ${person.shortName} see a day-in-the-life update',
                   onTap: () => context.push(
-                      '/moments?shareWith=${person.name.split(' ').first}')),
+                      '/moments?shareWith=${Uri.encodeComponent(person.shortName)}')),
             ],
           ),
         ),
@@ -216,7 +196,7 @@ class _TalkTab extends StatelessWidget {
 
 class _PersonHero extends StatelessWidget {
   const _PersonHero({required this.person});
-  final _Person person;
+  final PersonProfile person;
 
   @override
   Widget build(BuildContext context) {
@@ -225,8 +205,8 @@ class _PersonHero extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 38,
-          backgroundColor: colors.primaryContainer,
-          foregroundColor: colors.onPrimaryContainer,
+          backgroundColor: person.tint.withValues(alpha: 0.2),
+          foregroundColor: colors.onSurface,
           child: Text(person.initials,
               style:
                   const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
@@ -240,9 +220,9 @@ class _PersonHero extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 5),
               Row(children: [
-                Icon(person.isAvailable ? Icons.circle : Icons.bedtime_outlined,
+                Icon(person.isOnline ? Icons.circle : Icons.bedtime_outlined,
                     size: 12,
-                    color: person.isAvailable
+                    color: person.isOnline
                         ? colors.primary
                         : colors.onSurfaceVariant),
                 const SizedBox(width: 6),
@@ -271,61 +251,35 @@ class _RelationshipAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: EdgeInsets.zero,
+        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        subtitle: Text(detail, style: Theme.of(context).textTheme.bodySmall),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
         onTap: onTap,
-        leading: Icon(icon, color: Theme.of(context).colorScheme.secondary),
-        title: Text(title),
-        subtitle: Text(detail),
-        trailing: const Icon(Icons.chevron_right_rounded),
       );
 }
 
 class _MomentsTab extends StatelessWidget {
   const _MomentsTab({required this.person});
-  final _Person person;
+  final PersonProfile person;
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text('Moments with ${person.name.split(' ').first}',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          const Text('Shared updates disappear after 24 hours.'),
-          const SizedBox(height: 20),
-          const _MomentCard(
-              icon: Icons.menu_book_outlined,
-              title: 'A good read',
-              subtitle: 'Emma \u00b7 2h left'),
-          const SizedBox(height: 12),
-          const _MomentCard(
-              icon: Icons.wb_sunny_outlined,
-              title: 'Slow Sunday',
-              subtitle: 'You \u00b7 8h left'),
-        ],
-      );
-}
-
-class _MomentCard extends StatelessWidget {
-  const _MomentCard(
-      {required this.icon, required this.title, required this.subtitle});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 118,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(20),
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.star_outline_rounded, size: 42),
+            const SizedBox(height: 14),
+            Text('No shared moments with ${person.shortName} yet.',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => context.push(
+                  '/moments?shareWith=${Uri.encodeComponent(person.shortName)}'),
+              child: const Text('Post a moment'),
+            ),
+          ]),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: Theme.of(context).colorScheme.onPrimaryContainer),
-          const Spacer(),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          Text(subtitle),
-        ]),
       );
 }
 
@@ -334,14 +288,14 @@ class _MediaTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const _EmptyRelationshipTab(
       icon: Icons.photo_library_outlined,
-      title: 'Media shared here will live together.');
+      title: 'Photos and videos shared in this talk will appear here.');
 }
 
 class _FilesTab extends StatelessWidget {
   const _FilesTab();
   @override
   Widget build(BuildContext context) => const _EmptyRelationshipTab(
-      icon: Icons.folder_open_outlined,
+      icon: Icons.attach_file_rounded,
       title: 'Files shared here will live together.');
 }
 
@@ -358,14 +312,4 @@ class _EmptyRelationshipTab extends StatelessWidget {
             const SizedBox(height: 14),
             Text(title, textAlign: TextAlign.center)
           ])));
-}
-
-class _Person {
-  const _Person(
-      this.name, this.initials, this.status, this.bio, this.isAvailable);
-  final String name;
-  final String initials;
-  final String status;
-  final String bio;
-  final bool isAvailable;
 }

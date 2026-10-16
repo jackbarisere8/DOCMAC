@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,16 +8,25 @@ import '../../../../core/ui/docmac_community_icons.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../me/presentation/profile_media_store.dart';
+import '../../../people/data/models/person_profile.dart';
+import '../../../people/presentation/providers/people_providers.dart';
 
-class OrbitPage extends StatefulWidget {
+class OrbitPage extends ConsumerStatefulWidget {
   const OrbitPage({super.key});
 
   @override
-  State<OrbitPage> createState() => _OrbitPageState();
+  ConsumerState<OrbitPage> createState() => _OrbitPageState();
 }
 
-class _OrbitPageState extends State<OrbitPage> {
+class _OrbitPageState extends ConsumerState<OrbitPage> {
+  final TextEditingController _searchController = TextEditingController();
   String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +43,18 @@ class _OrbitPageState extends State<OrbitPage> {
                   const _TopBar(),
                   const SizedBox(height: 22),
                   _SearchField(
-                      onChanged: (value) => setState(() => _query = value)),
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _query = value),
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() => _query = '');
+                    },
+                    onSubmitted: (query) {
+                      if (query.trim().isNotEmpty) {
+                        context.push('/search?q=${Uri.encodeComponent(query)}');
+                      }
+                    },
+                  ),
                   const SizedBox(height: 26),
                   const _SectionTitle(
                     eyebrow: 'YOUR PULSE',
@@ -47,15 +66,24 @@ class _OrbitPageState extends State<OrbitPage> {
                   _RowHeading(
                     title: 'Your Orbit',
                     action: 'People',
-                    onTap: () => context.push('/people'),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/people/all');
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _InnerOrbit(onTap: () => context.push('/people')),
+                  _InnerOrbit(onTap: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/people/all');
+                  }),
                   const SizedBox(height: 30),
                   _RowHeading(
                     title: 'Moments',
                     action: 'See archive',
-                    onTap: () => context.push('/moments'),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/moments');
+                    },
                   ),
                   const SizedBox(height: 12),
                   const SizedBox(height: 136, child: _MomentStrip()),
@@ -63,23 +91,38 @@ class _OrbitPageState extends State<OrbitPage> {
                   _RowHeading(
                     title: 'Forge',
                     action: 'Explore ideas',
-                    onTap: () => context.push('/forge'),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/forge');
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _ForgeEntry(onTap: () => context.push('/forge')),
+                  _ForgeEntry(onTap: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/forge');
+                  }),
                   const SizedBox(height: 30),
                   _RowHeading(
                     title: 'Recent Drops',
                     action: 'View Relays',
-                    onTap: () => context.push('/relays'),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/relays');
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _RelayEntry(onTap: () => context.push('/relays')),
+                  _RelayEntry(onTap: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/relays');
+                  }),
                   const SizedBox(height: 30),
                   _RowHeading(
                     title: 'Active now',
                     action: 'View all',
-                    onTap: () => context.push('/people'),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/people/all');
+                    },
                   ),
                   const SizedBox(height: 12),
                   _ActivePeople(query: _query),
@@ -108,7 +151,6 @@ class _TopBar extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final photoUrl = user?.photoUrl;
 
-    // Derive a friendly first name — phone-auth users may have null displayName
     final displayName = user?.displayName?.trim();
     final firstName = (displayName?.isNotEmpty == true)
         ? displayName!.split(' ').first
@@ -136,7 +178,10 @@ class _TopBar extends ConsumerWidget {
           ),
         ),
         InkWell(
-          onTap: () => context.push('/notifications'),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            context.push('/notifications');
+          },
           borderRadius: BorderRadius.circular(999),
           child: SizedBox(
             width: 44,
@@ -186,7 +231,10 @@ class _TopBar extends ConsumerWidget {
             }
 
             return InkWell(
-              onTap: () => context.go('/me'),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                context.go('/me');
+              },
               borderRadius: BorderRadius.circular(999),
               child: Container(
                 width: 44,
@@ -215,20 +263,54 @@ class _TopBar extends ConsumerWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onChanged});
+  const _SearchField({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+    required this.onSubmitted,
+  });
 
+  final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return TextField(
+      controller: controller,
       onChanged: onChanged,
-      onTap: () => context.push('/search'),
-      readOnly: true,
-      decoration: const InputDecoration(
+      onSubmitted: onSubmitted,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
         hintText: 'Search people, talks and moments',
-        prefixIcon: Icon(DocmacIconlyLight.search),
-        suffixIcon: Icon(DocmacIconlyLight.filter, size: 19),
+        prefixIcon: const Icon(DocmacIconlyLight.search),
+        suffixIcon: controller.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded, size: 18),
+                onPressed: onClear,
+              )
+            : IconButton(
+                icon: const Icon(DocmacIconlyLight.filter, size: 19),
+                onPressed: () => context.push('/search'),
+              ),
+        filled: true,
+        fillColor: scheme.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+        ),
       ),
     );
   }
@@ -265,28 +347,40 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _PulseGrid extends StatelessWidget {
+class _PulseGrid extends ConsumerWidget {
   const _PulseGrid();
 
   @override
-  Widget build(BuildContext context) {
-    return const Row(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pulse = ref.watch(orbitPulseProvider);
+    final momentsStr = pulse.momentsCount.toString().padLeft(2, '0');
+    final nearbyStr = pulse.nearbyCount.toString().padLeft(2, '0');
+
+    return Row(
       children: [
         Expanded(
           child: _PulseCard(
-            value: '05',
+            value: momentsStr,
             label: 'new moments',
             icon: DocmacIconlyLight.star,
             tint: AppColors.lightCard,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              context.push('/moments');
+            },
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: _PulseCard(
-            value: '03',
+            value: nearbyStr,
             label: 'people nearby',
             icon: DocmacIconlyLight.activity,
             tint: AppColors.lightDivider,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              context.push('/people/discover');
+            },
           ),
         ),
       ],
@@ -300,47 +394,56 @@ class _PulseCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.tint,
+    required this.onTap,
   });
 
   final String value;
   final String label;
   final IconData icon;
   final Color tint;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 105,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon,
-                color: Theme.of(context).colorScheme.primary, size: 17),
+        child: Container(
+          height: 105,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
-          const Spacer(),
-          Text(value,
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800)),
-          Text(label,
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 11)),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon,
+                    color: Theme.of(context).colorScheme.primary, size: 17),
+              ),
+              const Spacer(),
+              Text(value,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800)),
+              Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -400,54 +503,63 @@ class _RowHeading extends StatelessWidget {
   }
 }
 
-class _InnerOrbit extends StatelessWidget {
+class _InnerOrbit extends ConsumerWidget {
   const _InnerOrbit({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    const people = [
-      ('Emma', 'E'),
-      ('David', 'D'),
-      ('Amara', 'A'),
-      ('Nora', 'N'),
-      ('Tobi', 'T')
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final people = ref.watch(innerOrbitPeopleProvider);
     final scheme = Theme.of(context).colorScheme;
+
     return Material(
       color: scheme.surface,
       borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              for (final person in people)
-                Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            for (final person in people)
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.push('/person/${person.id}');
+                  },
+                  borderRadius: BorderRadius.circular(14),
                   child: Column(
                     children: [
                       CircleAvatar(
                         radius: 21,
-                        backgroundColor: scheme.primaryContainer,
-                        foregroundColor: scheme.onPrimaryContainer,
-                        child: Text(person.$2,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w900)),
+                        backgroundColor: person.tint.withValues(alpha: 0.2),
+                        foregroundColor: scheme.onSurface,
+                        child: Text(
+                          person.shortName.substring(0, 1),
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                       const SizedBox(height: 7),
-                      Text(person.$1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 10, fontWeight: FontWeight.w700)),
+                      Text(
+                        person.shortName,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ),
-              Container(
-                width: 30,
-                height: 30,
+              ),
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                     color: scheme.secondaryContainer, shape: BoxShape.circle),
                 child: DocmacCommunityIcon(
@@ -457,8 +569,8 @@ class _InnerOrbit extends StatelessWidget {
                   semanticLabel: 'View people',
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -539,7 +651,11 @@ class _RelayEntry extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
@@ -614,7 +730,10 @@ class _MomentStrip extends StatelessWidget {
       itemBuilder: (context, index) {
         final moment = moments[index];
         return InkWell(
-          onTap: () => context.push('/moments'),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            context.push('/moments');
+          },
           borderRadius: BorderRadius.circular(18),
           child: Container(
             width: 118,
@@ -672,21 +791,20 @@ class _MomentStrip extends StatelessWidget {
   }
 }
 
-class _ActivePeople extends StatelessWidget {
+class _ActivePeople extends ConsumerWidget {
   const _ActivePeople({required this.query});
 
   final String query;
 
   @override
-  Widget build(BuildContext context) {
-    final people = const [
-      ('Jack', 'Listening to your update', 'J', true),
-      ('Emma', 'Last active 2m ago', 'E', true),
-      ('David', 'Typing in Weekend plans', 'D', false),
-    ]
-        .where(
-            (person) => person.$1.toLowerCase().contains(query.toLowerCase()))
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(activeNowPeopleProvider);
+    final people = all
+        .where((person) =>
+            person.name.toLowerCase().contains(query.toLowerCase()) ||
+            person.status.toLowerCase().contains(query.toLowerCase()))
         .toList();
+
     if (people.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(18),
@@ -703,13 +821,13 @@ class _ActivePeople extends StatelessWidget {
       child: Column(
         children: [
           for (var index = 0; index < people.length; index++) ...[
-            _PersonRow(
-                name: people[index].$1,
-                detail: people[index].$2,
-                initial: people[index].$3,
-                active: people[index].$4),
+            _PersonRow(person: people[index]),
             if (index != people.length - 1)
-              const Divider(height: 1, indent: 66),
+              Divider(
+                height: 1,
+                indent: 66,
+                color: Theme.of(context).dividerColor,
+              ),
           ],
         ],
       ),
@@ -718,22 +836,17 @@ class _ActivePeople extends StatelessWidget {
 }
 
 class _PersonRow extends StatelessWidget {
-  const _PersonRow({
-    required this.name,
-    required this.detail,
-    required this.initial,
-    required this.active,
-  });
+  const _PersonRow({required this.person});
 
-  final String name;
-  final String detail;
-  final String initial;
-  final bool active;
+  final PersonProfile person;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.push('/person/${name.toLowerCase()}'),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        context.push('/person/${person.id}');
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -743,10 +856,12 @@ class _PersonRow extends StatelessWidget {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: active ? AppColors.darkTextPrimary : AppColors.lightCard,
+                color: person.isOnline
+                    ? person.tint.withValues(alpha: 0.25)
+                    : AppColors.lightCard,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(initial,
+              child: Text(person.initials,
                   style: const TextStyle(
                       color: AppColors.brandBase, fontWeight: FontWeight.w800)),
             ),
@@ -755,12 +870,12 @@ class _PersonRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text(person.name,
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(detail,
+                  Text(person.status,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -769,7 +884,10 @@ class _PersonRow extends StatelessWidget {
               ),
             ),
             InkWell(
-              onTap: () => context.push('/chat?person=${name.toLowerCase()}'),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                context.push('/talk/person/${person.id}');
+              },
               borderRadius: BorderRadius.circular(9),
               child: Container(
                 padding: const EdgeInsets.all(8),
@@ -793,47 +911,80 @@ class _SpaceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        _SpaceCard(label: 'Weekend\nplans', icon: DocmacIconlyLight.discovery),
-        _SpaceCard(label: 'Design\nclub', icon: DocmacIconlyLight.category),
-        _SpaceCard(label: 'Music\nroom', icon: DocmacIconlyLight.activity),
+        _SpaceCard(
+          label: 'Weekend\nplans',
+          icon: DocmacIconlyLight.discovery,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            context.push('/spaces');
+          },
+        ),
+        _SpaceCard(
+          label: 'Design\nclub',
+          icon: DocmacIconlyLight.category,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            context.push('/spaces');
+          },
+        ),
+        _SpaceCard(
+          label: 'Music\nroom',
+          icon: DocmacIconlyLight.activity,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            context.push('/spaces');
+          },
+        ),
       ],
     );
   }
 }
 
 class _SpaceCard extends StatelessWidget {
-  const _SpaceCard({required this.label, required this.icon});
+  const _SpaceCard({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   final String label;
   final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 100,
-      height: 104,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-          const Spacer(),
-          Text(label,
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  height: 1.12)),
-        ],
+        child: Container(
+          width: 100,
+          height: 104,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+              const Spacer(),
+              Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.12)),
+            ],
+          ),
+        ),
       ),
     );
   }
