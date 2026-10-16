@@ -91,6 +91,83 @@ class AuthService {
     await _firebaseAuth.signInWithCredential(credential);
   }
 
+  /// Signs up a new account with email, password, username, and full name.
+  /// This creates the Firebase Auth user and persists the claimed username
+  /// and user profile document in Firestore in one verified transaction.
+  Future<AppUser?> signUpWithEmailAndUsername({
+    required String email,
+    required String password,
+    required String username,
+    required String displayName,
+  }) async {
+    final normalizedUsername = _normalizeUsername(username);
+    if (!_isValidUsername(normalizedUsername)) {
+      throw const AuthServiceUnavailableException(
+        'Use 3–20 lowercase letters, numbers, or underscores for your username.',
+      );
+    }
+
+    final isAvailable = await isUsernameAvailable(normalizedUsername);
+    if (!isAvailable) {
+      throw const UsernameUnavailableException();
+    }
+
+    final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final user = credential.user;
+    if (user == null) {
+      return null;
+    }
+
+    final name = displayName.trim();
+    if (name.isNotEmpty) {
+      await user.updateDisplayName(name);
+      await user.reload();
+    }
+
+    final firestore = FirebaseFirestore.instance;
+    await firestore.runTransaction((transaction) async {
+      final usernameRef =
+          firestore.collection('usernames').doc(normalizedUsername);
+      final handleRef = firestore.collection('handles').doc(normalizedUsername);
+      final usernameSnapshot = await transaction.get(usernameRef);
+      final handleSnapshot = await transaction.get(handleRef);
+      if (usernameSnapshot.exists &&
+          usernameSnapshot.data()?['uid'] != user.uid) {
+        throw const UsernameUnavailableException();
+      }
+      if (handleSnapshot.exists &&
+          handleSnapshot.data()?['ownerId'] != user.uid) {
+        throw const UsernameUnavailableException();
+      }
+      transaction.set(usernameRef, {'uid': user.uid});
+      transaction.set(handleRef, {
+        'kind': 'user',
+        'ownerId': user.uid,
+      });
+      transaction.set(
+        firestore.collection('users').doc(user.uid),
+        {
+          'username': normalizedUsername,
+          'displayName': name.isNotEmpty ? name : normalizedUsername,
+          'onboardingComplete': true,
+          'contactEmail': email.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    });
+
+    final updatedUser = _firebaseAuth.currentUser ?? user;
+    return AppUser(
+      id: updatedUser.uid,
+      email: updatedUser.email ?? email,
+      displayName: updatedUser.displayName ?? name,
+    );
+  }
+
   /// Completes a verified-phone account with Docmac's public profile. Phone
   /// OTP is the only authentication method; no hidden email/password account
   /// is created.
@@ -156,16 +233,20 @@ class AuthService {
     });
   }
 
-  /// Whether the signed-in phone user has finished profile onboarding.
+  /// Whether the signed-in user has finished profile onboarding.
   Future<bool> hasCompletedOnboarding() async {
     final user = _firebaseAuth.currentUser;
     if (user == null) return false;
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get()
-        .timeout(const Duration(seconds: 10));
-    return snapshot.data()?['onboardingComplete'] == true;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return snapshot.data()?['onboardingComplete'] == true;
+    } catch (_) {
+      return user.displayName != null && user.displayName!.isNotEmpty;
+    }
   }
 
   Future<bool> isUsernameAvailable(String username) async {
