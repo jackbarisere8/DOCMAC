@@ -7,7 +7,13 @@ import '../../../../core/models/app_user.dart';
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 final authStateProvider = StreamProvider.autoDispose<User?>((ref) {
-  if (Firebase.apps.isEmpty) {
+  // `Firebase.apps` throws when Firebase was never initialized (notably in
+  // widget tests). Degrade to signed-out instead of crashing providers.
+  try {
+    if (Firebase.apps.isEmpty) {
+      return Stream<User?>.value(null);
+    }
+  } catch (_) {
     return Stream<User?>.value(null);
   }
 

@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
 import '../../features/auth/presentation/pages/auth_page.dart';
 import '../../features/auth/presentation/pages/hero_screen.dart';
@@ -31,10 +34,65 @@ import '../../features/settings/presentation/pages/help_feedback_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+
   return GoRouter(
     initialLocation: '/loading',
-    // Startup restores only completed phone-authenticated profiles. A verified
-    // phone without a completed profile remains in the signup journey.
+    redirect: (context, state) {
+      final loc = state.uri.path;
+      final isPublic = loc == '/' ||
+          loc == '/loading' ||
+          loc.startsWith('/auth') ||
+          loc.startsWith('/register') ||
+          loc == '/forgot-password' ||
+          loc == '/verify-email';
+
+      final user = authState.valueOrNull;
+      final isLoggedIn = user != null;
+
+      if (!isLoggedIn && !isPublic) {
+        return '/auth';
+      }
+      return null;
+    },
+    errorBuilder: (context, state) => Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Page Not Found'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '404',
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The requested page was not found.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: () => context.go('/orbit'),
+                child: const Text('Return Home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     routes: [
       GoRoute(
         path: '/loading',
@@ -141,6 +199,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forge',
         builder: (context, state) => const ForgePage(),
+      ),
+      GoRoute(
+        path: '/forge/new',
+        builder: (context, state) => const CreatePerspectivePage(),
+      ),
+      GoRoute(
+        path: '/forge/perspective',
+        builder: (context, state) => PerspectivePage(
+          perspective: state.extra as Perspective,
+        ),
       ),
       GoRoute(
         path: '/relays',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
@@ -177,14 +178,12 @@ class _ForgePageState extends State<ForgePage> {
   }
 
   Future<void> _createPerspective() async {
-    final result = await Navigator.of(context).push<Perspective>(
-      MaterialPageRoute(builder: (_) => const CreatePerspectivePage()),
-    );
+    final result = await context.push<Perspective>('/forge/new');
     if (result != null && mounted) setState(() => _perspectives.insert(0, result));
   }
 
-  Future<void> _openPerspective(Perspective perspective) => Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => PerspectivePage(perspective: perspective)));
+  Future<void> _openPerspective(Perspective perspective) =>
+      context.push('/forge/perspective', extra: perspective);
 
   void _notice(String message) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(message)));

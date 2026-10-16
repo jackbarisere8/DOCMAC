@@ -10,10 +10,17 @@ class FirebaseConfiguration {
   FirebaseConfiguration._();
 
   static bool get isConfigured {
-    final options = DefaultFirebaseOptions.currentPlatform;
-    return !_isPlaceholder(options.apiKey) &&
-        !_isPlaceholder(options.appId) &&
-        !_isPlaceholder(options.projectId);
+    // `currentPlatform` throws UnsupportedError on unconfigured platforms
+    // (and in some test harnesses). Treat that as unconfigured so callers
+    // degrade to preview/offline instead of crashing.
+    try {
+      final options = DefaultFirebaseOptions.currentPlatform;
+      return !_isPlaceholder(options.apiKey) &&
+          !_isPlaceholder(options.appId) &&
+          !_isPlaceholder(options.projectId);
+    } catch (_) {
+      return false;
+    }
   }
 
   static bool get isInitialized => Firebase.apps.isNotEmpty;

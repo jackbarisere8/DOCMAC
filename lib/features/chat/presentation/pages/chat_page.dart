@@ -780,8 +780,7 @@ class _ChatEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Center(
+    return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -809,8 +808,7 @@ class _ChatEmptyState extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

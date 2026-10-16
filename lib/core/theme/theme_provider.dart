@@ -1,33 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages and persists the user's Light, Dark, or System appearance choice.
-class ThemeProvider extends ChangeNotifier {
+class ThemeProvider extends Notifier<ThemeMode> {
   static const _prefsKey = 'docmac_theme_mode';
 
-  ThemeMode _themeMode = ThemeMode.system;
   SharedPreferences? _preferences;
-
-  ThemeMode get themeMode => _themeMode;
-
   bool _initialized = false;
 
   bool get isInitialized => _initialized;
+  ThemeMode get themeMode => state;
 
-  /// Loads the saved preference before the first application frame.
+  @override
+  ThemeMode build() {
+    _loadPreferences();
+    return ThemeMode.system;
+  }
+
+  Future<void> _loadPreferences() async {
+    _preferences ??= await SharedPreferences.getInstance();
+    final saved = _preferences!.getString(_prefsKey);
+    final mode = _fromString(saved) ?? ThemeMode.system;
+    _initialized = true;
+    if (state != mode) {
+      state = mode;
+    }
+  }
+
+  /// Loads the saved preference before the first application frame or when needed.
   Future<void> init() async {
     _preferences = await SharedPreferences.getInstance();
-    _themeMode =
-        _fromString(_preferences!.getString(_prefsKey)) ?? ThemeMode.system;
+    final saved = _preferences!.getString(_prefsKey);
+    final mode = _fromString(saved) ?? ThemeMode.system;
     _initialized = true;
-    notifyListeners();
+    state = mode;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    if (_themeMode == mode) return;
+    if (state == mode) return;
 
-    _themeMode = mode;
-    notifyListeners();
+    state = mode;
 
     final preferences = _preferences ?? await SharedPreferences.getInstance();
     await preferences.setString(_prefsKey, _toString(mode));
@@ -50,3 +63,6 @@ class ThemeProvider extends ChangeNotifier {
     };
   }
 }
+
+final themeProvider =
+    NotifierProvider<ThemeProvider, ThemeMode>(ThemeProvider.new);

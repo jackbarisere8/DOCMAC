@@ -45,10 +45,16 @@ List<ChatMessage> curatedChatMessages(String chatId) {
 /// and `firestore.rules` chat-member rule).
 final chatMessagesProvider =
     StreamProvider.family<List<ChatMessage>, String>((ref, chatId) {
-  final user = ref.watch(currentUserProvider);
-  final repository = ref.watch(chatRepositoryProvider);
-  if (!FirebaseConfiguration.isAvailable || user == null) {
+  // Never crash the chat surface when Firebase is unreachable (tests,
+  // desktop placeholders, offline). Any throw degrades to preview.
+  try {
+    final user = ref.watch(currentUserProvider);
+    if (!FirebaseConfiguration.isAvailable || user == null) {
+      return Stream.value(curatedChatMessages(chatId));
+    }
+    final repository = ref.watch(chatRepositoryProvider);
+    return repository.streamMessages(chatId);
+  } catch (_) {
     return Stream.value(curatedChatMessages(chatId));
   }
-  return repository.streamMessages(chatId);
 });

@@ -203,104 +203,6 @@ class _TopBar extends ConsumerWidget {
   }
 }
 
-class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 174,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Stack(
-        children: [
-          const Positioned(right: -16, top: -8, child: _SignalArtwork()),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'SUNDAY · 06:37',
-                  style: TextStyle(
-                    color: AppColors.darkTextPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .8,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const Text(
-                'Your circle is here.',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.9,
-                ),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'Three people shared a moment with you today.',
-                style: TextStyle(
-                    color: AppColors.darkTextSecondary, fontSize: 12.5),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SignalArtwork extends StatelessWidget {
-  const _SignalArtwork();
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: .85,
-      child: SizedBox(
-        width: 134,
-        height: 126,
-        child: Stack(
-          children: [
-            for (final item in const [
-              (16.0, 52.0, 26.0, AppColors.darkTextPrimary),
-              (52.0, 18.0, 48.0, AppColors.primary),
-              (88.0, 54.0, 22.0, AppColors.darkTextSecondary),
-              (50.0, 78.0, 34.0, AppColors.darkTextPrimary),
-            ])
-              Positioned(
-                left: item.$1,
-                top: item.$2,
-                child: Transform.rotate(
-                  angle: .785,
-                  child: Container(
-                    width: item.$3,
-                    height: item.$3,
-                    decoration: BoxDecoration(
-                      color: item.$4.withValues(alpha: .68),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onChanged});
 
@@ -834,7 +736,7 @@ class _PersonRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(initial,
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: AppColors.brandBase, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 12),

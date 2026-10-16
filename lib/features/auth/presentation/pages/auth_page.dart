@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 
 import 'dart:math' as math;
 
@@ -1569,56 +1568,6 @@ class _AccountScaffold extends StatelessWidget {
                   child,
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BrandLockup extends StatelessWidget {
-  const _BrandLockup();
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(9),
-            child: Image.asset('assets/images/docmac_logo.png',
-                width: 28, height: 28),
-          ),
-          const SizedBox(width: 8),
-          Text('Docmac',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-        ],
-      );
-}
-
-class _SignupProgress extends StatelessWidget {
-  const _SignupProgress({required this.step});
-  final int step;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: List.generate(
-        6,
-        (index) => Expanded(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: 4,
-            margin: EdgeInsets.only(right: index == 5 ? 0 : 5),
-            decoration: BoxDecoration(
-              color: index <= step
-                  ? scheme.primary
-                  : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(99),
             ),
           ),
         ),

@@ -1229,33 +1229,12 @@ class _TalkSearchState extends State<_TalkSearch> {
         height: 52,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: focused
-                ? [
-                    scheme.primary.withValues(alpha: .13),
-                    scheme.surface,
-                  ]
-                : [
-                    scheme.surface,
-                    scheme.surfaceContainerHighest.withValues(alpha: .42),
-                  ],
-          ),
+          color: scheme.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: focused
-                ? scheme.primary.withValues(alpha: .65)
-                : Theme.of(context).dividerColor,
-            width: focused ? 1.4 : 1,
+            color: focused ? scheme.primary : Theme.of(context).dividerColor,
+            width: 1,
           ),
-          boxShadow: focused
-              ? [
-                  BoxShadow(
-                    color: scheme.primary.withValues(alpha: .13),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           children: [

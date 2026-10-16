@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart' as provider;
 
 import 'config/router/app_router.dart';
 import 'config/firebase/firebase_configuration.dart';
@@ -51,17 +50,10 @@ Future<void> initializeFirebase() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final themeProvider = ThemeProvider();
-  await Future.wait([
-    initializeFirebase(),
-    themeProvider.init(),
-  ]);
+  await initializeFirebase();
 
   runApp(
-    provider.ChangeNotifierProvider<ThemeProvider>.value(
-      value: themeProvider,
-      child: const ProviderScope(child: DocmacApp()),
-    ),
+    const ProviderScope(child: DocmacApp()),
   );
 }
 
@@ -71,7 +63,7 @@ class DocmacApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    final themeMode = provider.Provider.of<ThemeProvider>(context).themeMode;
+    final themeMode = ref.watch(themeProvider);
 
     return MaterialApp.router(
       title: 'Docmac',
