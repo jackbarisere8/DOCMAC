@@ -794,6 +794,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _usernameFocus = FocusNode();
+  final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
   ContactCountry _country = docmacCountries.first;
   int _step = 0;
@@ -820,7 +822,6 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
         final name = user.displayName;
         if (name != null && name.isNotEmpty) {
           _name.text = name;
-          _step = 3;
         }
         final email = user.email;
         if (email != null && email.isNotEmpty) {
@@ -838,6 +839,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     _username.dispose();
     _email.dispose();
     _password.dispose();
+    _usernameFocus.dispose();
+    _emailFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
   }
@@ -955,53 +958,28 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     if (country != null && mounted) setState(() => _country = country);
   }
 
-  void _continueName() {
-    if (_name.text.trim().length < 2) {
+  Future<void> _completeProfile() async {
+    final name = _name.text.trim();
+    if (name.length < 2) {
       setState(() => _error = 'Enter the name your people will know.');
       return;
     }
-    _goTo(3);
-  }
 
-  Future<void> _continueUsername() async {
     final username = _username.text.trim().replaceFirst(RegExp(r'^@'), '');
     if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(username)) {
-      return setState(
-          () => _error = 'Use 3–20 letters, numbers, or underscores.');
+      setState(
+          () => _error = 'Use 3–20 letters, numbers, or underscores for your username.');
+      return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final available =
-          await ref.read(authServiceProvider).isUsernameAvailable(username);
-      if (!available) throw const UsernameUnavailableException();
-      if (mounted) _goTo(4);
-    } on UsernameUnavailableException {
-      if (mounted) setState(() => _error = 'That username is already taken.');
-    } on FirebaseException catch (error) {
-      if (mounted) setState(() => _error = _usernameCheckMessage(error));
-    } on AuthServiceUnavailableException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error =
-            'We could not check that username right now. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
 
-  Future<void> _complete() async {
     final email = _email.text.trim();
-    final password = _password.text;
     if (!_emailValidator(email)) {
       setState(() => _error = 'Enter a valid email address.');
       return;
     }
-    if (password.length < 6) {
+
+    final password = _password.text;
+    if (password.isNotEmpty && password.length < 6) {
       setState(() => _error = 'Password must be at least 6 characters.');
       return;
     }
@@ -1010,23 +988,36 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       _loading = true;
       _error = null;
     });
+
     try {
-      await ref.read(authServiceProvider).completeDualSignUp(
-            email: email,
-            password: password,
-            username: _username.text,
-            displayName: _name.text,
-          );
+      final available =
+          await ref.read(authServiceProvider).isUsernameAvailable(username);
+      if (!available) throw const UsernameUnavailableException();
+
+      if (password.isNotEmpty) {
+        await ref.read(authServiceProvider).completeDualSignUp(
+              email: email,
+              password: password,
+              username: username,
+              displayName: name,
+            );
+      } else {
+        await ref.read(authServiceProvider).completePhoneSignUp(
+              username: username,
+              displayName: name,
+              contactEmail: email,
+            );
+      }
+
       if (mounted) context.go('/orbit');
     } on UsernameUnavailableException {
       if (mounted) {
-        setState(() {
-          _step = 3;
-          _error = 'That username was just claimed. Choose another.';
-        });
+        setState(() => _error = 'That username is already taken. Choose another.');
       }
     } on FirebaseAuthException catch (error) {
       if (mounted) setState(() => _error = _authMessage(error));
+    } on FirebaseException catch (error) {
+      if (mounted) setState(() => _error = _usernameCheckMessage(error));
     } on AuthServiceUnavailableException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (e) {
@@ -1062,10 +1053,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
         context.go('/auth');
         return;
       }
-      _code.clear();
-      _verificationId = null;
-      _resendToken = null;
-      _goTo(0);
+      _goTo(1);
       return;
     }
     _goTo(_step - 1);
@@ -1084,23 +1072,19 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       title: switch (_step) {
         0 => 'Your phone number',
         1 => 'Confirm your number',
-        2 => 'Profile info',
-        3 => 'Choose a username',
-        _ => 'Login credentials',
+        _ => 'Profile info',
       },
       description: switch (_step) {
         0 =>
           'Choose your country and enter your mobile number for OTP verification.',
-        1 => 'Enter the six-digit code sent to ${_maskedPhone(_fullPhoneNumber)}.',
-        2 => 'Please add the name people will know you by.',
-        3 => 'This will be your unique Docmac identity.',
-        _ => 'Set your email and password to sign in to Docmac anytime.',
+        1 =>
+          'Enter the six-digit code sent to ${_maskedPhone(_fullPhoneNumber)}.',
+        _ =>
+          'Please enter your full name, username, and email to complete your account.',
       },
       primaryAction: switch (_step) {
         0 => 'Send code',
         1 => 'Verify and continue',
-        2 => 'Next',
-        3 => 'Next',
         _ => 'Complete setup',
       },
       onClose: () => context.go('/'),
@@ -1108,9 +1092,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       onContinue: switch (_step) {
         0 => _confirmAndSendCode,
         1 => _verifyCode,
-        2 => _continueName,
-        3 => _continueUsername,
-        _ => _complete,
+        _ => _completeProfile,
       },
       avatar: _step == 2
           ? _ProfileSetupAvatar(
@@ -1224,46 +1206,53 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
               ),
             ],
           ),
-        2 => _ProfileSetupField(
-            key: const Key('signup-full-name'),
-            controller: _name,
-            hint: 'Full name',
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-            onSubmitted: _continueName,
-          ),
-        3 => _ProfileSetupField(
-            key: const Key('signup-username'),
-            controller: _username,
-            hint: 'Username',
-            prefixText: '@',
-            autocorrect: false,
-            enableSuggestions: false,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
-              const _LowerCaseTextInputFormatter(),
-            ],
-            onSubmitted: _continueUsername,
-          ),
         _ => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _ProfileSetupField(
+                key: const Key('signup-full-name'),
+                controller: _name,
+                hint: 'Full name',
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                onSubmitted: () => _usernameFocus.requestFocus(),
+              ),
+              const SizedBox(height: 20),
+              _ProfileSetupField(
+                key: const Key('signup-username'),
+                controller: _username,
+                focusNode: _usernameFocus,
+                autofocus: false,
+                hint: 'Username',
+                prefixText: '@',
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+                  const _LowerCaseTextInputFormatter(),
+                ],
+                onSubmitted: () => _emailFocus.requestFocus(),
+              ),
+              const SizedBox(height: 20),
+              _ProfileSetupField(
                 key: const Key('signup-email'),
                 controller: _email,
+                focusNode: _emailFocus,
+                autofocus: false,
                 hint: 'Email address',
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
                 onSubmitted: () => _passwordFocus.requestFocus(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               _ProfileSetupField(
                 key: const Key('signup-password'),
                 controller: _password,
                 focusNode: _passwordFocus,
                 autofocus: false,
-                hint: 'Password (min. 6 characters)',
+                hint: 'Password (for email sign in)',
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 suffixIcon: IconButton(
@@ -1276,7 +1265,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
                 ),
-                onSubmitted: _complete,
+                onSubmitted: _completeProfile,
               ),
             ],
           ),
@@ -1416,8 +1405,8 @@ class _ProfileSetupScaffold extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -1444,7 +1433,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 56),
+                  const SizedBox(height: 24),
                   Text(
                     title,
                     textAlign: TextAlign.center,
@@ -1455,7 +1444,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       letterSpacing: -0.7,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Text(
                     description,
                     textAlign: TextAlign.center,
@@ -1465,11 +1454,11 @@ class _ProfileSetupScaffold extends StatelessWidget {
                     ),
                   ),
                   if (avatar != null) ...[
-                    const SizedBox(height: 34),
+                    const SizedBox(height: 20),
                     Center(child: avatar!),
-                    const SizedBox(height: 34),
+                    const SizedBox(height: 20),
                   ] else
-                    const SizedBox(height: 78),
+                    const SizedBox(height: 28),
                   field,
                   if (error != null) ...[
                     const SizedBox(height: 12),
@@ -1482,7 +1471,7 @@ class _ProfileSetupScaffold extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const Spacer(),
+                  const SizedBox(height: 28),
                   FilledButton(
                     onPressed: loading ? null : onContinue,
                     style: FilledButton.styleFrom(
@@ -1525,7 +1514,7 @@ class _ProfileSetupField extends StatelessWidget {
     super.key,
     required this.controller,
     required this.hint,
-    required this.onSubmitted,
+    this.onSubmitted,
     this.prefixText,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
@@ -1542,7 +1531,7 @@ class _ProfileSetupField extends StatelessWidget {
 
   final TextEditingController controller;
   final String hint;
-  final VoidCallback onSubmitted;
+  final VoidCallback? onSubmitted;
   final String? prefixText;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
@@ -1571,7 +1560,7 @@ class _ProfileSetupField extends StatelessWidget {
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
       autofillHints: autofillHints,
-      onSubmitted: (_) => onSubmitted(),
+      onSubmitted: (_) => onSubmitted?.call(),
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: hint,
