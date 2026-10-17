@@ -772,11 +772,12 @@ class _RoundPhoneAction extends StatelessWidget {
   }
 }
 
-/// A focused, human-crafted 3-step signup journey:
-/// 1. Profile info (Full Name and optional avatar)
-/// 2. Username (@username handle claimed in Firestore)
-/// 3. Account security (Email & Password)
-/// Strictly zero phone number or SMS OTP required.
+/// A comprehensive two-faced onboarding flow:
+/// 1. Phone number verification via SMS OTP
+/// 2. Profile identity (Full Name & Avatar)
+/// 3. Public handle (@username)
+/// 4. Login credentials (Email & Password)
+/// Allows login via Email & Password or Phone OTP.
 class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key, this.resume = false});
 
@@ -787,34 +788,52 @@ class SignUpPage extends ConsumerStatefulWidget {
 }
 
 class _SignUpPageState extends ConsumerState<SignUpPage> {
+  final _phone = TextEditingController();
+  final _code = TextEditingController();
   final _name = TextEditingController();
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _passwordFocus = FocusNode();
+  ContactCountry _country = docmacCountries.first;
   int _step = 0;
   bool _loading = false;
   bool _obscurePassword = true;
+  String? _verificationId;
+  int? _resendToken;
   String? _error;
   Uint8List? _profileImageBytes;
+
+  String get _fullPhoneNumber => _phoneWithCountry(_country, _phone.text);
 
   @override
   void initState() {
     super.initState();
     if (widget.resume) {
       final user = ref.read(authServiceProvider).currentUser;
-      if (user?.displayName != null && user!.displayName!.isNotEmpty) {
-        _name.text = user.displayName!;
-        _step = 1;
-      }
-      if (user?.email != null) {
-        _email.text = user!.email!;
+      if (user != null) {
+        final phone = user.phoneNumber;
+        if (phone != null && phone.isNotEmpty) {
+          _phone.text = phone;
+          _step = 2;
+        }
+        final name = user.displayName;
+        if (name != null && name.isNotEmpty) {
+          _name.text = name;
+          _step = 3;
+        }
+        final email = user.email;
+        if (email != null && email.isNotEmpty) {
+          _email.text = email;
+        }
       }
     }
   }
 
   @override
   void dispose() {
+    _phone.dispose();
+    _code.dispose();
     _name.dispose();
     _username.dispose();
     _email.dispose();
@@ -823,12 +842,125 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     super.dispose();
   }
 
+  Future<void> _sendCode() async {
+    final phoneError = _phoneValidator(_fullPhoneNumber);
+    if (phoneError != null) return setState(() => _error = phoneError);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).sendPhoneVerification(
+            phoneNumber: _fullPhoneNumber,
+            forceResendingToken: _resendToken,
+            onCodeSent: (verificationId, resendToken) {
+              if (!mounted) return;
+              setState(() {
+                _verificationId = verificationId;
+                _resendToken = resendToken;
+                _step = 1;
+                _loading = false;
+              });
+            },
+            onFailure: (error) {
+              if (mounted) {
+                setState(() {
+                  _loading = false;
+                  _error = _authMessage(error);
+                });
+              }
+            },
+            onAutoVerified: (credential) async {
+              try {
+                await ref
+                    .read(authServiceProvider)
+                    .signInWithPhoneCredential(credential);
+                if (mounted) _goTo(2);
+              } on FirebaseAuthException catch (error) {
+                if (mounted) setState(() => _error = _authMessage(error));
+              } finally {
+                if (mounted) setState(() => _loading = false);
+              }
+            },
+          );
+    } on FirebaseAuthException catch (error) {
+      if (mounted) setState(() => _error = _authMessage(error));
+    } on AuthServiceUnavailableException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not send a code. Try again.');
+    } finally {
+      if (mounted && _step == 0) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyCode() async {
+    if (_code.text.trim().length != 6 || _verificationId == null) {
+      return setState(() => _error = 'Enter the six-digit code we sent.');
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).verifyPhoneCode(
+            verificationId: _verificationId!,
+            smsCode: _code.text.trim(),
+          );
+      if (mounted) _goTo(2);
+    } on FirebaseAuthException catch (error) {
+      if (mounted) setState(() => _error = _authMessage(error));
+    } on AuthServiceUnavailableException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Unable to verify code. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _confirmAndSendCode() async {
+    final phoneError = _phoneValidator(_fullPhoneNumber);
+    if (phoneError != null) {
+      setState(() => _error = phoneError);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm your number'),
+        content: Text(
+          'We will send a six-digit verification code to\n$_fullPhoneNumber.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Edit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _sendCode();
+  }
+
+  Future<void> _chooseCountry() async {
+    final country = await _showCountryPicker(context, _country);
+    if (country != null && mounted) setState(() => _country = country);
+  }
+
   void _continueName() {
     if (_name.text.trim().length < 2) {
       setState(() => _error = 'Enter the name your people will know.');
       return;
     }
-    _goTo(1);
+    _goTo(3);
   }
 
   Future<void> _continueUsername() async {
@@ -845,7 +977,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       final available =
           await ref.read(authServiceProvider).isUsernameAvailable(username);
       if (!available) throw const UsernameUnavailableException();
-      if (mounted) _goTo(2);
+      if (mounted) _goTo(4);
     } on UsernameUnavailableException {
       if (mounted) setState(() => _error = 'That username is already taken.');
     } on FirebaseException catch (error) {
@@ -879,7 +1011,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       _error = null;
     });
     try {
-      await ref.read(authServiceProvider).signUpWithEmailAndUsername(
+      await ref.read(authServiceProvider).completeDualSignUp(
             email: email,
             password: password,
             username: _username.text,
@@ -889,7 +1021,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     } on UsernameUnavailableException {
       if (mounted) {
         setState(() {
-          _step = 1;
+          _step = 3;
           _error = 'That username was just claimed. Choose another.';
         });
       }
@@ -918,46 +1050,181 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       context.go('/');
       return;
     }
+    if (_step == 1) {
+      _code.clear();
+      _verificationId = null;
+      _resendToken = null;
+      _goTo(0);
+      return;
+    }
+    if (_step == 2) {
+      if (widget.resume) {
+        context.go('/auth');
+        return;
+      }
+      _code.clear();
+      _verificationId = null;
+      _resendToken = null;
+      _goTo(0);
+      return;
+    }
     _goTo(_step - 1);
   }
 
   @override
   Widget build(BuildContext context) {
     final isFirstStep = _step == 0;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return _ProfileSetupScaffold(
       isFirstStep: isFirstStep,
       loading: _loading,
       error: _error,
       title: switch (_step) {
-        0 => 'Profile info',
-        1 => 'Choose a username',
-        _ => 'Add your email',
+        0 => 'Your phone number',
+        1 => 'Confirm your number',
+        2 => 'Profile info',
+        3 => 'Choose a username',
+        _ => 'Login credentials',
       },
       description: switch (_step) {
-        0 => 'Please add the name people will know you by.',
-        1 => 'This will be your unique Docmac identity.',
-        _ => 'Enter your email and create a password to secure your account.',
+        0 =>
+          'Choose your country and enter your mobile number for OTP verification.',
+        1 => 'Enter the six-digit code sent to ${_maskedPhone(_fullPhoneNumber)}.',
+        2 => 'Please add the name people will know you by.',
+        3 => 'This will be your unique Docmac identity.',
+        _ => 'Set your email and password to sign in to Docmac anytime.',
       },
       primaryAction: switch (_step) {
-        0 => 'Next',
-        1 => 'Next',
+        0 => 'Send code',
+        1 => 'Verify and continue',
+        2 => 'Next',
+        3 => 'Next',
         _ => 'Complete setup',
       },
       onClose: () => context.go('/'),
       onBack: _back,
       onContinue: switch (_step) {
-        0 => _continueName,
-        1 => _continueUsername,
+        0 => _confirmAndSendCode,
+        1 => _verifyCode,
+        2 => _continueName,
+        3 => _continueUsername,
         _ => _complete,
       },
-      avatar: _step == 0
+      avatar: _step == 2
           ? _ProfileSetupAvatar(
               imageBytes: _profileImageBytes,
               onPickImage: _pickProfileImage,
             )
           : null,
       field: switch (_step) {
-        0 => _ProfileSetupField(
+        0 => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton(
+                onPressed: _chooseCountry,
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  minimumSize: const Size.fromHeight(56),
+                  side: BorderSide(color: scheme.outlineVariant),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(_country.flag, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _country.name,
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _country.code,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.keyboard_arrow_down_rounded),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('signup-phone'),
+                controller: _phone,
+                autofocus: true,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _confirmAndSendCode(),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\-\s]')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Phone number',
+                  prefixText: '${_country.code} ',
+                  hintText: '801 234 5678',
+                  filled: false,
+                  prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: scheme.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: scheme.primary, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        1 => Column(
+            children: [
+              TextField(
+                key: const Key('signup-otp'),
+                controller: _code,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _verifyCode(),
+                autofillHints: const [AutofillHints.oneTimeCode],
+                maxLength: 6,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  letterSpacing: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '------',
+                  filled: false,
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide:
+                        BorderSide(color: scheme.outlineVariant, width: 2),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide:
+                        BorderSide(color: scheme.primary, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: _loading ? null : _sendCode,
+                child: const Text('Didn’t receive a code? Send again'),
+              ),
+            ],
+          ),
+        2 => _ProfileSetupField(
             key: const Key('signup-full-name'),
             controller: _name,
             hint: 'Full name',
@@ -965,7 +1232,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
             textInputAction: TextInputAction.next,
             onSubmitted: _continueName,
           ),
-        1 => _ProfileSetupField(
+        3 => _ProfileSetupField(
             key: const Key('signup-username'),
             controller: _username,
             hint: 'Username',

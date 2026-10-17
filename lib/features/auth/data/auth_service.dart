@@ -168,6 +168,105 @@ class AuthService {
     );
   }
 
+  /// Completes signup for a two-faced account: links the email & password
+  /// credentials to the phone-verified session (or creates the user if no phone session),
+  /// sets display name, and registers the username in Firestore.
+  Future<AppUser?> completeDualSignUp({
+    required String email,
+    required String password,
+    required String username,
+    required String displayName,
+  }) async {
+    final normalizedUsername = _normalizeUsername(username);
+    if (!_isValidUsername(normalizedUsername)) {
+      throw const AuthServiceUnavailableException(
+        'Use 3–20 lowercase letters, numbers, or underscores for your username.',
+      );
+    }
+
+    final isAvailable = await isUsernameAvailable(normalizedUsername);
+    if (!isAvailable) {
+      throw const UsernameUnavailableException();
+    }
+
+    User? user = _firebaseAuth.currentUser;
+    if (user != null) {
+      try {
+        final emailCred = EmailAuthProvider.credential(
+          email: email.trim(),
+          password: password,
+        );
+        await user.linkWithCredential(emailCred);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'provider-already-linked') {
+          try {
+            await user.updatePassword(password);
+          } catch (_) {}
+        } else {
+          rethrow;
+        }
+      }
+    } else {
+      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      user = credential.user;
+      if (user == null) {
+        return null;
+      }
+    }
+
+    final User finalUser = user;
+
+    final name = displayName.trim();
+    if (name.isNotEmpty) {
+      await finalUser.updateDisplayName(name);
+      await finalUser.reload();
+    }
+
+    final firestore = FirebaseFirestore.instance;
+    await firestore.runTransaction((transaction) async {
+      final usernameRef =
+          firestore.collection('usernames').doc(normalizedUsername);
+      final handleRef = firestore.collection('handles').doc(normalizedUsername);
+      final usernameSnapshot = await transaction.get(usernameRef);
+      final handleSnapshot = await transaction.get(handleRef);
+      if (usernameSnapshot.exists &&
+          usernameSnapshot.data()?['uid'] != finalUser.uid) {
+        throw const UsernameUnavailableException();
+      }
+      if (handleSnapshot.exists &&
+          handleSnapshot.data()?['ownerId'] != finalUser.uid) {
+        throw const UsernameUnavailableException();
+      }
+      transaction.set(usernameRef, {'uid': finalUser.uid});
+      transaction.set(handleRef, {
+        'kind': 'user',
+        'ownerId': finalUser.uid,
+      });
+      transaction.set(
+        firestore.collection('users').doc(finalUser.uid),
+        {
+          'username': normalizedUsername,
+          'displayName': name.isNotEmpty ? name : normalizedUsername,
+          'onboardingComplete': true,
+          'contactEmail': email.trim(),
+          'phoneNumber': finalUser.phoneNumber,
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    });
+
+    final updatedUser = _firebaseAuth.currentUser ?? finalUser;
+    return AppUser(
+      id: updatedUser.uid,
+      email: updatedUser.email ?? email,
+      displayName: updatedUser.displayName ?? name,
+    );
+  }
+
   /// Completes a verified-phone account with Docmac's public profile. Phone
   /// OTP is the only authentication method; no hidden email/password account
   /// is created.

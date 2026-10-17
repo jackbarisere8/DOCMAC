@@ -10,14 +10,19 @@ import 'package:docmac_app/features/auth/presentation/pages/auth_page.dart';
 import 'package:docmac_app/features/auth/presentation/providers/auth_provider.dart';
 
 class _FakeUser extends Fake implements User {
-  _FakeUser({this.email = 'test@example.com', this.name = 'Test User'});
+  _FakeUser({
+    this.email = 'test@example.com',
+    this.name = 'Test User',
+    this.phone = '+18012345678',
+  });
   @override
   final String? email;
   final String name;
+  final String? phone;
   @override
   String get uid => 'test-uid-123';
   @override
-  String? get phoneNumber => null;
+  String? get phoneNumber => phone;
   @override
   String? get displayName => name;
 }
@@ -29,15 +34,46 @@ class _FakeAuthService extends Fake implements AuthService {
   @override
   User? get currentUser => fakeUser;
 
-  bool signUpWithEmailAndUsernameCalled = false;
-  String? signedUpEmail;
-  String? signedUpPassword;
-  String? signedUpUsername;
-  String? signedUpDisplayName;
+  bool sendPhoneVerificationCalled = false;
+  String? phoneVerificationSentNumber;
+
+  bool verifyPhoneCodeCalled = false;
+  String? verifiedVerificationId;
+  String? verifiedSmsCode;
+
+  bool completeDualSignUpCalled = false;
+  String? completedEmail;
+  String? completedPassword;
+  String? completedUsername;
+  String? completedDisplayName;
 
   bool signInWithEmailAndPasswordCalled = false;
   String? signedInEmail;
   String? signedInPassword;
+
+  @override
+  Future<void> sendPhoneVerification({
+    required String phoneNumber,
+    int? forceResendingToken,
+    required void Function(String verificationId, int? resendToken) onCodeSent,
+    required void Function(FirebaseAuthException error) onFailure,
+    required Future<void> Function(PhoneAuthCredential credential)
+        onAutoVerified,
+  }) async {
+    sendPhoneVerificationCalled = true;
+    phoneVerificationSentNumber = phoneNumber;
+    onCodeSent('fake-verification-id', 12345);
+  }
+
+  @override
+  Future<void> verifyPhoneCode({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    verifyPhoneCodeCalled = true;
+    verifiedVerificationId = verificationId;
+    verifiedSmsCode = smsCode;
+  }
 
   @override
   Future<bool> isUsernameAvailable(String username) async {
@@ -45,17 +81,17 @@ class _FakeAuthService extends Fake implements AuthService {
   }
 
   @override
-  Future<AppUser?> signUpWithEmailAndUsername({
+  Future<AppUser?> completeDualSignUp({
     required String email,
     required String password,
     required String username,
     required String displayName,
   }) async {
-    signUpWithEmailAndUsernameCalled = true;
-    signedUpEmail = email;
-    signedUpPassword = password;
-    signedUpUsername = username;
-    signedUpDisplayName = displayName;
+    completeDualSignUpCalled = true;
+    completedEmail = email;
+    completedPassword = password;
+    completedUsername = username;
+    completedDisplayName = displayName;
     return AppUser(
       id: 'test-user-id',
       email: email,
@@ -126,81 +162,115 @@ void main() {
     );
   }
 
-  group('SignUpPage workflow (Zero Phone / SMS OTP)', () {
-    testWidgets(
-        'fresh signup strictly starts at Step 0 with Profile Info (Full Name) and no phone entry',
+  group('SignUpPage workflow (Two-Faced Architecture: Phone OTP + Credentials)', () {
+    testWidgets('fresh signup starts at Step 0 with Phone Number entry',
         (tester) async {
       final fakeAuth = _FakeAuthService(fakeUser: null);
       await tester.pumpWidget(buildApp(authService: fakeAuth));
       await tester.pumpAndSettle();
 
-      // Step 0: Profile Info
-      expect(find.text('Profile info'), findsOneWidget);
+      // Step 0: Phone number
+      expect(find.text('Your phone number'), findsOneWidget);
       expect(
-        find.text('Please add the name people will know you by.'),
+        find.text(
+          'Choose your country and enter your mobile number for OTP verification.',
+        ),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('signup-phone')), findsOneWidget);
+      expect(find.text('Send code'), findsOneWidget);
+    });
+
+    testWidgets(
+        'Step 0 confirms phone dialog and sends OTP, advancing to Step 1',
+        (tester) async {
+      final fakeAuth = _FakeAuthService(fakeUser: null);
+      await tester.pumpWidget(buildApp(authService: fakeAuth));
+      await tester.pumpAndSettle();
+
+      // Enter phone number
+      final phoneField = find.byKey(const Key('signup-phone'));
+      await tester.enterText(phoneField, '8012345678');
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+
+      // Dialog confirmation
+      expect(find.text('Confirm your number'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Should have triggered sendPhoneVerification
+      expect(fakeAuth.sendPhoneVerificationCalled, isTrue);
+
+      // Now at Step 1: OTP verification
+      expect(find.byKey(const Key('signup-otp')), findsOneWidget);
+      expect(find.text('Verify and continue'), findsOneWidget);
+    });
+
+    testWidgets('Step 1 verifies OTP and advances to Step 2 (Profile info)',
+        (tester) async {
+      final fakeAuth = _FakeAuthService(fakeUser: null);
+      await tester.pumpWidget(buildApp(authService: fakeAuth));
+      await tester.pumpAndSettle();
+
+      // Send OTP
+      await tester.enterText(
+          find.byKey(const Key('signup-phone')), '8012345678');
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Enter OTP
+      await tester.enterText(find.byKey(const Key('signup-otp')), '123456');
+      await tester.tap(find.text('Verify and continue'));
+      await tester.pumpAndSettle();
+
+      // Verified code
+      expect(fakeAuth.verifyPhoneCodeCalled, isTrue);
+      expect(fakeAuth.verifiedVerificationId, 'fake-verification-id');
+      expect(fakeAuth.verifiedSmsCode, '123456');
+
+      // Now at Step 2: Profile info (Name)
+      expect(find.text('Profile info'), findsOneWidget);
       expect(find.byKey(const Key('signup-full-name')), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
-
-      // Verify that phone number and SMS OTP fields are strictly ABSENT
-      expect(find.text('Your phone number'), findsNothing);
-      expect(find.text('Confirm your number'), findsNothing);
-      expect(find.text('Send code'), findsNothing);
-    });
-
-    testWidgets('Step 0 validates name and advances to Step 1 (Username)',
-        (tester) async {
-      final fakeAuth = _FakeAuthService(fakeUser: null);
-      await tester.pumpWidget(buildApp(authService: fakeAuth));
-      await tester.pumpAndSettle();
-
-      // Enter full name
-      final nameField = find.byKey(const Key('signup-full-name'));
-      await tester.enterText(nameField, 'Ada Lovelace');
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-
-      // Step 1: Choose username
-      expect(find.text('Choose a username'), findsOneWidget);
-      expect(
-        find.text('This will be your unique Docmac identity.'),
-        findsOneWidget,
-      );
-      final usernameField = find.byKey(const Key('signup-username'));
-      expect(usernameField, findsOneWidget);
-
-      // Back button takes user back to Step 0
-      final backButton = find.byTooltip('Previous step');
-      expect(backButton, findsOneWidget);
-      await tester.tap(backButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Profile info'), findsOneWidget);
-      expect(find.byTooltip('Close signup'), findsOneWidget);
     });
 
     testWidgets(
-        'Step 1 advances to Step 2 and completes account creation with email & password',
+        'Full 5-step flow completes account with completeDualSignUp and routes to /orbit',
         (tester) async {
       final fakeAuth = _FakeAuthService(fakeUser: null);
       await tester.pumpWidget(buildApp(authService: fakeAuth));
       await tester.pumpAndSettle();
 
-      // Step 0: Name
+      // Step 0: Phone
+      await tester.enterText(
+          find.byKey(const Key('signup-phone')), '8012345678');
+      await tester.tap(find.text('Send code'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      // Step 1: OTP
+      await tester.enterText(find.byKey(const Key('signup-otp')), '123456');
+      await tester.tap(find.text('Verify and continue'));
+      await tester.pumpAndSettle();
+
+      // Step 2: Name
       await tester.enterText(
           find.byKey(const Key('signup-full-name')), 'Ada Lovelace');
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
 
-      // Step 1: Username
+      // Step 3: Username
+      expect(find.text('Choose a username'), findsOneWidget);
       await tester.enterText(
           find.byKey(const Key('signup-username')), 'adalove');
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
 
-      // Step 2: Email & Password
-      expect(find.text('Add your email'), findsOneWidget);
+      // Step 4: Login credentials (Email & Password)
+      expect(find.text('Login credentials'), findsOneWidget);
       expect(find.byKey(const Key('signup-email')), findsOneWidget);
       expect(find.byKey(const Key('signup-password')), findsOneWidget);
       expect(find.text('Complete setup'), findsOneWidget);
@@ -212,21 +282,41 @@ void main() {
       await tester.tap(find.text('Complete setup'));
       await tester.pumpAndSettle();
 
-      // Verify that signUpWithEmailAndUsername was invoked with exact credentials
-      expect(fakeAuth.signUpWithEmailAndUsernameCalled, isTrue);
-      expect(fakeAuth.signedUpEmail, 'ada@example.com');
-      expect(fakeAuth.signedUpPassword, 'secret123');
-      expect(fakeAuth.signedUpUsername, 'adalove');
-      expect(fakeAuth.signedUpDisplayName, 'Ada Lovelace');
+      // Verify that completeDualSignUp was invoked with exact credentials
+      expect(fakeAuth.completeDualSignUpCalled, isTrue);
+      expect(fakeAuth.completedEmail, 'ada@example.com');
+      expect(fakeAuth.completedPassword, 'secret123');
+      expect(fakeAuth.completedUsername, 'adalove');
+      expect(fakeAuth.completedDisplayName, 'Ada Lovelace');
 
       // Verify navigation to Orbit
       expect(find.text('OrbitScreen'), findsOneWidget);
     });
 
     testWidgets(
-        'resume=true with existing session pre-fills display name and moves to Step 1',
+        'resume=true with existing phone session moves to Step 2 (Profile Info)',
         (tester) async {
-      final user = _FakeUser(email: 'ada@example.com', name: 'Ada Lovelace');
+      final user = _FakeUser(
+        email: 'ada@example.com',
+        name: '',
+        phone: '+2348012345678',
+      );
+      final fakeAuth = _FakeAuthService(fakeUser: user);
+      await tester.pumpWidget(buildApp(authService: fakeAuth, resume: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile info'), findsOneWidget);
+      expect(find.byKey(const Key('signup-full-name')), findsOneWidget);
+    });
+
+    testWidgets(
+        'resume=true with existing phone and name session moves to Step 3 (Username)',
+        (tester) async {
+      final user = _FakeUser(
+        email: 'ada@example.com',
+        name: 'Ada Lovelace',
+        phone: '+2348012345678',
+      );
       final fakeAuth = _FakeAuthService(fakeUser: user);
       await tester.pumpWidget(buildApp(authService: fakeAuth, resume: true));
       await tester.pumpAndSettle();
@@ -236,7 +326,7 @@ void main() {
     });
   });
 
-  group('SignInPage workflow (Email-First Architecture)', () {
+  group('SignInPage workflow (Email-First Architecture with Phone Option)', () {
     testWidgets('renders email sign-in inputs and submits successfully',
         (tester) async {
       final fakeAuth = _FakeAuthService(fakeUser: null);
@@ -275,6 +365,34 @@ void main() {
       await tester.tap(find.text('Forgot password?'));
       await tester.pumpAndSettle();
       expect(find.text('ForgotPasswordScreen'), findsOneWidget);
+    });
+
+    testWidgets('can toggle between email and phone sign-in mode',
+        (tester) async {
+      final fakeAuth = _FakeAuthService(fakeUser: null);
+      await tester.pumpWidget(
+        buildApp(authService: fakeAuth, initialLocation: '/auth'),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to phone
+      await tester.tap(find.text('Sign in with phone number'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your phone number'), findsOneWidget);
+      expect(
+        find.text(
+          'Confirm your country code and enter the phone number\nlinked to your Docmac account.',
+        ),
+        findsOneWidget,
+      );
+
+      // Back to email sign in
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.byKey(const Key('signin-email')), findsOneWidget);
     });
   });
 }
