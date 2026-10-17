@@ -295,40 +295,50 @@ class _EmailSignInScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: scheme.surface,
+      appBar: AppBar(
+        backgroundColor: scheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: loading ? null : onBack,
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: scheme.onSurface,
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _showAuthHelpSheet(context),
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
+            label: const Text('Help'),
+            style: TextButton.styleFrom(
+              foregroundColor: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  tooltip: 'Back',
-                  onPressed: loading ? null : onBack,
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: scheme.onSurface,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Welcome back',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontSize: 27,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Welcome back',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontSize: 27,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -478,11 +488,8 @@ class _EmailSignInScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+          );
   }
 }
 
@@ -508,34 +515,42 @@ class _PhoneAuthScaffold extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          tooltip: verifying ? 'Edit phone number' : 'Back',
+          onPressed: loading ? null : onBack,
+          icon: Icon(
+            verifying ? Icons.close_rounded : Icons.arrow_back_rounded,
+            color: scheme.onSurface,
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _showAuthHelpSheet(context),
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
+            label: const Text('Help'),
+            style: TextButton.styleFrom(
+              foregroundColor: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  tooltip: verifying ? 'Edit phone number' : 'Back',
-                  onPressed: loading ? null : onBack,
-                  icon: Icon(
-                    verifying ? Icons.close_rounded : Icons.arrow_back_rounded,
-                    color: scheme.onSurface,
-                  ),
-                ),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: child,
               ),
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
-                      child: child,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1401,47 +1416,49 @@ class _ProfileSetupScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          tooltip: isFirstStep ? 'Close signup' : 'Previous step',
+          onPressed: isFirstStep ? onClose : onBack,
+          icon: Icon(
+            isFirstStep ? Icons.close_rounded : Icons.arrow_back_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _showAuthHelpSheet(context),
+            icon: const Icon(Icons.help_outline_rounded, size: 18),
+            label: const Text('Help'),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        tooltip: isFirstStep ? 'Close signup' : 'Previous step',
-                        onPressed: isFirstStep ? onClose : onBack,
-                        icon: Icon(
-                          isFirstStep
-                              ? Icons.close_rounded
-                              : Icons.arrow_back_rounded,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _showAuthHelpSheet(context),
-                        icon: const Icon(Icons.help_outline_rounded, size: 18),
-                        label: const Text('Help'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   Text(
                     title,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       color: theme.colorScheme.onSurface,
                       fontSize: 27,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.7,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 10),
