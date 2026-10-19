@@ -1,7 +1,9 @@
 import 'package:docmac_app/features/settings/presentation/pages/data_storage_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/delete_account_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/help_feedback_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/privacy_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,4 +40,21 @@ void main() {
     expect(find.text('Send feedback'), findsOneWidget);
     expect(find.text('App info'), findsOneWidget);
   });
+
+  testWidgets('delete account displays consequences and phone confirmation', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: DeleteAccountPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete this account'), findsOneWidget);
+    expect(find.text('If you delete this account:'), findsOneWidget);
+    expect(find.text('Change number instead?'), findsOneWidget);
+    expect(find.text('Delete account'), findsOneWidget);
+  });
 }
+

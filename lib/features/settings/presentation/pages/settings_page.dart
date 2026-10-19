@@ -460,31 +460,7 @@ class _AccountAction extends StatelessWidget {
 
   void _defaultTap(BuildContext context) {
     if (isDestructive) {
-      showDialog<void>(
-        context: context,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('Delete Docmac Account?'),
-          content: const Text(
-            'This action is permanent and cannot be undone. All your messages, contacts, and cryptographic identity keys will be erased.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                context.go('/logout');
-              },
-              child: const Text('Delete Account'),
-            ),
-          ],
-        ),
-      );
+      context.push('/settings/delete-account');
       return;
     }
 
