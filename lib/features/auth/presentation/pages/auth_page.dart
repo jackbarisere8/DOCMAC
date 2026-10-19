@@ -1,4 +1,6 @@
 
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/ui/docmac_iconly.dart';
 import '../../../contacts/presentation/pages/contact_pages.dart';
 import '../../../me/presentation/profile_media_store.dart';
 import '../../data/auth_service.dart';
@@ -292,11 +295,12 @@ class _EmailSignInScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: scheme.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -321,176 +325,403 @@ class _EmailSignInScaffold extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Top Lockup Badge
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark
+                              ? const Color(0xFF0284C7).withValues(alpha: 0.18)
+                              : const Color(0xFFE0F2FE),
+                        ),
+                        child: const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 22,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Text(
                       'Welcome back',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
-                      ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Sign in with your email to continue.',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 36),
-                          TextField(
-                            key: const Key('signin-email'),
-                            controller: emailController,
-                            autofocus: true,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.email],
-                            decoration: InputDecoration(
-                              labelText: 'Email address',
-                              hintText: 'name@example.com',
-                              filled: false,
-                              prefixIcon:
-                                  const Icon(Icons.email_outlined, size: 20),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    BorderSide(color: scheme.outlineVariant),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                    color: scheme.primary, width: 2),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            key: const Key('signin-password'),
-                            controller: passwordController,
-                            obscureText: obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => onSubmitted(),
-                            autofillHints: const [AutofillHints.password],
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              filled: false,
-                              prefixIcon: const Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  obscurePassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 20,
-                                ),
-                                onPressed: onToggleObscure,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    BorderSide(color: scheme.outlineVariant),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                    color: scheme.primary, width: 2),
-                              ),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: onForgotPassword,
-                              child: const Text('Forgot password?'),
-                            ),
-                          ),
-                          if (error != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              error!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: scheme.error, fontSize: 13),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            key: const Key('signin-submit'),
-                            onPressed: loading ? null : onSubmitted,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(56),
-                              backgroundColor: scheme.primary,
-                              foregroundColor: scheme.onPrimary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: loading
-                                ? SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: scheme.onPrimary,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Sign In',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700),
-                                  ),
-                          ),
-                          const SizedBox(height: 14),
-                          Center(
-                            child: TextButton(
-                              onPressed: onSwitchToPhone,
-                              child: const Text('Sign in with phone number'),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: TextButton(
-                              onPressed: onGoToRegister,
-                              child: Text.rich(
-                                TextSpan(
-                                  text: "Don't have an account? ",
-                                  style:
-                                      TextStyle(color: scheme.onSurfaceVariant),
-                                  children: const [
-                                    TextSpan(
-                                      text: 'Sign up',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sign in with your email to continue.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Email Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                          width: 1.0,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                      child: TextField(
+                        key: const Key('signin-email'),
+                        controller: emailController,
+                        autofocus: true,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'Email address',
+                          hintText: 'name@example.com',
+                          labelStyle: TextStyle(
+                            color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                            fontSize: 13.5,
+                          ),
+                          prefixIcon: const Icon(Icons.email_outlined, size: 19),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Password Field
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                          width: 1.0,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                      child: TextField(
+                        key: const Key('signin-password'),
+                        controller: passwordController,
+                        obscureText: obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => onSubmitted(),
+                        autofillHints: const [AutofillHints.password],
+                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          labelStyle: TextStyle(
+                            color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                            fontSize: 13.5,
+                          ),
+                          prefixIcon: const Icon(Icons.lock_outline_rounded, size: 19),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 19,
+                            ),
+                            onPressed: onToggleObscure,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: onForgotPassword,
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        ),
+                        child: const Text('Forgot password?', style: TextStyle(fontSize: 13)),
+                      ),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: scheme.error, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    const SizedBox(height: 6),
+
+                    // Signature Black Pill Submit Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        key: const Key('signin-submit'),
+                        onPressed: loading ? null : onSubmitted,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                          foregroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: loading
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    DocmacIconlyLight.arrowRight,
+                                    size: 16,
+                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // "or continue with" Divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'or continue with',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Social Sign-in Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SocialLoginButton(
+                            icon: const _GoogleIcon(),
+                            label: 'Google',
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Google Sign-In ready.')),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SocialLoginButton(
+                            icon: const Icon(Icons.apple, size: 20),
+                            label: 'Apple',
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Apple Sign-In ready.')),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Switch to Phone Number
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: onSwitchToPhone,
+                        icon: const Icon(Icons.phone_iphone_rounded, size: 17),
+                        label: const Text('Sign in with phone number', style: TextStyle(fontSize: 13.5)),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        ),
+                      ),
+                    ),
+
+                    // Don't have an account link
+                    Center(
+                      child: TextButton(
+                        onPressed: onGoToRegister,
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        ),
+                        child: Text.rich(
+                          TextSpan(
+                            text: "Don't have an account? ",
+                            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+                            children: const [
+                              TextSpan(
+                                text: 'Sign up',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          );
+          ),
+        ),
+      ),
+    );
   }
+}
+
+class _SocialLoginButton extends StatelessWidget {
+  const _SocialLoginButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        side: BorderSide(
+          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+      ),
+      icon: icon,
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isDark ? Colors.white : const Color(0xFF0F172A),
+          fontWeight: FontWeight.w600,
+          fontSize: 13.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleIcon extends StatelessWidget {
+  const _GoogleIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: CustomPaint(painter: _GoogleLogoPainter()),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final blue = Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill;
+    final red = Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill;
+    final yellow = Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill;
+    final green = Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill;
+
+    final center = Offset(w / 2, h / 2);
+    final radius = w / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawArc(rect, -math.pi * 0.75, math.pi * 0.5, true, red);
+    canvas.drawArc(rect, -math.pi * 1.25, math.pi * 0.5, true, yellow);
+    canvas.drawArc(rect, math.pi * 0.25, math.pi * 0.5, true, green);
+    canvas.drawArc(rect, -math.pi * 0.25, math.pi * 0.5, true, blue);
+
+    canvas.drawCircle(center, radius * 0.58, Paint()..color = Colors.white);
+    canvas.drawRect(Rect.fromLTWH(w * 0.45, h * 0.38, w * 0.55, h * 0.24), blue);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// A focused, phone-first sign-in surface. It intentionally uses Docmac's
@@ -1412,12 +1643,12 @@ class _ProfileSetupScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -1443,80 +1674,120 @@ class _ProfileSetupScaffold extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 12),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 27,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(26, 28, 26, 28),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                    width: 1,
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
                     ),
-                  ),
-                  if (avatar != null) ...[
-                    const SizedBox(height: 20),
-                    Center(child: avatar!),
-                    const SizedBox(height: 20),
-                  ] else
-                    const SizedBox(height: 28),
-                  field,
-                  if (error != null) ...[
-                    const SizedBox(height: 12),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     Text(
-                      error!,
+                      title,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.w600,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 27,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 28),
-                  FilledButton(
-                    onPressed: loading ? null : onContinue,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
-                      backgroundColor: accent,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: accent.withValues(alpha: .55),
-                      shape: const StadiumBorder(),
+                    const SizedBox(height: 10),
+                    Text(
+                      description,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                        height: 1.45,
+                      ),
                     ),
-                    child: loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.2,
-                            ),
-                          )
-                        : Text(
-                            primaryAction,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                    if (avatar != null) ...[
+                      const SizedBox(height: 20),
+                      Center(child: avatar!),
+                      const SizedBox(height: 20),
+                    ] else
+                      const SizedBox(height: 28),
+                    field,
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        error!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: FilledButton(
+                        onPressed: loading ? null : onContinue,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+                          foregroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                          disabledBackgroundColor: isDark
+                              ? Colors.white38
+                              : const Color(0xFF0F172A).withValues(alpha: 0.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
                           ),
-                  ),
-                  if (footer != null) ...[
-                    const SizedBox(height: 4),
-                    footer!,
+                          elevation: 0,
+                        ),
+                        child: loading
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    primaryAction,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    DocmacIconlyLight.arrowRight,
+                                    size: 16,
+                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    if (footer != null) ...[
+                      const SizedBox(height: 8),
+                      footer!,
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -1564,33 +1835,50 @@ class _ProfileSetupField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      textCapitalization: textCapitalization,
-      textInputAction: textInputAction,
-      inputFormatters: inputFormatters,
-      autocorrect: autocorrect,
-      enableSuggestions: enableSuggestions,
-      autofillHints: autofillHints,
-      onSubmitted: (_) => onSubmitted?.call(),
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixText: prefixText,
-        prefixStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        suffixIcon: suffixIcon,
-        filled: false,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
-        enabledBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: accent, width: 1.8),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+          width: 1.0,
         ),
-        focusedBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: accent, width: 2.4),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
+        textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
+        autocorrect: autocorrect,
+        enableSuggestions: enableSuggestions,
+        autofillHints: autofillHints,
+        onSubmitted: (_) => onSubmitted?.call(),
+        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+            fontSize: 15,
+          ),
+          prefixText: prefixText,
+          prefixStyle: TextStyle(
+            fontSize: 15.5,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : const Color(0xFF0F172A),
+          ),
+          suffixIcon: suffixIcon,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
