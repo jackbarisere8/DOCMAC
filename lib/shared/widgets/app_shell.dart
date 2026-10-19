@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/ui/docmac_iconly.dart';
 import '../../features/live/presentation/pages/live_page.dart';
 import '../../features/orbit/presentation/pages/orbit_page.dart';
@@ -113,59 +112,76 @@ class _AppNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
+    return ColoredBox(
+      color: scheme.surfaceContainerLowest,
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _NavItem(
-                label: 'Orbit',
-                icon: DocmacIconlyLight.home,
-                selectedIcon: DocmacIconlyBold.home,
-                selected: selectedIndex == 0,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(0);
-                },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                width: 1,
               ),
-              _NavItem(
-                label: 'Talk',
-                icon: DocmacIconlyLight.chat,
-                selectedIcon: DocmacIconlyBold.chat,
-                selected: selectedIndex == 1,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(1);
-                },
-              ),
-              _NavItem(
-                label: 'Live',
-                icon: DocmacIconlyLight.voice,
-                selectedIcon: DocmacIconlyBold.voice,
-                selected: selectedIndex == 2,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(2);
-                },
-              ),
-              _NavItem(
-                label: 'Me',
-                icon: DocmacIconlyLight.profile,
-                selectedIcon: DocmacIconlyBold.profile,
-                selected: selectedIndex == 3,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(3);
-                },
-              ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              children: [
+                _NavItem(
+                  label: 'Orbit',
+                  icon: DocmacIconlyLight.home,
+                  selectedIcon: DocmacIconlyBold.home,
+                  selected: selectedIndex == 0,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onSelected(0);
+                  },
+                ),
+                _NavItem(
+                  label: 'Talk',
+                  icon: DocmacIconlyLight.chat,
+                  selectedIcon: DocmacIconlyBold.chat,
+                  selected: selectedIndex == 1,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onSelected(1);
+                  },
+                ),
+                _NavItem(
+                  label: 'Live',
+                  icon: DocmacIconlyLight.voice,
+                  selectedIcon: DocmacIconlyBold.voice,
+                  selected: selectedIndex == 2,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onSelected(2);
+                  },
+                ),
+                _NavItem(
+                  label: 'Me',
+                  icon: DocmacIconlyLight.profile,
+                  selectedIcon: DocmacIconlyBold.profile,
+                  selected: selectedIndex == 3,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onSelected(3);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -191,12 +207,11 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
     final color = selected
-        ? (isDark ? scheme.primary : AppColors.brandBase)
-        : scheme.onSurfaceVariant;
+        ? (isDark ? Colors.white : const Color(0xFF0F172A))
+        : (isDark ? Colors.white38 : const Color(0xFF94A3B8));
 
     return Expanded(
       child: Semantics(
@@ -213,20 +228,20 @@ class _NavItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
                   decoration: BoxDecoration(
                     color: selected
                         ? (isDark
-                            ? scheme.primary.withValues(alpha: 0.16)
-                            : AppColors.brandBase.withValues(alpha: 0.10))
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : const Color(0xFF0F172A).withValues(alpha: 0.08))
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
+                    duration: const Duration(milliseconds: 200),
                     transitionBuilder: (child, anim) =>
                         ScaleTransition(scale: anim, child: child),
                     child: Icon(

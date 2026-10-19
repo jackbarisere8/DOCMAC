@@ -21,6 +21,17 @@ class OrbitPage extends ConsumerStatefulWidget {
 class _OrbitPageState extends ConsumerState<OrbitPage> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  int _selectedCategoryIndex = 0;
+
+  static const _categories = [
+    'All',
+    'Pulse',
+    'Orbit',
+    'Moments',
+    'Forge',
+    'Relays',
+    'Spaces',
+  ];
 
   @override
   void dispose() {
@@ -37,11 +48,11 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
         child: CustomScrollView(
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
                   const _TopBar(),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
                   _SearchField(
                     controller: _searchController,
                     onChanged: (value) => setState(() => _query = value),
@@ -55,84 +66,116 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: 26),
-                  const _SectionTitle(
-                    eyebrow: 'YOUR PULSE',
-                    title: 'Keep your people close',
+                  const SizedBox(height: 22),
+                  _CategoryFilterStrip(
+                    categories: _categories,
+                    selectedIndex: _selectedCategoryIndex,
+                    onSelected: (index) =>
+                        setState(() => _selectedCategoryIndex = index),
                   ),
-                  const SizedBox(height: 12),
-                  const _PulseGrid(),
-                  const SizedBox(height: 30),
-                  _RowHeading(
-                    title: 'Your Orbit',
-                    action: 'People',
-                    onTap: () {
+                  const SizedBox(height: 20),
+                  if (_selectedCategoryIndex == 0) ...[
+                    const _FeaturedShowcaseCarousel(),
+                    const SizedBox(height: 28),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 1) ...[
+                    const _SectionTitle(
+                      eyebrow: 'YOUR PULSE',
+                      title: 'Keep your people close',
+                    ),
+                    const SizedBox(height: 12),
+                    const _PulseGrid(),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 2) ...[
+                    _RowHeading(
+                      title: 'Your Orbit',
+                      action: 'People',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.push('/people/all');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _InnerOrbit(onTap: () {
                       HapticFeedback.selectionClick();
                       context.push('/people/all');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _InnerOrbit(onTap: () {
-                    HapticFeedback.selectionClick();
-                    context.push('/people/all');
-                  }),
-                  const SizedBox(height: 30),
-                  _RowHeading(
-                    title: 'Moments',
-                    action: 'See archive',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/moments');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  const SizedBox(height: 136, child: _MomentStrip()),
-                  const SizedBox(height: 30),
-                  _RowHeading(
-                    title: 'Forge',
-                    action: 'Explore ideas',
-                    onTap: () {
+                    }),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 3) ...[
+                    _RowHeading(
+                      title: 'Moments',
+                      action: 'See archive',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.push('/moments');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const SizedBox(height: 136, child: _MomentStrip()),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 4) ...[
+                    _RowHeading(
+                      title: 'Forge',
+                      action: 'Explore ideas',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.push('/forge');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _ForgeEntry(onTap: () {
                       HapticFeedback.selectionClick();
                       context.push('/forge');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _ForgeEntry(onTap: () {
-                    HapticFeedback.selectionClick();
-                    context.push('/forge');
-                  }),
-                  const SizedBox(height: 30),
-                  _RowHeading(
-                    title: 'Recent Drops',
-                    action: 'View Relays',
-                    onTap: () {
+                    }),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 5) ...[
+                    _RowHeading(
+                      title: 'Recent Drops',
+                      action: 'View Relays',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.push('/relays');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _RelayEntry(onTap: () {
                       HapticFeedback.selectionClick();
                       context.push('/relays');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _RelayEntry(onTap: () {
-                    HapticFeedback.selectionClick();
-                    context.push('/relays');
-                  }),
-                  const SizedBox(height: 30),
-                  _RowHeading(
-                    title: 'Active now',
-                    action: 'View all',
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/people/all');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _ActivePeople(query: _query),
-                  const SizedBox(height: 30),
-                  const _SectionTitle(
-                    eyebrow: 'DISCOVER',
-                    title: 'Small spaces, real connection',
-                  ),
-                  const SizedBox(height: 12),
-                  const _SpaceGrid(),
+                    }),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 2) ...[
+                    _RowHeading(
+                      title: 'Active now',
+                      action: 'View all',
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        context.push('/people/all');
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _ActivePeople(query: _query),
+                    const SizedBox(height: 30),
+                  ],
+                  if (_selectedCategoryIndex == 0 ||
+                      _selectedCategoryIndex == 6) ...[
+                    const _SectionTitle(
+                      eyebrow: 'DISCOVER',
+                      title: 'Small spaces, real connection',
+                    ),
+                    const SizedBox(height: 12),
+                    const _SpaceGrid(),
+                  ],
                 ]),
               ),
             ),
@@ -150,74 +193,23 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final photoUrl = user?.photoUrl;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final displayName = user?.displayName?.trim();
     final firstName = (displayName?.isNotEmpty == true)
         ? displayName!.split(' ').first
         : null;
     final initial = firstName?.substring(0, 1).toUpperCase() ?? 'D';
-    final greeting =
-        firstName != null ? 'Welcome back, $firstName' : 'Welcome back';
+    final name = displayName?.isNotEmpty == true ? displayName! : 'Docmac Pioneer';
+    final email = user?.email;
+    final handle = (email != null && email.isNotEmpty)
+        ? '@${email.split('@').first}'
+        : 'Your people are close.';
 
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                greeting,
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Your people are close.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-        InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            context.push('/notifications');
-          },
-          borderRadius: BorderRadius.circular(999),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                DocmacCommunityIcon(
-                  asset: DocmacCommunityIcons.notification,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                  semanticLabel: 'Arrivals',
-                ),
-                Positioned(
-                  right: 7,
-                  top: 7,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.error,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerLowest,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        // Avatar on the left matching reference video layout
         ValueListenableBuilder<Uint8List?>(
           valueListenable: ProfileMediaStore.avatarBytes,
           builder: (BuildContext context, Uint8List? avatarBytes, Widget? _) {
@@ -237,27 +229,162 @@ class _TopBar extends ConsumerWidget {
               },
               borderRadius: BorderRadius.circular(999),
               child: Container(
-                width: 44,
-                height: 44,
-                padding: const EdgeInsets.all(3),
+                width: 48,
+                height: 48,
+                padding: const EdgeInsets.all(2.5),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+                    width: 1.5,
+                  ),
                 ),
                 child: CircleAvatar(
-                  backgroundColor: AppColors.darkBackground,
-                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  foregroundColor:
+                      isDark ? Colors.white : const Color(0xFF0F172A),
                   backgroundImage: avatarImage,
                   child: avatarImage == null
                       ? Text(initial,
-                          style: const TextStyle(fontWeight: FontWeight.w800))
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 16))
                       : null,
                 ),
               ),
             );
           },
         ),
+        const SizedBox(width: 14),
+
+        // User Identity Text Column
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                handle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Action Buttons on Right (Search & Notification)
+        _HeaderActionButton(
+          icon: DocmacIconlyLight.search,
+          semanticLabel: 'Search',
+          onTap: () {
+            HapticFeedback.selectionClick();
+            context.push('/search');
+          },
+        ),
+        const SizedBox(width: 8),
+        _HeaderActionButton(
+          icon: DocmacCommunityIcons.notification,
+          isCommunityIcon: true,
+          hasBadge: true,
+          semanticLabel: 'Arrivals',
+          onTap: () {
+            HapticFeedback.selectionClick();
+            context.push('/notifications');
+          },
+        ),
       ],
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+    this.isCommunityIcon = false,
+    this.hasBadge = false,
+  });
+
+  final dynamic icon;
+  final String semanticLabel;
+  final VoidCallback onTap;
+  final bool isCommunityIcon;
+  final bool hasBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (isCommunityIcon)
+              DocmacCommunityIcon(
+                asset: icon as String,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                size: 21,
+                semanticLabel: semanticLabel,
+              )
+            else
+              Icon(
+                icon as IconData,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                size: 20,
+              ),
+            if (hasBadge)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -277,40 +404,509 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: 'Search people, talks and moments',
-        prefixIcon: const Icon(DocmacIconlyLight.search),
-        suffixIcon: controller.text.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.clear_rounded, size: 18),
-                onPressed: onClear,
-              )
-            : IconButton(
-                icon: const Icon(DocmacIconlyLight.filter, size: 19),
-                onPressed: () => context.push('/search'),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          hintText: 'Search people, talks, relays and moments...',
+          hintStyle: TextStyle(
+            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+            fontSize: 14,
+          ),
+          prefixIcon: const Icon(DocmacIconlyLight.search, size: 20),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 18),
+                  onPressed: onClear,
+                )
+              : IconButton(
+                  icon: const Icon(DocmacIconlyLight.filter, size: 19),
+                  onPressed: () => context.push('/search'),
+                ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryFilterStrip extends StatelessWidget {
+  const _CategoryFilterStrip({
+    required this.categories,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Featured Orbit',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
               ),
-        filled: true,
-        fillColor: scheme.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+            Text(
+              '${categories.length} hubs',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 38,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final selected = selectedIndex == index;
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(index);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                        : (isDark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFF8FAFC)),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected
+                          ? Colors.transparent
+                          : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+                      width: 1,
+                    ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                  alpha: isDark ? 0.35 : 0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      categories[index],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected
+                            ? (isDark ? const Color(0xFF0F172A) : Colors.white)
+                            : (isDark
+                                ? Colors.white70
+                                : const Color(0xFF64748B)),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+      ],
+    );
+  }
+}
+
+class _ShowcaseItem {
+  const _ShowcaseItem({
+    required this.title,
+    required this.subtitle,
+    required this.badgeText,
+    required this.tag,
+    required this.route,
+    required this.accentColor,
+    required this.previewIcon,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badgeText;
+  final String tag;
+  final String route;
+  final Color accentColor;
+  final dynamic previewIcon;
+}
+
+class _FeaturedShowcaseCarousel extends StatefulWidget {
+  const _FeaturedShowcaseCarousel();
+
+  @override
+  State<_FeaturedShowcaseCarousel> createState() =>
+      _FeaturedShowcaseCarouselState();
+}
+
+class _FeaturedShowcaseCarouselState extends State<_FeaturedShowcaseCarousel> {
+  late final PageController _controller;
+  int _currentPage = 0;
+
+  static const _items = [
+    _ShowcaseItem(
+      title: 'Orbit Pulse',
+      subtitle:
+          'Keep your inner circle close, track live status and sync vibes.',
+      badgeText: 'PULSE 2.0',
+      tag: 'FEATURED',
+      route: '/people/all',
+      accentColor: Color(0xFF0284C7),
+      previewIcon: DocmacIconlyLight.discovery,
+    ),
+    _ShowcaseItem(
+      title: 'Moments Feed',
+      subtitle:
+          'Ephemeral audio clips, visual daydrops and candid snippets.',
+      badgeText: 'AUDIO FIRST',
+      tag: 'NEW',
+      route: '/moments',
+      accentColor: Color(0xFF8B5CF6),
+      previewIcon: DocmacIconlyLight.video,
+    ),
+    _ShowcaseItem(
+      title: 'Forge Lab',
+      subtitle:
+          'Private collaborative ideation spaces with whiteboard thoughts.',
+      badgeText: 'COLLAB',
+      tag: 'HOT',
+      route: '/forge',
+      accentColor: Color(0xFF10B981),
+      previewIcon: DocmacIconlyLight.work,
+    ),
+    _ShowcaseItem(
+      title: 'Relay Drops',
+      subtitle:
+          'Broadcast live audio waves directly to your verified circles.',
+      badgeText: 'BROADCAST',
+      tag: 'LIVE',
+      route: '/relays',
+      accentColor: Color(0xFFF59E0B),
+      previewIcon: DocmacCommunityIcons.relay,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 0.94);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 275,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: _items.length,
+            onPageChanged: (page) => setState(() => _currentPage = page),
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _ShowcaseCard(item: item, isDark: isDark),
+              );
+            },
+          ),
         ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_items.length, (index) {
+            final active = index == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 22 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                    : (isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShowcaseCard extends StatelessWidget {
+  const _ShowcaseCard({required this.item, required this.isDark});
+
+  final _ShowcaseItem item;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row: Tag & Stacked Depth Badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      item.accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  item.tag,
+                  style: TextStyle(
+                    color: item.accentColor,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              // 3-layers stacked depth icon from reference video (00:13-00:19)
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.layers_rounded,
+                  size: 17,
+                  color: isDark ? Colors.white70 : const Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Title & Subtitle
+          Text(
+            item.title,
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            item.subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.35,
+              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+            ),
+          ),
+          const Spacer(),
+
+          // Preview graphic box with gradient
+          Container(
+            height: 72,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  item.accentColor.withValues(alpha: isDark ? 0.20 : 0.10),
+                  item.accentColor.withValues(alpha: isDark ? 0.06 : 0.02),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: item.accentColor.withValues(alpha: 0.18),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: item.accentColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: item.previewIcon is String
+                        ? DocmacCommunityIcon(
+                            asset: item.previewIcon as String,
+                            color: item.accentColor,
+                            size: 20,
+                            semanticLabel: item.title,
+                          )
+                        : Icon(
+                            item.previewIcon as IconData,
+                            color: item.accentColor,
+                            size: 20,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.badgeText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                          color: item.accentColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tap below to open hub',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color:
+                              isDark ? Colors.white54 : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Black pill button matching video [ Explore Hub -> ]
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: FilledButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                context.push(item.route);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                    isDark ? Colors.white : const Color(0xFF0F172A),
+                foregroundColor:
+                    isDark ? const Color(0xFF0F172A) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(21),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Explore Hub',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    DocmacIconlyLight.arrowRight,
+                    size: 15,
+                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
