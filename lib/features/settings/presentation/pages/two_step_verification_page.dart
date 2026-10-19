@@ -62,7 +62,8 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
       setState(() => _isOn = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Two-step verification has been turned off.')),
+          const SnackBar(
+              content: Text('Two-step verification has been turned off.')),
         );
       }
     }
@@ -71,7 +72,8 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
   Future<void> _turnOn() async {
     await _showPinDialog(
       title: 'Enable Two-Step Verification',
-      description: 'Enter a 6-digit PIN that you will be asked for when you register your phone number:',
+      description:
+          'Enter a 6-digit PIN that you will be asked for when you register your phone number:',
       onSaved: (pin) async {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_enabledKey, true);
@@ -79,7 +81,8 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
         setState(() => _isOn = true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Two-step verification has been enabled.')),
+            const SnackBar(
+                content: Text('Two-step verification has been enabled.')),
           );
         }
       },
@@ -187,7 +190,8 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final brandGreen = isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48);
+    final brandGreen =
+        isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48);
 
     if (!_loaded) {
       return const Scaffold(
@@ -317,4 +321,3 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
     );
   }
 }
-

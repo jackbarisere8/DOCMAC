@@ -35,6 +35,9 @@ import '../../features/settings/presentation/pages/change_number_page.dart';
 import '../../features/settings/presentation/pages/email_settings_page.dart';
 import '../../features/settings/presentation/pages/security_notifications_page.dart';
 import '../../features/settings/presentation/pages/two_step_verification_page.dart';
+import '../../features/settings/presentation/pages/passkeys_page.dart';
+import '../../features/settings/presentation/pages/lists_settings_page.dart';
+import '../../features/settings/presentation/pages/privacy_help_page.dart';
 import '../../features/settings/presentation/pages/help_feedback_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -164,6 +167,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/email',
         builder: (context, state) => const EmailSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/passkeys',
+        builder: (context, state) => const PasskeysPage(),
+      ),
+      GoRoute(
+        path: '/settings/lists',
+        builder: (context, state) => const ListsSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/privacy-help',
+        builder: (context, state) => const PrivacyHelpPage(),
       ),
       GoRoute(
         path: '/settings/connections',

@@ -75,9 +75,8 @@ class SettingsPage extends StatelessWidget {
             _SettingsRow(
                 icon: DocmacIconlyLight.category,
                 label: 'Lists',
-                subtitle: 'Circles, spaces, and invitations',
-                onTap: () => _notice(
-                    context, 'Your circles and lists are ready to manage.')),
+                subtitle: 'Custom filters and chat organization',
+                onTap: () => context.push('/settings/lists')),
             _SettingsRow(
                 icon: DocmacIconlyLight.chat,
                 label: 'Talks',
@@ -127,10 +126,6 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
       );
-
-  static void _notice(BuildContext context, String message) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
 }
 
 class _SettingsRow extends StatelessWidget {
@@ -419,47 +414,201 @@ class _AppLanguageSettingsPageState extends State<AppLanguageSettingsPage> {
 class AccountSettingsPage extends StatelessWidget {
   const AccountSettingsPage({super.key});
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Account')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            const _AccountAction(
-              icon: DocmacIconlyLight.shieldDone,
-              label: 'Security notifications',
-              route: '/settings/security-notifications',
-            ),
-            const _AccountAction(
-              icon: DocmacIconlyLight.password,
-              label: 'Passkeys',
-            ),
-            const _AccountAction(
-              icon: DocmacIconlyLight.message,
-              label: 'Email address',
-              route: '/settings/email',
-            ),
-            const _AccountAction(
-              icon: DocmacIconlyLight.call,
-              label: 'Change phone number',
-              route: '/settings/change-number',
-            ),
-            const _AccountAction(
-              icon: DocmacIconlyLight.shieldDone,
-              label: 'Two-step verification',
-              route: '/settings/two-step',
-            ),
-            const SizedBox(height: 10),
-            Divider(color: Theme.of(context).dividerColor),
-            const _AccountAction(
-              icon: DocmacIconlyLight.delete,
-              label: 'Delete account',
-              route: '/settings/delete-account',
-              isDestructive: true,
-            ),
-          ],
+  void _showUsernameDialog(BuildContext context) {
+    final controller = TextEditingController(text: 'jack_wilson');
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Edit username'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            prefixText: '@',
+            hintText: 'username',
+          ),
         ),
-      );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Username updated to @${controller.text}')),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBusinessPlatformSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Business Platform',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              const Text(
+                'Connect your Docmac business profile to third-party tools, customer API endpoints, and web dashboards.',
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(sheetCtx),
+                  child: const Text('Explore Business Tools'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRequestAccountInfo(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Request account info',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              const Text(
+                'Create a report of your Docmac account information and settings, which you can access or port to another app. The report will be ready in approximately 3 days.',
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Request report'),
+                  onPressed: () {
+                    Navigator.pop(sheetCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Account report requested.')),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Account')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          // Section 1: Login and security
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              'Login and security',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const _AccountAction(
+            icon: Icons.key_rounded,
+            label: 'Passkeys',
+            route: '/settings/passkeys',
+          ),
+          const _AccountAction(
+            icon: Icons.mail_outline_rounded,
+            label: 'Email address',
+            route: '/settings/email',
+          ),
+          const _AccountAction(
+            icon: Icons.lock_outline_rounded,
+            label: 'Two-step verification',
+            route: '/settings/two-step',
+          ),
+          const _AccountAction(
+            icon: Icons.shield_outlined,
+            label: 'Security notifications',
+            route: '/settings/security-notifications',
+          ),
+
+          const SizedBox(height: 18),
+          Divider(color: theme.dividerColor, height: 1),
+          const SizedBox(height: 16),
+
+          // Section 2: Your account
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              'Your account',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          _AccountAction(
+            icon: Icons.alternate_email_rounded,
+            label: 'Username',
+            onTapOverride: () => _showUsernameDialog(context),
+          ),
+          _AccountAction(
+            icon: Icons.link_rounded,
+            label: 'Business Platform',
+            onTapOverride: () => _showBusinessPlatformSheet(context),
+          ),
+          const _AccountAction(
+            icon: Icons.phone_outlined,
+            label: 'Change phone number',
+            route: '/settings/change-number',
+          ),
+          _AccountAction(
+            icon: Icons.description_outlined,
+            label: 'Request account info',
+            onTapOverride: () => _showRequestAccountInfo(context),
+          ),
+
+          const SizedBox(height: 18),
+          Divider(color: theme.dividerColor, height: 1),
+          const SizedBox(height: 16),
+
+          // Section 3: Delete account
+          const _AccountAction(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete account',
+            route: '/settings/delete-account',
+            isDestructive: true,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AccountAction extends StatelessWidget {
@@ -467,15 +616,22 @@ class _AccountAction extends StatelessWidget {
     required this.icon,
     required this.label,
     this.route,
+    this.onTapOverride,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String label;
   final String? route;
+  final VoidCallback? onTapOverride;
   final bool isDestructive;
 
   void _defaultTap(BuildContext context) {
+    if (onTapOverride != null) {
+      onTapOverride!();
+      return;
+    }
+
     if (route != null) {
       context.push(route!);
       return;

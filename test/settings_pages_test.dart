@@ -3,8 +3,12 @@ import 'package:docmac_app/features/settings/presentation/pages/data_storage_pag
 import 'package:docmac_app/features/settings/presentation/pages/delete_account_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/email_settings_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/help_feedback_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/lists_settings_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/passkeys_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/privacy_help_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/privacy_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/security_notifications_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/settings_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/two_step_verification_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,5 +136,63 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('@gmail.com'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('passkeys page displays security benefits and create action', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PasskeysPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Passkeys'), findsOneWidget);
+    expect(find.text('Log in securely and protect your account'), findsOneWidget);
+    expect(find.text('Create passkey'), findsOneWidget);
+  });
+
+  testWidgets('lists settings page displays presets and allows creating custom list', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ListsSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lists'), findsOneWidget);
+    expect(find.text('Create a custom list'), findsOneWidget);
+    expect(find.text('Unread'), findsOneWidget);
+    expect(find.text('Favorites'), findsOneWidget);
+    expect(find.text('Groups'), findsOneWidget);
+  });
+
+  testWidgets('privacy help page renders privacy documentation and contact button', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PrivacyHelpPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Privacy'), findsAtLeastNWidgets(1));
+    expect(find.text('About end-to-end encryption'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+  });
+
+  testWidgets('account settings page exposes WhatsApp Image 2 sections', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AccountSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Login and security'), findsOneWidget);
+    expect(find.text('Passkeys'), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Business Platform'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Delete account'), 300);
+    expect(find.text('Delete account'), findsOneWidget);
   });
 }
