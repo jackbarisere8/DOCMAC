@@ -195,7 +195,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/search',
-        builder: (context, state) => const GlobalSearchPage(),
+        builder: (context, state) => GlobalSearchPage(
+          initialQuery: state.uri.queryParameters['q'],
+        ),
       ),
       GoRoute(
         path: '/moments',

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/ui/docmac_community_icons.dart';
+import '../../core/ui/docmac_iconly.dart';
 import '../../features/live/presentation/pages/live_page.dart';
 import '../../features/orbit/presentation/pages/orbit_page.dart';
 import '../../features/me/presentation/pages/me_page.dart';
@@ -126,31 +127,43 @@ class _AppNavigation extends StatelessWidget {
             children: [
               _NavItem(
                 label: 'Orbit',
-                icon: DocmacCommunityIcons.home,
-                selectedIcon: DocmacCommunityIcons.home,
+                icon: DocmacIconlyLight.home,
+                selectedIcon: DocmacIconlyBold.home,
                 selected: selectedIndex == 0,
-                onTap: () => onSelected(0),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(0);
+                },
               ),
               _NavItem(
                 label: 'Talk',
-                icon: DocmacCommunityIcons.talk,
-                selectedIcon: DocmacCommunityIcons.talk,
+                icon: DocmacIconlyLight.chat,
+                selectedIcon: DocmacIconlyBold.chat,
                 selected: selectedIndex == 1,
-                onTap: () => onSelected(1),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(1);
+                },
               ),
               _NavItem(
                 label: 'Live',
-                icon: DocmacCommunityIcons.live,
-                selectedIcon: DocmacCommunityIcons.live,
+                icon: DocmacIconlyLight.voice,
+                selectedIcon: DocmacIconlyBold.voice,
                 selected: selectedIndex == 2,
-                onTap: () => onSelected(2),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(2);
+                },
               ),
               _NavItem(
                 label: 'Me',
-                icon: DocmacCommunityIcons.profile,
-                selectedIcon: DocmacCommunityIcons.profile,
+                icon: DocmacIconlyLight.profile,
+                selectedIcon: DocmacIconlyBold.profile,
                 selected: selectedIndex == 3,
-                onTap: () => onSelected(3),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onSelected(3);
+                },
               ),
             ],
           ),
@@ -170,21 +183,20 @@ class _NavItem extends StatelessWidget {
   });
 
   final String label;
-  final String icon;
-  final String selectedIcon;
+  final IconData icon;
+  final IconData selectedIcon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Use a deeper selected blue in light mode and a high-contrast neutral
-    // color when inactive. The SVG wrapper applies these colors to every path.
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     final color = selected
-        ? (Theme.of(context).brightness == Brightness.light
-            ? AppColors.brandBase
-            : scheme.primary)
-        : scheme.onSurface;
+        ? (isDark ? scheme.primary : AppColors.brandBase)
+        : scheme.onSurfaceVariant;
 
     return Expanded(
       child: Semantics(
@@ -194,36 +206,45 @@ class _NavItem extends StatelessWidget {
         label: label,
         child: InkWell(
           onTap: onTap,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                  duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
                   decoration: BoxDecoration(
                     color: selected
-                        ? (Theme.of(context).brightness == Brightness.light
-                            ? AppColors.brandBase.withValues(alpha: 0.10)
-                            : scheme.primary.withValues(alpha: 0.14))
+                        ? (isDark
+                            ? scheme.primary.withValues(alpha: 0.16)
+                            : AppColors.brandBase.withValues(alpha: 0.10))
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: DocmacCommunityIcon(
-                    asset: selected ? selectedIcon : icon,
-                    color: color,
-                    size: 21,
-                    semanticLabel: label,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, anim) =>
+                        ScaleTransition(scale: anim, child: child),
+                    child: Icon(
+                      selected ? selectedIcon : icon,
+                      key: ValueKey(selected),
+                      color: color,
+                      size: 22,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   label,
                   style: TextStyle(
                     color: color,
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ],
