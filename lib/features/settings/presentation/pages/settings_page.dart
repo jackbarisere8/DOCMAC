@@ -426,22 +426,37 @@ class AccountSettingsPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
             const _AccountAction(
-                icon: DocmacIconlyLight.shieldDone, label: 'Security alerts'),
+              icon: DocmacIconlyLight.shieldDone,
+              label: 'Security notifications',
+              route: '/settings/security-notifications',
+            ),
             const _AccountAction(
-                icon: DocmacIconlyLight.password, label: 'Passkeys'),
+              icon: DocmacIconlyLight.password,
+              label: 'Passkeys',
+            ),
             const _AccountAction(
-                icon: DocmacIconlyLight.message, label: 'Email address'),
+              icon: DocmacIconlyLight.message,
+              label: 'Email address',
+              route: '/settings/email',
+            ),
             const _AccountAction(
-                icon: DocmacIconlyLight.call, label: 'Change phone number'),
+              icon: DocmacIconlyLight.call,
+              label: 'Change phone number',
+              route: '/settings/change-number',
+            ),
             const _AccountAction(
-                icon: DocmacIconlyLight.shieldDone,
-                label: 'Two-step verification'),
+              icon: DocmacIconlyLight.shieldDone,
+              label: 'Two-step verification',
+              route: '/settings/two-step',
+            ),
             const SizedBox(height: 10),
             Divider(color: Theme.of(context).dividerColor),
             const _AccountAction(
-                icon: DocmacIconlyLight.delete,
-                label: 'Delete account',
-                isDestructive: true),
+              icon: DocmacIconlyLight.delete,
+              label: 'Delete account',
+              route: '/settings/delete-account',
+              isDestructive: true,
+            ),
           ],
         ),
       );
@@ -451,16 +466,18 @@ class _AccountAction extends StatelessWidget {
   const _AccountAction({
     required this.icon,
     required this.label,
+    this.route,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String label;
+  final String? route;
   final bool isDestructive;
 
   void _defaultTap(BuildContext context) {
-    if (isDestructive) {
-      context.push('/settings/delete-account');
+    if (route != null) {
+      context.push(route!);
       return;
     }
 

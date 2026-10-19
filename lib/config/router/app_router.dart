@@ -31,6 +31,10 @@ import '../../features/settings/presentation/pages/privacy_page.dart';
 import '../../features/settings/presentation/pages/logout_options_page.dart';
 import '../../features/settings/presentation/pages/data_storage_page.dart';
 import '../../features/settings/presentation/pages/delete_account_page.dart';
+import '../../features/settings/presentation/pages/change_number_page.dart';
+import '../../features/settings/presentation/pages/email_settings_page.dart';
+import '../../features/settings/presentation/pages/security_notifications_page.dart';
+import '../../features/settings/presentation/pages/two_step_verification_page.dart';
 import '../../features/settings/presentation/pages/help_feedback_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -144,6 +148,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/delete-account',
         builder: (context, state) => const DeleteAccountPage(),
+      ),
+      GoRoute(
+        path: '/settings/change-number',
+        builder: (context, state) => const ChangeNumberPage(),
+      ),
+      GoRoute(
+        path: '/settings/security-notifications',
+        builder: (context, state) => const SecurityNotificationsPage(),
+      ),
+      GoRoute(
+        path: '/settings/two-step',
+        builder: (context, state) => const TwoStepVerificationPage(),
+      ),
+      GoRoute(
+        path: '/settings/email',
+        builder: (context, state) => const EmailSettingsPage(),
       ),
       GoRoute(
         path: '/settings/connections',

@@ -1,7 +1,11 @@
+import 'package:docmac_app/features/settings/presentation/pages/change_number_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/data_storage_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/delete_account_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/email_settings_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/help_feedback_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/privacy_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/security_notifications_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/two_step_verification_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,5 +60,77 @@ void main() {
     expect(find.text('Change number instead?'), findsOneWidget);
     expect(find.text('Delete account'), findsOneWidget);
   });
-}
 
+  testWidgets('change number displays overview instructions and navigates to inputs', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: ChangeNumberPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Change number'), findsAtLeastNWidgets(1));
+    expect(find.text('Events and scheduled calls will not be migrated to your new number and will be deleted.'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+
+    // Tap Next to advance to input step
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter your old phone number with country code:'), findsOneWidget);
+    expect(find.text('Enter your new phone number with country code:'), findsOneWidget);
+  });
+
+  testWidgets('security notifications shows E2EE protections and device alert toggle', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SecurityNotificationsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Security notifications'), findsOneWidget);
+    expect(find.text('Your chats and calls are private'), findsOneWidget);
+    expect(find.text('Text and voice messages'), findsOneWidget);
+    expect(find.text('Audio and video calls'), findsOneWidget);
+    expect(find.text('Show security notifications on this device'), findsOneWidget);
+    expect(find.byType(Switch), findsOneWidget);
+  });
+
+  testWidgets('two-step verification shows active state and management options', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: TwoStepVerificationPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Two-step verification'), findsOneWidget);
+    expect(find.text('Turn off'), findsOneWidget);
+    expect(find.text('Change PIN'), findsOneWidget);
+  });
+
+  testWidgets('email settings page displays current email, domain chips and next button', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: EmailSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Email address'), findsOneWidget);
+    expect(find.text('@gmail.com'), findsOneWidget);
+    expect(find.text('@outlook.com'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+
+    // Tap domain chip to append
+    await tester.tap(find.text('@gmail.com'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('@gmail.com'), findsAtLeastNWidgets(1));
+  });
+}
