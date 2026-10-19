@@ -487,3 +487,4 @@ void _showTopicInfo(BuildContext context, String title, String detail) {
     ),
   );
 }
+
