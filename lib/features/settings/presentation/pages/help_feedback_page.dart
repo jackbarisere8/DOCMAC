@@ -62,18 +62,18 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   var _query = '';
 
   static const _topics = [
-    _HelpTopic('Getting started', 'Set up your profile and find your people.', Icons.flag_outlined),
-    _HelpTopic('Talk', 'Messages, archives, media, and conversations.', Icons.forum_outlined),
-    _HelpTopic('Circles and Spaces', 'Groups, communities, and invitations.', Icons.groups_outlined),
-    _HelpTopic('Live', 'Voice rooms, calls, and scheduled sessions.', Icons.call_outlined),
-    _HelpTopic('Privacy and safety', 'Account controls, blocking, and reports.', Icons.shield_outlined),
-    _HelpTopic('Account and access', 'Sign-in, recovery, and account security.', Icons.manage_accounts_outlined),
+    _HelpTopic('Chats & Messaging', 'Messages, backups, notifications, media, voice and video notes, AI experiences.', Icons.forum_outlined, route: '/help/chats'),
+    _HelpTopic('Communities & Circles', 'Community spaces, admin permissions, and member guides.', Icons.groups_outlined, route: '/help/communities'),
+    _HelpTopic('Status & Moments', 'Sharing updates, privacy, views, and third-party integrations.', Icons.amp_stories_outlined, route: '/help/status'),
+    _HelpTopic('Privacy, Safety, and Security', 'End-to-end encryption, account controls, and reporting.', Icons.shield_outlined, route: '/help/privacy-safety-security'),
+    _HelpTopic('Troubleshooting & Diagnostics', 'Fixing issues, connectivity, account recovery, and foreign devices.', Icons.build_outlined, route: '/help/troubleshooting'),
+    _HelpTopic('Live & Calls', 'Voice rooms, audio calls, and scheduled sessions.', Icons.call_outlined),
   ];
   static const _articles = [
-    'Start a private talk',
-    'Manage your archive',
+    'How to create and share a status',
+    'How to fix connection issues',
     'Keep your account secure',
-    'Join a Live room',
+    'Not seeing a feature on Docmac',
   ];
 
   @override
@@ -128,8 +128,19 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           Text('Help topics', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           for (final topic in topics)
-            _HelpCenterRow(icon: topic.icon, title: topic.title, subtitle: topic.description,
-                onTap: () => _showArticle(context, topic.title, topic.description)),
+            _HelpCenterRow(
+              icon: topic.icon,
+              title: topic.title,
+              subtitle: topic.description,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                if (topic.route != null) {
+                  context.push(topic.route!);
+                } else {
+                  _showArticle(context, topic.title, topic.description);
+                }
+              },
+            ),
           if (topics.isEmpty && articles.isEmpty)
             const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Center(child: Text('No help topics match that search.'))),
           if (articles.isNotEmpty) ...[
@@ -137,8 +148,20 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             Text('Popular articles', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final article in articles)
-              _HelpCenterRow(icon: Icons.article_outlined, title: article,
-                  onTap: () => _showArticle(context, article)),
+              _HelpCenterRow(
+                icon: Icons.article_outlined,
+                title: article,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  if (article.contains('status')) {
+                    context.push('/help/status');
+                  } else if (article.contains('connection') || article.contains('feature')) {
+                    context.push('/help/troubleshooting');
+                  } else {
+                    _showArticle(context, article);
+                  }
+                },
+              ),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -371,9 +394,10 @@ class _HelpCenterRow extends StatelessWidget {
 }
 
 class _HelpTopic {
-  const _HelpTopic(this.title, this.description, this.icon);
+  const _HelpTopic(this.title, this.description, this.icon, {this.route});
 
   final String title;
   final String description;
   final IconData icon;
+  final String? route;
 }

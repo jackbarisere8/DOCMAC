@@ -3,6 +3,7 @@ import 'package:docmac_app/features/settings/presentation/pages/data_storage_pag
 import 'package:docmac_app/features/settings/presentation/pages/delete_account_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/email_settings_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/help_feedback_page.dart';
+import 'package:docmac_app/features/settings/presentation/pages/help_categories_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/lists_settings_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/passkeys_page.dart';
 import 'package:docmac_app/features/settings/presentation/pages/privacy_help_page.dart';
@@ -194,5 +195,102 @@ void main() {
     expect(find.text('Business Platform'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Delete account'), 300);
     expect(find.text('Delete account'), findsOneWidget);
+  });
+
+  testWidgets('help chats page displays WhatsApp Image 3 topics and contact button', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HelpChatsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Help Center'), findsOneWidget);
+    expect(find.text('Chats'), findsOneWidget);
+    expect(find.text('Individual and Group Chats'), findsOneWidget);
+    expect(find.text('Back Up and Restore'), findsOneWidget);
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('AI Experiences'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+  });
+
+  testWidgets('help communities page displays WhatsApp Image 2 sections and contact button', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HelpCommunitiesPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Help Center'), findsOneWidget);
+    expect(find.text('Communities'), findsOneWidget);
+    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('Admin'), findsOneWidget);
+    expect(find.text('Member'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+  });
+
+  testWidgets('help privacy safety security page displays WhatsApp Image 1 topics', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HelpPrivacySafetySecurityPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Help Center'), findsOneWidget);
+    expect(find.text('Privacy, Safety, and Security'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
+    expect(find.text('Safety'), findsOneWidget);
+    expect(find.text('Security'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+  });
+
+  testWidgets('help status page renders Image 4 articles and filters with search', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HelpStatusPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Status'), findsAtLeastNWidgets(1));
+    expect(find.text('About status'), findsOneWidget);
+    expect(find.text('How to create and share a status'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+
+    // Enter search query
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'mentions');
+    await tester.pumpAndSettle();
+
+    expect(find.text('About status mentions'), findsOneWidget);
+    expect(find.text('About status'), findsNothing);
+  });
+
+  testWidgets('help troubleshooting page renders Image 5 articles and filters with search', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: HelpTroubleshootingPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Troubleshooting'), findsAtLeastNWidgets(1));
+    expect(find.text('Not seeing a feature on Docmac'), findsOneWidget);
+    expect(find.text('How to fix connection issues'), findsOneWidget);
+    expect(find.text('Contact us'), findsOneWidget);
+
+    // Enter search query
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'keyboard');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Can’t use keyboard in Docmac'), findsOneWidget);
+    expect(find.text('Not seeing a feature on Docmac'), findsNothing);
   });
 }

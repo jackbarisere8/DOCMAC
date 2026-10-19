@@ -39,6 +39,7 @@ import '../../features/settings/presentation/pages/passkeys_page.dart';
 import '../../features/settings/presentation/pages/lists_settings_page.dart';
 import '../../features/settings/presentation/pages/privacy_help_page.dart';
 import '../../features/settings/presentation/pages/help_feedback_page.dart';
+import '../../features/settings/presentation/pages/help_categories_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -219,6 +220,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/help/feedback',
         builder: (context, state) => const SendFeedbackPage(),
+      ),
+      GoRoute(
+        path: '/help/chats',
+        builder: (context, state) => const HelpChatsPage(),
+      ),
+      GoRoute(
+        path: '/help/communities',
+        builder: (context, state) => const HelpCommunitiesPage(),
+      ),
+      GoRoute(
+        path: '/help/privacy-safety-security',
+        builder: (context, state) => const HelpPrivacySafetySecurityPage(),
+      ),
+      GoRoute(
+        path: '/help/status',
+        builder: (context, state) => const HelpStatusPage(),
+      ),
+      GoRoute(
+        path: '/help/troubleshooting',
+        builder: (context, state) => const HelpTroubleshootingPage(),
       ),
       GoRoute(
         path: '/foundry',
