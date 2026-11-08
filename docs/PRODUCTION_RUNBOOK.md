@@ -23,6 +23,13 @@ console, a deployment, or a dedicated design phase.
 
 ## Deploy order
 
+The project must be on the Blaze (pay-as-you-go) plan before functions can be
+deployed, and the **Cloud Functions API** must be enabled. A `firebase
+functions:list` call currently fails with `SERVICE_DISABLED` until it is. Enable
+it from <https://console.developers.google.com/apis/api/cloudfunctions.googleapis.com/overview?project=docmac-88a0d>
+and retry after a few minutes. The first deploy also needs Cloud Build, Cloud
+Run, Artifact Registry, and Secret Manager; the CLI prompts to enable them.
+
 Run these from the repository root after reviewing the diff:
 
 ```bash
@@ -171,16 +178,17 @@ updates, although Google Play App Signing keeps the app signing key if the
 upload key is reset.
 
 ```powershell
-keytool -genkeypair -v -keystore docmac-upload.jks -alias upload `
+keytool -genkeypair -v -keystore docmac-upload.jks -alias docmac-upload `
   -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Create `android/key.properties` locally for device builds (it is gitignored):
+Create `android/key.properties` locally for device builds (it is gitignored;
+`android/key.properties.example` shows the shape):
 
 ```properties
 storePassword=<store password>
 keyPassword=<key password>
-keyAlias=upload
+keyAlias=docmac-upload
 storeFile=C:\path\to\docmac-upload.jks
 ```
 
@@ -190,7 +198,7 @@ Add the following repository secrets to the GitHub `production` environment:
 | --- | --- |
 | `KEYSTORE_BASE64` | `[Convert]::ToBase64String([IO.File]::ReadAllBytes("docmac-upload.jks"))` |
 | `KEYSTORE_PASSWORD` | The `storePassword` above. |
-| `KEY_ALIAS` | `upload` |
+| `KEY_ALIAS` | `docmac-upload` |
 | `KEY_PASSWORD` | The `keyPassword` above. |
 
 On macOS/Linux, encode the keystore with `base64 -w0 docmac-upload.jks` (or
@@ -200,7 +208,7 @@ it the website picks the release up on its next scheduled sync.
 Register the upload key fingerprints with Firebase and Google Cloud:
 
 ```bash
-keytool -list -v -keystore docmac-upload.jks -alias upload
+keytool -list -v -keystore docmac-upload.jks -alias docmac-upload
 ```
 
 ## Release channels
