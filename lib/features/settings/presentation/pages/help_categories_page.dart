@@ -339,7 +339,7 @@ class HelpChatsPage extends StatelessWidget {
           onTap: () {
             HapticFeedback.selectionClick();
             _showTopicInfo(context, 'Voice Notes',
-                'Record voice messages with hands-free lock, preview playback before sending, and variable speed.');
+                'Voice notes are not available yet. Debug builds can record a local preview that stays on this device and is never delivered; release builds send text messages only.');
           },
         ),
         ListTile(

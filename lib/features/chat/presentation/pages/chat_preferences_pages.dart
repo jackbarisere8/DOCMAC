@@ -1,386 +1,170 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-class ChatThemePage extends StatefulWidget {
+/// Talk appearance and message-timer pages were interactive mocks: they
+/// changed local widget state, persisted nothing, and the disappearing timer
+/// claimed messages would vanish for everyone. These honest screens replace
+/// them until the features are actually built.
+
+class ChatThemePage extends StatelessWidget {
   const ChatThemePage({super.key});
 
   @override
-  State<ChatThemePage> createState() => _ChatThemePageState();
-}
-
-class _ChatThemePageState extends State<ChatThemePage> {
-  int _selected = 0;
-
-  static const _themes = [
-    (Color(0xFFEFF5FF), Color(0xFF1A4FC4)),
-    (Color(0xFFF4F0E8), Color(0xFFBDEFC3)),
-    (Color(0xFFF0EEE9), Color(0xFF15A66A)),
-    (Color(0xFFF9EAF7), Color(0xFF6650DF)),
-    (Color(0xFFECC8F5), Color(0xFF6246D8)),
-    (Color(0xFFF4D7D2), Color(0xFFA54ACF)),
-    (Color(0xFFFFD99A), Color(0xFFE76C50)),
-    (Color(0xFFBCE5F4), Color(0xFF008F7D)),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Talk theme')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          children: [
-            Text('Themes', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _themes.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: .68,
-              ),
-              itemBuilder: (context, index) => _ThemePreview(
-                background: _themes[index].$1,
-                bubble: _themes[index].$2,
-                selected: _selected == index,
-                onTap: () => setState(() => _selected = index),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Your talk color and wallpaper change together.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 26),
-            Text('Customize', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 4),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.forum_outlined),
-              title: const Text('Talk color'),
-              onTap: () => context.push('/chat/color'),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.wallpaper_outlined),
-              title: const Text('Wallpaper'),
-              onTap: () => context.push('/chat/wallpaper'),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => const _UnavailableTalkPreference(
+        title: 'Talk theme',
+        heading: 'Talk themes are not available yet',
+        body: 'Per-conversation colours, chat colours, and wallpapers are not '
+            'built. This screen cannot change how any chat looks, and nothing '
+            'you tap is saved.',
+        facts: [
+          'Text messages are delivered through Firestore.',
+          'The manual app-lock passcode protects this device only and does '
+              'not encrypt messages.',
+        ],
       );
 }
 
-class _ThemePreview extends StatelessWidget {
-  const _ThemePreview({
-    required this.background,
-    required this.bubble,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final Color background;
-  final Color bubble;
-  final bool selected;
-  final VoidCallback onTap;
+class ChatColorPage extends StatelessWidget {
+  const ChatColorPage({super.key});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
-        child: Container(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: selected
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(context).dividerColor,
-              width: selected ? 3 : 1,
-            ),
-          ),
-          padding: const EdgeInsets.all(9),
-          child: Stack(
-            children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: Container(
-                  width: 38,
-                  height: 17,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .92),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  width: 42,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: bubble,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                ),
-              ),
-              if (selected)
-                Align(
-                  alignment: Alignment.bottomLeft,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Theme.of(context).colorScheme.onSurface,
-                    child: Icon(Icons.check_rounded,
-                        color: Theme.of(context).colorScheme.surface, size: 17),
-                  ),
-                ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => const _UnavailableTalkPreference(
+        title: 'Talk color',
+        heading: 'Talk colors are not available yet',
+        body: 'Changing the colour of a conversation is not built. No colour '
+            'was applied or saved.',
       );
 }
 
-class DisappearingMessagesPage extends StatefulWidget {
+class WallpaperPage extends StatelessWidget {
+  const WallpaperPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _UnavailableTalkPreference(
+        title: 'Wallpaper',
+        heading: 'Wallpapers are not available yet',
+        body: 'Choosing a wallpaper from the gallery or a colour is not '
+            'built. Nothing was applied or saved.',
+      );
+}
+
+class DisappearingMessagesPage extends StatelessWidget {
   const DisappearingMessagesPage({super.key});
 
   @override
-  State<DisappearingMessagesPage> createState() =>
-      _DisappearingMessagesPageState();
+  Widget build(BuildContext context) => const _UnavailableTalkPreference(
+        title: 'Disappearing messages',
+        heading: 'Disappearing messages are not available yet',
+        body: 'There is no message timer yet. Nothing in this build deletes '
+            'messages automatically, for you or for anyone else. Messages stay '
+            'in the conversation until the account is deleted.',
+        facts: [
+          'Deleting your account removes your profile, memberships, and '
+              'sign-in record.',
+          'Messages already delivered to another person stay in their history.',
+          'End-to-end encryption is also not implemented yet.',
+        ],
+      );
 }
 
-class _DisappearingMessagesPageState extends State<DisappearingMessagesPage> {
-  String _timer = 'Off';
+class _UnavailableTalkPreference extends StatelessWidget {
+  const _UnavailableTalkPreference({
+    required this.title,
+    required this.heading,
+    required this.body,
+    this.facts = const [],
+  });
+
+  final String title;
+  final String heading;
+  final String body;
+  final List<String> facts;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Disappearing messages')),
+      appBar: AppBar(title: Text(title)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(28, 30, 28, 28),
+        padding: const EdgeInsets.fromLTRB(28, 32, 28, 36),
         children: [
           Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 132,
-                  height: 92,
-                  decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: .22),
-                    borderRadius: BorderRadius.circular(32),
-                  ),
-                ),
-                CircleAvatar(
-                  radius: 43,
-                  backgroundColor: colors.primary,
-                  child: Icon(Icons.timer_outlined,
-                      size: 50, color: colors.onPrimary),
-                ),
-              ],
+            child: Container(
+              width: 78,
+              height: 78,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(
+                Icons.info_outline_rounded,
+                color: Colors.white,
+                size: 38,
+              ),
             ),
           ),
-          const SizedBox(height: 32),
-          Text('Make messages in this talk disappear',
-              style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
           Text(
-            'For more privacy and storage, new messages disappear for everyone after the selected duration. Anyone in this talk can change this setting.',
-            style:
-                Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.55),
-          ),
-          const SizedBox(height: 22),
-          Divider(color: Theme.of(context).dividerColor),
-          const SizedBox(height: 12),
-          Text('Message timer',
-              style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          RadioGroup<String>(
-            groupValue: _timer,
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _timer = value);
-              }
-            },
-            child: Column(
-              children: [
-                for (final duration in const [
-                  '24 hours',
-                  '7 days',
-                  '90 days',
-                  'Off'
-                ])
-                  RadioListTile<String>(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(duration),
-                    value: duration,
-                    activeColor: colors.primary,
-                  ),
-              ],
+            heading,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
-          Text('Update your default timer in Talk settings.',
-              style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What works today',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final fact in facts)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.check_circle_outline_rounded,
+                              size: 17, color: scheme.primary),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              fact,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
-}
-
-class ChatColorPage extends StatefulWidget {
-  const ChatColorPage({super.key});
-
-  @override
-  State<ChatColorPage> createState() => _ChatColorPageState();
-}
-
-class _ChatColorPageState extends State<ChatColorPage> {
-  int _selected = 0;
-  static const _colors = [
-    Color(0xFF1A4FC4),
-    Color(0xFFD8E5FA),
-    Color(0xFF6348DD),
-    Color(0xFFE5DFFF),
-    Color(0xFFAF4BDC),
-    Color(0xFFF0DCF8),
-    Color(0xFFE76E52),
-    Color(0xFFFFE0D4),
-    Color(0xFF008A82),
-    Color(0xFFC8F0F0),
-    Color(0xFF3069D7),
-    Color(0xFFD2E6FB),
-    Color(0xFF19517D),
-    Color(0xFFD9E6EF),
-    Color(0xFF3D513B),
-    Color(0xFFE1EAE0),
-    Color(0xFF7B1930),
-    Color(0xFFFFCBD7),
-    Color(0xFF353535),
-    Color(0xFFD8D8D8),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Talk color')),
-        body: GridView.builder(
-          padding: const EdgeInsets.all(24),
-          itemCount: _colors.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 24,
-            mainAxisSpacing: 28,
-          ),
-          itemBuilder: (context, index) => InkWell(
-            onTap: () => setState(() => _selected = index),
-            borderRadius: BorderRadius.circular(999),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _colors[index],
-                border: _selected == index
-                    ? Border.all(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        width: 3)
-                    : null,
-              ),
-              child: _selected == index
-                  ? Icon(Icons.check_rounded,
-                      color: Theme.of(context).colorScheme.onSurface)
-                  : null,
-            ),
-          ),
-        ),
-      );
-}
-
-class WallpaperPage extends StatefulWidget {
-  const WallpaperPage({super.key});
-
-  @override
-  State<WallpaperPage> createState() => _WallpaperPageState();
-}
-
-class _WallpaperPageState extends State<WallpaperPage> {
-  int _selected = 0;
-  static const _wallpapers = [
-    Color(0xFF062A66),
-    Color(0xFFD4B9F8),
-    Color(0xFFF3A8D1),
-    Color(0xFFF5B8B3),
-    Color(0xFFD8C4E7),
-    Color(0xFF8E78E7),
-    Color(0xFFFFA44C),
-    Color(0xFFF8BD67),
-    Color(0xFFF0ABDD),
-    Color(0xFF74C779),
-    Color(0xFF6BB7ED),
-    Color(0xFFB7DB99),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Wallpaper')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () {},
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.colorize_outlined),
-              title: const Text('Set a color'),
-              onTap: () {},
-            ),
-            const SizedBox(height: 10),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _wallpapers.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: .58,
-              ),
-              itemBuilder: (context, index) => InkWell(
-                onTap: () => setState(() => _selected = index),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _wallpapers[index],
-                    borderRadius: BorderRadius.circular(18),
-                    border: _selected == index
-                        ? Border.all(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            width: 3,
-                          )
-                        : null,
-                  ),
-                  child: _selected == index
-                      ? Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: CircleAvatar(
-                              radius: 12,
-                              child: Icon(Icons.check_rounded,
-                                  size: 16,
-                                  color:
-                                      Theme.of(context).colorScheme.onPrimary),
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
 }

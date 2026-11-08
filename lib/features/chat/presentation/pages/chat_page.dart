@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../core/ui/docmac_chat_icons.dart';
 import '../../../../core/ui/docmac_community_icons.dart';
 import '../../../../core/ui/docmac_iconly.dart';
@@ -308,6 +309,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Future<void> _beginRecording() async {
+    if (!AppFeatureFlags.localPreviews && !AppFeatureFlags.signedOutPreviews) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Voice notes are not available yet. This build sends text only.',
+          ),
+        ),
+      );
+      return;
+    }
     if (_hasMessageText || _isRecording) return;
 
     _pressingRecord = true;
@@ -398,28 +409,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _showAttachmentOptions() {
     setState(() => _showAttachments = false);
+    final previews =
+        AppFeatureFlags.localPreviews || AppFeatureFlags.signedOutPreviews;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Attachments'),
-        content: const Text(
-          'Photos, GIFs and files arrive in a later update — text and '
-          'voice notes work today. Voice notes stay on this device in '
-          'this preview.',
+        content: Text(
+          previews
+              ? 'Photos, GIFs and files arrive in a later update — text and '
+                  'local voice-note previews work today. Voice notes stay on '
+                  'this device and are not delivered.'
+              : 'Photos, GIFs, files, and voice notes are not available yet. '
+                  'This build sends text messages only.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
           ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _beginRecording();
-            },
-            icon: const Icon(Icons.mic_rounded),
-            label: const Text('Record voice'),
-          ),
+          if (previews)
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _beginRecording();
+              },
+              icon: const Icon(Icons.mic_rounded),
+              label: const Text('Record voice'),
+            ),
         ],
       ),
     );
@@ -511,34 +528,41 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               size: 19,
               color: iconColor,
             ),
-            label: 'Export conversation',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'shortcut',
-          child: _ChatMenuRow(
-            icon: Icon(DocmacIconlyLight.plus, size: 20, color: iconColor),
-            label: 'Add Talk shortcut',
+            label: 'Copy visible messages',
           ),
         ),
       ],
-    ).then((value) {
+    ).then((value) async {
       if (!mounted || value == null) return;
       if (value == 'clear') {
         _confirmClear(messages);
-      } else if (value == 'export') {
-        final transcript = messages
-            .map((m) =>
-                '[${_formatTime(m.createdAt)}] ${_isMine(m) ? 'You' : _personName}: ${m.text}')
-            .join('\n');
-        Clipboard.setData(ClipboardData(
-          text: transcript.isEmpty ? '(empty talk)' : transcript,
-        ));
-        HapticFeedback.selectionClick();
-      } else {
-        Clipboard.setData(ClipboardData(text: _personName));
-        HapticFeedback.selectionClick();
+        return;
       }
+
+      if (messages.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('There are no visible messages to copy.')),
+        );
+        return;
+      }
+
+      final transcript = messages
+          .map((m) =>
+              '[${_formatTime(m.createdAt)}] ${_isMine(m) ? 'You' : _personName}: ${m.text}')
+          .join('\n');
+      await Clipboard.setData(ClipboardData(text: transcript));
+      if (!mounted) return;
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Copied ${messages.length} visible message'
+            '${messages.length == 1 ? '' : 's'}. A full conversation export '
+            'is not available yet.',
+          ),
+        ),
+      );
     });
   }
 
@@ -1953,7 +1977,7 @@ class _VoiceBubble extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              Text('On this device',
+              Text('Preview only · on this device',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 11,
                       )),
