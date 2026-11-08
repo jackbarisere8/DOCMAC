@@ -225,6 +225,19 @@ void main() {
         find.byKey(const ValueKey('contact-invite-ngozi')),
         findsOneWidget,
       );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('contact-invite-ngozi')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('contact-invite-ngozi')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Contact invites are not available yet.'),
+        findsOneWidget,
+      );
+      expect(find.text('Invited'), findsNothing);
     });
 
     testWidgets('accepts and ignores link requests in place', (tester) async {
@@ -249,7 +262,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('You and Ifeoma are now linked.'),
+        find.text(
+          'Preview only: added to your lists on this device. '
+          'Linking is not available yet.',
+        ),
         findsOneWidget,
       );
       expect(
@@ -266,7 +282,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Request from Bashir ignored.'), findsOneWidget);
+      expect(
+        find.text(
+          'Preview only: request hidden on this device. No one was notified.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('All caught up'), findsOneWidget);
       expect(find.text('Ifeoma Obi'), findsNothing);
       expect(find.text('Bashir Lawal'), findsNothing);
@@ -288,9 +309,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The action flips to the mutual "linked" state without navigating
-      // away from the social list.
-      expect(find.byTooltip('Linked. Tap to unlink.'), findsOneWidget);
+      // The action flips to a preview link state without navigating away from
+      // the social list, and says that nothing was sent.
+      expect(find.byTooltip('Preview link. Tap to remove.'), findsOneWidget);
+      expect(
+        find.text(
+          'Preview only: added to your lists on this device. '
+          'Nothing was sent and no one was notified.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Nora Williams'), findsOneWidget);
     });
   });

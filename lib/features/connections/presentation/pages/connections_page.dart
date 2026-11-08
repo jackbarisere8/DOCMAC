@@ -547,13 +547,17 @@ class _RequestsSection extends StatelessWidget {
                     HapticFeedback.selectionClick();
                     controller.acceptRequest(person.id);
                     state._notify(
-                      'You and ${person.shortName} are now linked.',
+                      'Preview only: added to your lists on this device. '
+                      'Linking is not available yet.',
                     );
                   },
                   onIgnore: () {
                     HapticFeedback.selectionClick();
                     controller.ignoreRequest(person.id);
-                    state._notify('Request from ${person.shortName} ignored.');
+                    state._notify(
+                      'Preview only: request hidden on this device. '
+                      'No one was notified.',
+                    );
                   },
                 ),
             ],
@@ -607,6 +611,13 @@ class _PeopleSection extends StatelessWidget {
                   onFollow: () {
                     HapticFeedback.selectionClick();
                     controller.toggleFollow(person);
+                    state._notify(
+                      person.youFollow
+                          ? 'Preview only: removed on this device. '
+                              'No one was notified.'
+                          : 'Preview only: added to your lists on this device. '
+                              'Nothing was sent and no one was notified.',
+                    );
                   },
                   onChat: person.isContact
                       ? () => context.push('/talk/person/${person.id}')
@@ -704,7 +715,7 @@ class _FollowerTile extends StatelessWidget {
               ),
             if (following)
               Tooltip(
-                message: 'Linked. Tap to unlink.',
+                message: 'Preview link. Tap to remove.',
                 child: IconButton(
                   key: ValueKey('follower-follow-${person.id}'),
                   visualDensity: VisualDensity.compact,
@@ -972,7 +983,7 @@ class _ContactsBody extends StatelessWidget {
         const SizedBox(height: 20),
         _SectionHeading(
           title: 'Not on Docmac yet',
-          subtitle: 'Invite them. They join this list once they accept.',
+          subtitle: 'Invites are not available yet.',
           trailing: '${invites.length}',
         ),
         const SizedBox(height: 9),
@@ -992,9 +1003,9 @@ class _ContactsBody extends StatelessWidget {
                   contact: contact,
                   onInvite: () {
                     HapticFeedback.selectionClick();
-                    controller.inviteContact(contact.id);
                     state._notify(
-                      'Invite ready for ${contact.shortName}. Share it when you are.',
+                      'Contact invites are not available yet. '
+                      'Nothing was sent to ${contact.shortName}.',
                     );
                   },
                 ),
