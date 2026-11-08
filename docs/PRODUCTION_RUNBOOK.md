@@ -192,7 +192,14 @@ keyAlias=docmac-upload
 storeFile=C:\path\to\docmac-upload.jks
 ```
 
-Add the following repository secrets to the GitHub `production` environment:
+Create the GitHub `production` environment before the first release: open the
+repository's **Settings → Environments → New environment**, name it
+`production`, and add required reviewers if releases should wait for manual
+approval. The release job reads environment secrets, not repository secrets;
+without this environment and the four signing secrets below, the workflow
+stops at “Restore signing keystore”.
+
+Add the following secrets to the GitHub `production` environment:
 
 | Secret | Value |
 | --- | --- |
