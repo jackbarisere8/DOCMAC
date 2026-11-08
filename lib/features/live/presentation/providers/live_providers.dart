@@ -91,4 +91,3 @@ final filteredCallsProvider = Provider<List<CallRecord>>((ref) {
     }).toList(),
   );
 });
-

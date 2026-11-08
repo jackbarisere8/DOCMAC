@@ -12,6 +12,8 @@ class TalkThread {
     required this.initial,
     required this.preview,
     required this.time,
+    this.peerUid,
+    this.peerHandle,
     this.unread = 0,
     this.isOnline = false,
     this.hasNewActivity = false,
@@ -27,6 +29,11 @@ class TalkThread {
   final String initial;
   final String preview;
   final String time;
+
+  /// UID and handle of the other person in a 1:1 talk. Null for groups and
+  /// preview-only roster entries.
+  final String? peerUid;
+  final String? peerHandle;
   final int unread;
   final bool isOnline;
   final bool hasNewActivity;
@@ -47,6 +54,8 @@ class TalkThread {
       initial: initial,
       preview: preview ?? this.preview,
       time: time ?? this.time,
+      peerUid: peerUid,
+      peerHandle: peerHandle,
       unread: unread ?? this.unread,
       isOnline: isOnline ?? this.isOnline,
       hasNewActivity: hasNewActivity ?? this.hasNewActivity,

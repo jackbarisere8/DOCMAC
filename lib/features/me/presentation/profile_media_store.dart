@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 /// Keeps locally selected profile media available while the app is running.

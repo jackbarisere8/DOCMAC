@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import '../../../../config/feature_flags.dart';
 import '../models/person_profile.dart';
 
 abstract class PeopleRepository {
@@ -10,7 +12,11 @@ abstract class PeopleRepository {
 
 class InMemoryPeopleRepository implements PeopleRepository {
   InMemoryPeopleRepository() {
-    _people = List.of(_defaultRoster);
+    // Release builds have no real people discovery yet, so they must not
+    // invent a roster. Debug and tests keep the sample roster for design work.
+    _people = AppFeatureFlags.localPreviews
+        ? List.of(_defaultRoster)
+        : <PersonProfile>[];
   }
 
   static const List<PersonProfile> _defaultRoster = [
@@ -128,4 +134,3 @@ class InMemoryPeopleRepository implements PeopleRepository {
     _controller.close();
   }
 }
-

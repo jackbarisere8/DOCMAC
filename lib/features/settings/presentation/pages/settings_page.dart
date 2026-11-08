@@ -78,6 +78,11 @@ class SettingsPage extends StatelessWidget {
                 subtitle: 'Custom filters and chat organization',
                 onTap: () => context.push('/settings/lists')),
             _SettingsRow(
+                icon: DocmacIconlyLight.user,
+                label: 'People & connections',
+                subtitle: 'Connections, links, and phone contacts',
+                onTap: () => context.push('/connections')),
+            _SettingsRow(
                 icon: DocmacIconlyLight.chat,
                 label: 'Talks',
                 subtitle: 'Wallpaper and message preferences',
@@ -94,8 +99,8 @@ class SettingsPage extends StatelessWidget {
                 onTap: () => context.push('/storage')),
             _SettingsRow(
                 icon: DocmacIconlyLight.discovery,
-                label: 'Connections',
-                subtitle: 'People and services connected to your Orbit',
+                label: 'Linked services',
+                subtitle: 'Contact sync, suggestions, and blocked people',
                 onTap: () => context.push('/settings/connections')),
             _SettingsRow(
                 icon: DocmacIconlyLight.show,
@@ -169,10 +174,11 @@ class _SettingsSearchDelegate extends SearchDelegate<void> {
     'Privacy',
     'Security',
     'Lists',
+    'People & connections',
     'Talks',
     'Arrivals',
     'Storage and data',
-    'Connections',
+    'Linked services',
     'Accessibility',
     'App language',
     'Help and feedback',
@@ -234,7 +240,9 @@ class _SettingsSearchDelegate extends SearchDelegate<void> {
                 context.push('/storage');
               } else if (item == 'Help and feedback') {
                 context.push('/help');
-              } else if (item == 'Connections') {
+              } else if (item == 'People & connections') {
+                context.push('/connections');
+              } else if (item == 'Linked services') {
                 context.push('/settings/connections');
               } else if (item == 'Accessibility') {
                 context.push('/settings/accessibility');
@@ -263,7 +271,7 @@ class _ConnectionSettingsPageState extends State<ConnectionSettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Connections')),
+        appBar: AppBar(title: const Text('Linked services')),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           children: [
@@ -371,75 +379,58 @@ class _AccessibilitySettingsPageState extends State<AccessibilitySettingsPage> {
       );
 }
 
-class AppLanguageSettingsPage extends StatefulWidget {
+class AppLanguageSettingsPage extends StatelessWidget {
   const AppLanguageSettingsPage({super.key});
 
   @override
-  State<AppLanguageSettingsPage> createState() =>
-      _AppLanguageSettingsPageState();
-}
-
-class _AppLanguageSettingsPageState extends State<AppLanguageSettingsPage> {
-  String _language = 'English';
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('App language')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          children: [
-            Text('Choose your language',
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text('This changes the language used throughout Docmac.',
-                style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 18),
-            for (final language in const ['English', 'Français', 'Español'])
-              RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                title: Text(language),
-                value: language,
-                // ignore: deprecated_member_use
-                groupValue: _language,
-                // ignore: deprecated_member_use
-                onChanged: (value) {
-                  if (value != null) setState(() => _language = value);
-                },
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('App language')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        children: [
+          Text('Choose your language', style: theme.textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          const Text(
+            'Language selection is not available yet. Docmac currently uses '
+            'its English interface regardless of the option selected here.',
+          ),
+          const SizedBox(height: 18),
+          for (final language in const ['English', 'Français', 'Español'])
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(language),
+              trailing: Text(
+                'Not available yet',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
-          ],
-        ),
-      );
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class AccountSettingsPage extends StatelessWidget {
   const AccountSettingsPage({super.key});
 
   void _showUsernameDialog(BuildContext context) {
-    final controller = TextEditingController(text: 'jack_wilson');
     showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit username'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            prefixText: '@',
-            hintText: 'username',
-          ),
+        title: const Text('Username'),
+        content: const Text(
+          'Usernames are permanent in this build. Your @handle cannot be '
+          'changed yet, and this screen will not pretend it was updated.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Username updated to @${controller.text}')),
-              );
-            },
-            child: const Text('Save'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -461,14 +452,16 @@ class AccountSettingsPage extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               const Text(
-                'Connect your Docmac business profile to third-party tools, customer API endpoints, and web dashboards.',
+                'Connecting Docmac to third-party tools, customer API '
+                'endpoints, or web dashboards is not available yet. This build '
+                'does not create business profiles or API keys.',
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: OutlinedButton(
                   onPressed: () => Navigator.pop(sheetCtx),
-                  child: const Text('Explore Business Tools'),
+                  child: const Text('Close'),
                 ),
               ),
             ],
@@ -493,20 +486,17 @@ class AccountSettingsPage extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               const Text(
-                'Create a report of your Docmac account information and settings, which you can access or port to another app. The report will be ready in approximately 3 days.',
+                'Account data export is not available yet. This build cannot '
+                'generate or email a report, so it will not claim one was '
+                'requested. You can still delete the account from Account '
+                'settings.',
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.download_rounded, size: 18),
-                  label: const Text('Request report'),
-                  onPressed: () {
-                    Navigator.pop(sheetCtx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Account report requested.')),
-                    );
-                  },
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(sheetCtx),
+                  child: const Text('Close'),
                 ),
               ),
             ],
@@ -656,7 +646,7 @@ class _AccountAction extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '$label is active and managed under your account security profile.',
+                '$label is not available in this build.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
@@ -826,11 +816,15 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
-          Text('Keep your talks private',
+          Text('Lock Docmac manually',
               style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text('Set a passcode and use it whenever you lock Docmac.',
-              style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            'Set a 4-digit passcode, then tap Lock now whenever you want to '
+            'hide the screen. Docmac does not lock automatically when the app '
+            'goes to the background.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: 26),
           TextField(
             controller: _pinController,
@@ -845,10 +839,17 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
           const SizedBox(height: 18),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Lock app'),
-            subtitle: Text(_enabled ? 'App lock is on' : 'App lock is off'),
+            title: const Text('Manual locking'),
+            subtitle: Text(
+                _enabled ? 'Lock now is available' : 'Turn on to use Lock now'),
             value: _enabled,
             onChanged: _setEnabled,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The passcode stays on this device. It hides the screen but does '
+            'not encrypt messages.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           FilledButton.icon(

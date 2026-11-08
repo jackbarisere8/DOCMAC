@@ -50,7 +50,8 @@ void main() {
     expect(find.text('App info'), findsOneWidget);
   });
 
-  testWidgets('delete account displays consequences and phone confirmation', (tester) async {
+  testWidgets('delete account displays consequences and phone confirmation',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -62,33 +63,28 @@ void main() {
 
     expect(find.text('Delete this account'), findsOneWidget);
     expect(find.text('If you delete this account:'), findsOneWidget);
-    expect(find.text('Change number instead?'), findsOneWidget);
+    expect(find.text('Changed your mind?'), findsOneWidget);
     expect(find.text('Delete account'), findsOneWidget);
   });
 
-  testWidgets('change number displays overview instructions and navigates to inputs', (tester) async {
+  testWidgets('change number reports that it is unavailable', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: ChangeNumberPage(),
-        ),
+      const MaterialApp(
+        home: ChangeNumberPage(),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Change number'), findsAtLeastNWidgets(1));
-    expect(find.text('Events and scheduled calls will not be migrated to your new number and will be deleted.'), findsOneWidget);
-    expect(find.text('Next'), findsOneWidget);
-
-    // Tap Next to advance to input step
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Enter your old phone number with country code:'), findsOneWidget);
-    expect(find.text('Enter your new phone number with country code:'), findsOneWidget);
+    expect(
+        find.text('Changing your number is not available yet'), findsOneWidget);
+    expect(find.text('Next'), findsNothing);
+    expect(find.text('Back'), findsOneWidget);
   });
 
-  testWidgets('security notifications shows E2EE protections and device alert toggle', (tester) async {
+  testWidgets(
+      'security notifications is honest about encryption and device alerts',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SecurityNotificationsPage(),
@@ -97,14 +93,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Security notifications'), findsOneWidget);
-    expect(find.text('Your chats and calls are private'), findsOneWidget);
-    expect(find.text('Text and voice messages'), findsOneWidget);
-    expect(find.text('Audio and video calls'), findsOneWidget);
-    expect(find.text('Show security notifications on this device'), findsOneWidget);
+    expect(find.text('How your account is protected'), findsOneWidget);
+    expect(find.textContaining('does not encrypt messages end-to-end yet'),
+        findsWidgets);
+    expect(find.text('Text messages between conversation members'),
+        findsOneWidget);
+    expect(find.text('Show security notifications on this device'),
+        findsOneWidget);
+    expect(find.textContaining('Not available yet'), findsOneWidget);
     expect(find.byType(Switch), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
   });
 
-  testWidgets('two-step verification shows active state and management options', (tester) async {
+  testWidgets('two-step verification reports that it is unavailable',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: TwoStepVerificationPage(),
@@ -113,11 +115,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Two-step verification'), findsOneWidget);
-    expect(find.text('Turn off'), findsOneWidget);
-    expect(find.text('Change PIN'), findsOneWidget);
+    expect(find.text('Two-step verification is not available yet'),
+        findsOneWidget);
+    expect(find.text('Change PIN'), findsNothing);
+    expect(find.text('Turn off'), findsNothing);
   });
 
-  testWidgets('email settings page displays current email, domain chips and next button', (tester) async {
+  testWidgets(
+      'email settings page displays current email, domain chips and send link',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -130,7 +136,7 @@ void main() {
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('@gmail.com'), findsOneWidget);
     expect(find.text('@outlook.com'), findsOneWidget);
-    expect(find.text('Next'), findsOneWidget);
+    expect(find.text('Send link'), findsOneWidget);
 
     // Tap domain chip to append
     await tester.tap(find.text('@gmail.com'));
@@ -139,7 +145,8 @@ void main() {
     expect(find.text('@gmail.com'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('passkeys page displays security benefits and create action', (tester) async {
+  testWidgets('passkeys page reports that passkeys are unavailable',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: PasskeysPage(),
@@ -148,11 +155,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Passkeys'), findsOneWidget);
-    expect(find.text('Log in securely and protect your account'), findsOneWidget);
-    expect(find.text('Create passkey'), findsOneWidget);
+    expect(find.text('Passkeys are not available yet'), findsOneWidget);
+    expect(find.text('Create passkey'), findsNothing);
+    expect(find.textContaining('WebAuthn'), findsOneWidget);
   });
 
-  testWidgets('lists settings page displays presets and allows creating custom list', (tester) async {
+  testWidgets(
+      'lists settings page displays presets and allows creating custom list',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: ListsSettingsPage(),
@@ -167,7 +177,9 @@ void main() {
     expect(find.text('Groups'), findsOneWidget);
   });
 
-  testWidgets('privacy help page renders privacy documentation and contact button', (tester) async {
+  testWidgets(
+      'privacy help page renders privacy documentation and contact button',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: PrivacyHelpPage(),
@@ -176,11 +188,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Privacy'), findsAtLeastNWidgets(1));
-    expect(find.text('About end-to-end encryption'), findsOneWidget);
+    expect(find.text('About message privacy'), findsOneWidget);
     expect(find.text('Contact us'), findsOneWidget);
   });
 
-  testWidgets('account settings page exposes WhatsApp Image 2 sections', (tester) async {
+  testWidgets('account settings page exposes WhatsApp Image 2 sections',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: AccountSettingsPage(),
@@ -197,7 +210,9 @@ void main() {
     expect(find.text('Delete account'), findsOneWidget);
   });
 
-  testWidgets('help chats page displays WhatsApp Image 3 topics and contact button', (tester) async {
+  testWidgets(
+      'help chats page displays WhatsApp Image 3 topics and contact button',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HelpChatsPage(),
@@ -214,7 +229,9 @@ void main() {
     expect(find.text('Contact us'), findsOneWidget);
   });
 
-  testWidgets('help communities page displays WhatsApp Image 2 sections and contact button', (tester) async {
+  testWidgets(
+      'help communities page displays WhatsApp Image 2 sections and contact button',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HelpCommunitiesPage(),
@@ -230,7 +247,9 @@ void main() {
     expect(find.text('Contact us'), findsOneWidget);
   });
 
-  testWidgets('help privacy safety security page displays WhatsApp Image 1 topics', (tester) async {
+  testWidgets(
+      'help privacy safety security page displays WhatsApp Image 1 topics',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HelpPrivacySafetySecurityPage(),
@@ -246,7 +265,9 @@ void main() {
     expect(find.text('Contact us'), findsOneWidget);
   });
 
-  testWidgets('help status page renders Image 4 articles and filters with search', (tester) async {
+  testWidgets(
+      'help status page renders Image 4 articles and filters with search',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HelpStatusPage(),
@@ -270,7 +291,9 @@ void main() {
     expect(find.text('About status'), findsNothing);
   });
 
-  testWidgets('help troubleshooting page renders Image 5 articles and filters with search', (tester) async {
+  testWidgets(
+      'help troubleshooting page renders Image 5 articles and filters with search',
+      (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: HelpTroubleshootingPage(),

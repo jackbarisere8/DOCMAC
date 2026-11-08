@@ -52,7 +52,8 @@ void main() {
       expect(map['createdAt'], isA<Timestamp>());
     });
 
-    test('ChatMessage accepts Firestore timestamps and invalid legacy dates', () {
+    test('ChatMessage accepts Firestore timestamps and invalid legacy dates',
+        () {
       final timestamp = Timestamp.fromDate(DateTime.utc(2024, 1, 1));
       final fromTimestamp = ChatMessage.fromMap({
         'id': 'm1',
@@ -70,8 +71,8 @@ void main() {
       });
 
       expect(fromTimestamp.createdAt, timestamp.toDate());
-      expect(
-          invalidDate.createdAt, DateTime.fromMillisecondsSinceEpoch(0, isUtc: true));
+      expect(invalidDate.createdAt,
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true));
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:docmac_app/core/ui/docmac_iconly.dart';
 import 'package:docmac_app/features/talk/data/talk_thread.dart';
 import 'package:docmac_app/features/talk/presentation/pages/talk_page.dart';
 import 'package:docmac_app/features/talk/presentation/providers/talk_providers.dart';
@@ -14,7 +15,8 @@ Future<void> pumpTalk(
   Stream<List<TalkThread>>? stream,
 }) async {
   SharedPreferences.setMockInitialValues({});
-  final inbox = stream ?? Stream<List<TalkThread>>.value(threads ?? _fakeThreads);
+  final inbox =
+      stream ?? Stream<List<TalkThread>>.value(threads ?? _fakeThreads);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -33,8 +35,21 @@ void main() {
     expect(find.text('Talk'), findsOneWidget);
     expect(find.text('Inbox'), findsOneWidget);
     expect(find.text('Jack Wilson'), findsOneWidget);
+    // Filters stay out of the way until the search field is activated.
+    expect(find.byKey(const ValueKey('talk-search-filters')), findsNothing);
+    expect(find.text('6'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('talk-search-input')));
+    await tester.pumpAndSettle();
+
     // Unread pill is computed from the stream (2 + 4), not hardcoded.
+    expect(find.byKey(const ValueKey('talk-search-filters')), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
+    expect(find.text('All talks'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('talk-search-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('talk-search-filters')), findsNothing);
   });
 
   testWidgets('opening a talk lets the user send a message', (tester) async {
@@ -68,7 +83,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Pin talk'));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    expect(find.byTooltip('Unpin talk'), findsOneWidget);
 
     // Pin persists to SharedPreferences keyed by stable thread id.
     final prefs = await SharedPreferences.getInstance();
@@ -123,16 +138,18 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList('docmac_talk_muted'), contains('emma'));
-    expect(find.byIcon(Icons.notifications_off_outlined), findsWidgets);
+    expect(find.byIcon(DocmacIconlyLight.volumeUp), findsWidgets);
   });
 
-  testWidgets('stream error shows retry with curated fallback', (tester) async {
+  testWidgets('stream error shows retry without demo fallback', (tester) async {
     await pumpTalk(
       tester,
       stream: Stream<List<TalkThread>>.error(Exception('offline')),
     );
 
     expect(find.textContaining('Could not load talks'), findsOneWidget);
-    expect(find.text('Jack Wilson'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    // A real signed-in inbox must not be replaced with demo conversations.
+    expect(find.text('Jack Wilson'), findsNothing);
   });
 }

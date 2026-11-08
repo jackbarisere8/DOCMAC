@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/feature_flags.dart';
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
 import '../../data/models/person_profile.dart';
 import '../providers/people_providers.dart';
 
@@ -16,7 +19,23 @@ class PersonSpacePage extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final repoPerson = ref.watch(personByIdProvider(personId));
 
-    // Fallback if person is a dynamic contact or dialed number
+    if (repoPerson == null && !AppFeatureFlags.localPreviews) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Person')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(28),
+            child: Text(
+              'This person is not available in this build. Start a private '
+              'talk with an exact @username from New talk.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Fallback for local preview contacts in debug builds.
     final current = repoPerson ??
         PersonProfile(
           id: personId,
@@ -24,8 +43,8 @@ class PersonSpacePage extends ConsumerWidget {
               ? personId[0].toUpperCase() + personId.substring(1)
               : personId.toUpperCase(),
           initials: personId.substring(0, 1).toUpperCase(),
-          status: 'Active recently',
-          bio: 'Part of your private circle on Docmac.',
+          status: 'Local preview contact',
+          bio: 'Sample contact shown only in debug builds.',
           isOnline: false,
         );
 
@@ -43,11 +62,32 @@ class PersonSpacePage extends ConsumerWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'Person options',
-              onSelected: (value) => _handleOption(context, value, current.name),
+              icon: const Icon(Icons.more_vert_rounded, size: 21),
+              onSelected: (value) => _handleOption(context, value),
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'share', child: Text('Share profile')),
-                PopupMenuItem(value: 'block', child: Text('Block person')),
-                PopupMenuItem(value: 'report', child: Text('Report person')),
+                PopupMenuItem(
+                  value: 'share',
+                  child: DocmacMenuItem(
+                    icon: DocmacIconlyLight.send,
+                    label: 'Share profile',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'block',
+                  child: DocmacMenuItem(
+                    icon: DocmacIconlyLight.closeSquare,
+                    label: 'Block person',
+                    destructive: true,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'report',
+                  child: DocmacMenuItem(
+                    icon: DocmacIconlyLight.danger,
+                    label: 'Report person',
+                    destructive: true,
+                  ),
+                ),
               ],
             ),
           ],
@@ -89,11 +129,11 @@ class PersonSpacePage extends ConsumerWidget {
     );
   }
 
-  void _handleOption(BuildContext context, String option, String name) {
+  void _handleOption(BuildContext context, String option) {
     final message = switch (option) {
-      'share' => "$name\u2019s profile is ready to share.",
-      'block' => 'Block controls will keep $name out of your Orbit.',
-      _ => 'Thanks. Your report will be reviewed privately.',
+      'share' => 'Profile sharing is not available yet.',
+      'block' => 'Blocking is not available yet.',
+      _ => 'Reporting is not available yet.',
     };
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -114,20 +154,19 @@ class _LiveTab extends StatelessWidget {
             Icon(Icons.graphic_eq_rounded,
                 size: 46, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 16),
-            Text('Meet ${person.shortName} live',
+            Text('Try a simulated call',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              person.isOnline
-                  ? '${person.shortName} is available for a voice call.'
-                  : 'You can start a voice call when ${person.shortName} is ready.',
+              'Calls in this build are simulated on this device. No audio is '
+              'sent and ${person.shortName} is not dialled.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: onCall,
               icon: const Icon(Icons.call_rounded),
-              label: const Text('Start voice call'),
+              label: const Text('Open call screen'),
             ),
           ]),
         ),

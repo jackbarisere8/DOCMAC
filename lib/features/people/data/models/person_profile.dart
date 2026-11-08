@@ -81,4 +81,3 @@ class PersonProfile {
         circle: json['circle'] as String?,
       );
 }
-

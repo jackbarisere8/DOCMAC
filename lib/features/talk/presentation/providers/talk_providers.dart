@@ -8,10 +8,9 @@ import '../../data/talk_thread.dart';
 export '../../../chat/presentation/providers/chat_providers.dart'
     show chatRepositoryProvider, chatMessagesProvider, curatedChatMessages;
 
-final talkRepositoryProvider =
-    Provider<TalkRepository>((ref) => TalkRepository(
-          chatRepository: ref.watch(chatRepositoryProvider),
-        ));
+final talkRepositoryProvider = Provider<TalkRepository>((ref) => TalkRepository(
+      chatRepository: ref.watch(chatRepositoryProvider),
+    ));
 
 /// Inbox threads for the Talk tab.
 ///

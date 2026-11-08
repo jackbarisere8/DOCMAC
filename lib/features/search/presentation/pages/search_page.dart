@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
 
 /// Flagship global search experience across Docmac domains: People, Talks,
 /// Spaces, Relays, Drops, and Forge perspectives.
@@ -21,16 +23,21 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
   String _query = '';
   int _tab = 0;
 
-  final List<String> _recentSearches = [
-    'Emma Clarke',
-    'Weekend plans',
-    'Docmac drops',
-    'Design circle',
+  final List<String> _recentSearches = AppFeatureFlags.localPreviews
+      ? ['Emma Clarke', 'Weekend plans', 'Docmac drops', 'Design circle']
+      : <String>[];
+
+  static const _tabs = [
+    'All',
+    'Person',
+    'Talk',
+    'Space',
+    'Relay',
+    'Drop',
+    'Forge'
   ];
 
-  static const _tabs = ['All', 'Person', 'Talk', 'Space', 'Relay', 'Drop', 'Forge'];
-
-  static const _catalog = [
+  static const _sampleCatalog = [
     _SearchResult(
       title: 'Emma Clarke',
       subtitle: '@emma · London, UK',
@@ -104,6 +111,9 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
       targetId: 'jack',
     ),
   ];
+
+  List<_SearchResult> get _catalog =>
+      AppFeatureFlags.localPreviews ? _sampleCatalog : const [];
 
   @override
   void initState() {
@@ -194,6 +204,42 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
+    if (_catalog.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Search Docmac'),
+          centerTitle: false,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(28),
+          children: [
+            Icon(Icons.search_off_rounded,
+                size: 48, color: scheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(
+              'Search is not available yet',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This build cannot search people, talks, Spaces, Relays, or Forge. You can still start a private talk with an exact @username.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/talk/new'),
+              icon: const Icon(DocmacIconlyLight.chat),
+              label: const Text('Start a talk by @username'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final normalized = _query.trim().toLowerCase();
     final hasQuery = normalized.isNotEmpty;
 
@@ -216,81 +262,14 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
           // Search Input Bar
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              height: 48,
-              padding: const EdgeInsets.only(left: 14, right: 6),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? scheme.surfaceContainerHighest.withValues(alpha: 0.35)
-                    : scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _focusNode.hasFocus ? scheme.primary : theme.dividerColor,
-                  width: _focusNode.hasFocus ? 1.5 : 1.0,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    size: 20,
-                    color: _focusNode.hasFocus
-                        ? scheme.primary
-                        : scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('global-search-input'),
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.search,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
-                        letterSpacing: -0.1,
-                      ),
-                      cursorColor: scheme.primary,
-                      cursorWidth: 1.5,
-                      decoration: InputDecoration(
-                        hintText: 'People, Talks, Spaces, Drops or Forge',
-                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
-                          fontSize: 14,
-                          letterSpacing: -0.1,
-                        ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 160),
-                    child: hasQuery
-                        ? IconButton(
-                            key: const ValueKey('clear-global-search'),
-                            tooltip: 'Clear search',
-                            onPressed: _clearQuery,
-                            iconSize: 18,
-                            visualDensity: VisualDensity.compact,
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  scheme.onSurface.withValues(alpha: 0.08),
-                              padding: const EdgeInsets.all(6),
-                              minimumSize: const Size(28, 28),
-                            ),
-                            icon: const Icon(Icons.close_rounded),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
+            child: DocmacSearchBar(
+              controller: _controller,
+              focusNode: _focusNode,
+              fieldKey: const ValueKey('global-search-input'),
+              clearButtonKey: const ValueKey('clear-global-search'),
+              hintText: 'People, Talks, Spaces, Drops or Forge',
+              semanticsLabel: 'Search Docmac',
+              onCleared: _clearQuery,
             ),
           ),
 
@@ -320,7 +299,8 @@ class _GlobalSearchPageState extends State<GlobalSearchPage> {
                   side: BorderSide(
                     color: selected ? scheme.primary : theme.dividerColor,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

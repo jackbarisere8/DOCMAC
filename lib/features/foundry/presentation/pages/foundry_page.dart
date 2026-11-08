@@ -26,6 +26,8 @@ class FoundryPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
         children: [
+          const _LocalFoundryPreviewNotice(),
+          const SizedBox(height: 18),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -34,23 +36,20 @@ class FoundryPage extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(DocmacIconlyLight.work,
-                    color: colors.onPrimary, size: 28),
+                Icon(DocmacIconlyLight.work, color: colors.onPrimary, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Explorer',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(
-                                color: colors.onPrimary,
-                                fontWeight: FontWeight.w800,
-                              )),
+                      Text('Local preview',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: colors.onPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  )),
                       const SizedBox(height: 3),
-                      Text('Your ideas are beginning to find their people.',
+                      Text('Foundry is not connected to real creator data yet.',
                           style: TextStyle(
                               color: colors.onPrimary.withValues(alpha: .8))),
                     ],
@@ -62,17 +61,15 @@ class FoundryPage extends StatelessWidget {
           const SizedBox(height: 24),
           Text('Your impact', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
-          const Row(children: [
-            Expanded(child: _Metric(value: '1.2k', label: 'Reach')),
-            SizedBox(width: 10),
-            Expanded(child: _Metric(value: '84', label: 'Meaningful responses')),
-          ]),
-          const SizedBox(height: 10),
-          const Row(children: [
-            Expanded(child: _Metric(value: '72%', label: 'Quality score')),
-            SizedBox(width: 10),
-            Expanded(child: _Metric(value: '18m', label: 'Reading time')),
-          ]),
+          const Card(
+            child: ListTile(
+              leading: Icon(DocmacIconlyLight.chart),
+              title: Text('Impact metrics are not available yet'),
+              subtitle:
+                  Text('Reach, responses, quality, and reading time are not '
+                      'measured in this build.'),
+            ),
+          ),
           const SizedBox(height: 28),
           Text('Build with intention',
               style: Theme.of(context).textTheme.titleLarge),
@@ -169,7 +166,7 @@ class FoundryPage extends StatelessWidget {
           const SizedBox(height: 14),
           Text('Creator path', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Text('Explorer · Contributor · Builder · Creator · Mentor · Pioneer',
+          Text('Creator levels are not available yet.',
               style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -200,11 +197,11 @@ class FoundryPage extends StatelessWidget {
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       )),
               const SizedBox(height: 16),
-              Text(detail,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(height: 1.45)),
+              const Text(
+                'This is not available yet. Foundry is a local preview in '
+                'this build and is not connected to real analytics, '
+                'earnings, payouts, or audience data.',
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -221,28 +218,41 @@ class FoundryPage extends StatelessWidget {
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label});
-  final String value;
-  final String label;
+class _LocalFoundryPreviewNotice extends StatelessWidget {
+  const _LocalFoundryPreviewNotice();
+
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 3),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 20, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Foundry is a local preview in this build. It does not yet '
+              'measure reach, responses, earnings, payouts, or audience data.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FoundryItem extends StatelessWidget {
-  const _FoundryItem({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  const _FoundryItem(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.onTap});
   final IconData icon;
   final String title;
   final String subtitle;

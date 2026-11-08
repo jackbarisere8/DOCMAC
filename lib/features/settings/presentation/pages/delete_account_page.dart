@@ -33,9 +33,18 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
 
   Future<void> _confirmAndDelete() async {
     final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _error = 'Enter your phone number to confirm.');
-      return;
+    final expectedPhone =
+        ref.read(authServiceProvider).currentUser?.phoneNumber;
+
+    if (expectedPhone != null && expectedPhone.isNotEmpty) {
+      if (phone.isEmpty) {
+        setState(() => _error = 'Enter your phone number to confirm.');
+        return;
+      }
+      if (!_phoneMatches(phone, expectedPhone)) {
+        setState(() => _error = 'That number does not match this account.');
+        return;
+      }
     }
 
     final confirmed = await showDialog<bool>(
@@ -43,7 +52,9 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Delete Docmac Account?'),
         content: const Text(
-          'This action is permanent and cannot be undone. All your messages, contacts, and cryptographic identity keys will be erased.',
+          'This is permanent. Your profile, username, scheduled calls, and '
+          'chat memberships are removed. Messages already delivered to other '
+          'people stay in their conversations.',
         ),
         actions: [
           TextButton(
@@ -61,23 +72,32 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
       ),
     );
 
-    if (confirmed == true && mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-      try {
-        await ref.read(authServiceProvider).signOut();
-        if (mounted) context.go('/');
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-            _error = 'Could not delete account. Try again later.';
-          });
-        }
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).deleteAccount();
+      if (mounted) context.go('/');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not delete account. Check your connection and try '
+              'again, or contact support if this keeps happening.';
+        });
       }
     }
+  }
+
+  bool _phoneMatches(String entered, String expected) {
+    String digits(String value) => value.replaceAll(RegExp(r'\D'), '');
+    final a = digits(entered).replaceFirst(RegExp(r'^0+'), '');
+    final b = digits(expected).replaceFirst(RegExp(r'^0+'), '');
+    if (a.isEmpty || b.isEmpty) return false;
+    return a == b || a.endsWith(b) || b.endsWith(a);
   }
 
   @override
@@ -117,11 +137,20 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const _Bullet(text: 'The account will be deleted from Docmac and all your devices'),
-                      const _Bullet(text: 'Your chat history and encrypted messages will be erased'),
-                      const _Bullet(text: 'You will be removed from all your Circles and groups'),
-                      const _Bullet(text: 'Your cloud storage and backups will be deleted'),
-                      const _Bullet(text: 'Your claimed username will be permanently released'),
+                      const _Bullet(
+                          text:
+                              'Your account is deleted from Docmac and every device'),
+                      const _Bullet(
+                          text:
+                              'Your profile, photo, and private contact details are erased'),
+                      const _Bullet(
+                          text: 'You are removed from all chats and Circles'),
+                      const _Bullet(
+                          text:
+                              'Your scheduled calls and owned relays are deleted'),
+                      const _Bullet(
+                          text:
+                              'Your username and handle are permanently released'),
                     ],
                   ),
                 ),
@@ -131,7 +160,7 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
             Divider(color: theme.dividerColor),
             const SizedBox(height: 16),
 
-            // Change number instead card
+            // Keep account card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -147,7 +176,7 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Change number instead?',
+                          'Changed your mind?',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -156,13 +185,13 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
                     ),
                   ),
                   FilledButton(
-                    onPressed: () => context.push('/settings/account'),
+                    onPressed: () => Navigator.of(context).maybePop(),
                     style: FilledButton.styleFrom(
                       backgroundColor: scheme.primaryContainer,
                       foregroundColor: scheme.onPrimaryContainer,
                       shape: const StadiumBorder(),
                     ),
-                    child: const Text('Change number'),
+                    child: const Text('Keep account'),
                   ),
                 ],
               ),
@@ -170,7 +199,8 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
             const SizedBox(height: 24),
 
             Text(
-              'To delete your account, confirm your country code and enter your phone number.',
+              'To delete your account, confirm your country code and phone '
+              'number. Email-only accounts can leave the phone field blank.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -184,7 +214,8 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
               onTap: _chooseCountry,
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: scheme.outlineVariant),

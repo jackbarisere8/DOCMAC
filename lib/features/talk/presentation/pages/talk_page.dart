@@ -6,11 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:docmac_app/features/chat/presentation/pages/chat_page.dart';
 
+import '../../../../core/ui/docmac_community_icons.dart';
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
 import '../../data/talk_thread.dart';
 import '../providers/talk_providers.dart';
 
 /// Talk inbox. Threads stream from [talkThreadsProvider] (Firestore `chats`
-/// where the uid is a participant, otherwise [curatedTalkThreads] preview).
+/// where the uid is a participant). Demo preview rows are used only when
+/// signed out or when Firebase is not configured.
 /// Pin/archive/mute/lock/favorite persist in SharedPreferences keyed by
 /// stable thread id (same pattern as `privacy_page.dart`).
 class TalkPage extends ConsumerStatefulWidget {
@@ -43,23 +47,42 @@ class _TalkPageState extends ConsumerState<TalkPage> {
   final _clearedTalks = <String>{};
 
   late final TextEditingController _searchController;
+  final _searchFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchFocusNode.addListener(_handleSearchFocusChanged);
     _loadPrefs();
   }
 
   @override
   void dispose() {
+    _searchFocusNode
+      ..removeListener(_handleSearchFocusChanged)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleSearchFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _clearSearch() {
     _searchController.clear();
     setState(() => _query = '');
+  }
+
+  void _cancelSearch() {
+    HapticFeedback.selectionClick();
+    _searchFocusNode.unfocus();
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _filterIndex = 0;
+    });
   }
 
   void _resetFilter() {
@@ -87,8 +110,8 @@ class _TalkPageState extends ConsumerState<TalkPage> {
         ..addAll(preferences.getStringList(_favoritesKey) ?? const <String>[]);
       _removedFavoriteTalks
         ..clear()
-        ..addAll(
-            preferences.getStringList(_removedFavoritesKey) ?? const <String>[]);
+        ..addAll(preferences.getStringList(_removedFavoritesKey) ??
+            const <String>[]);
       _lockedTalks
         ..clear()
         ..addAll(preferences.getStringList(_lockedKey) ?? const <String>[]);
@@ -169,9 +192,11 @@ class _TalkPageState extends ConsumerState<TalkPage> {
       MaterialPageRoute(
         builder: (_) => ChatPage(
           chatId: thread.chatId,
+          peerUid: thread.peerUid,
+          peerHandle: thread.peerHandle,
           personName: thread.name,
           personInitial: thread.initial,
-          status: thread.isOnline ? 'Active now' : 'Last active recently',
+          status: thread.isOnline ? 'Active now' : 'On Docmac',
         ),
       ),
     );
@@ -195,10 +220,33 @@ class _TalkPageState extends ConsumerState<TalkPage> {
                   style: Theme.of(sheetContext).textTheme.headlineSmall),
               const SizedBox(height: 6),
               Text(
-                'Choose someone from your recent conversations.',
+                'Pick a recent conversation or find someone by @username.',
                 style: Theme.of(sheetContext).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  radius: 21,
+                  backgroundColor:
+                      Theme.of(sheetContext).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.alternate_email_rounded,
+                    color:
+                        Theme.of(sheetContext).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                title: const Text('Find someone by @username'),
+                subtitle: const Text('Start a new private talk'),
+                onTap: () {
+                  Navigator.of(sheetContext, rootNavigator: true).pop();
+                  context.push('/talk/new');
+                },
+              ),
+              if (recent.isNotEmpty)
+                const Divider(height: 24)
+              else
+                const SizedBox(height: 8),
               for (final thread in recent.take(3))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -280,7 +328,8 @@ class _TalkPageState extends ConsumerState<TalkPage> {
         _showNewTalkPicker(visible);
         break;
       case 'archive':
-        final all = ref.read(talkThreadsProvider).valueOrNull ?? curatedTalkThreads;
+        final all =
+            ref.read(talkThreadsProvider).valueOrNull ?? const <TalkThread>[];
         _openArchivedTalks(all);
         break;
       case 'circle':
@@ -474,56 +523,12 @@ class _TalkPageState extends ConsumerState<TalkPage> {
     }
   }
 
-  void _showSearchFilters() {
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Refine talks',
-                  style: Theme.of(sheetContext).textTheme.headlineSmall),
-              const SizedBox(height: 6),
-              Text('Choose the conversations you want to see.',
-                  style: Theme.of(sheetContext).textTheme.bodyMedium),
-              const SizedBox(height: 14),
-              for (final filter in const [
-                (0, 'All talks', Icons.forum_outlined),
-                (1, 'Unread', Icons.mark_chat_unread_outlined),
-                (2, 'Circles', Icons.groups_outlined),
-                (3, 'Saved', Icons.bookmark_border_rounded),
-              ])
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(filter.$3),
-                  title: Text(filter.$2),
-                  trailing: _filterIndex == filter.$1
-                      ? Icon(Icons.check_rounded,
-                          color: Theme.of(sheetContext).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _filterIndex = filter.$1);
-                    Navigator.of(sheetContext, rootNavigator: true).pop();
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final threadsAsync = ref.watch(talkThreadsProvider);
     final scheme = Theme.of(context).colorScheme;
+    final isSearching = _searchFocusNode.hasFocus || _query.trim().isNotEmpty;
+    final showFilters = isSearching || _filterIndex != 0;
 
     return ColoredBox(
       color: scheme.surfaceContainerLowest,
@@ -535,11 +540,11 @@ class _TalkPageState extends ConsumerState<TalkPage> {
             if (_selectedThread == null)
               _InboxHeader(
                 onCamera: () {
-                  final all = threadsAsync.valueOrNull ?? curatedTalkThreads;
+                  final all = threadsAsync.valueOrNull ?? const <TalkThread>[];
                   _showCameraOptions(_visibleThreads(all));
                 },
                 onMenu: (action) {
-                  final all = threadsAsync.valueOrNull ?? curatedTalkThreads;
+                  final all = threadsAsync.valueOrNull ?? const <TalkThread>[];
                   _handleTalkMenu(action, _visibleThreads(all));
                 },
               )
@@ -554,8 +559,7 @@ class _TalkPageState extends ConsumerState<TalkPage> {
                 onMute: _toggleMutedSelectedThread,
                 onViewContact: () => _openContact(_selectedThread!),
                 onClear: () {
-                  final all =
-                      threadsAsync.valueOrNull ?? curatedTalkThreads;
+                  final all = threadsAsync.valueOrNull ?? const <TalkThread>[];
                   _completeThreadAction(
                     _selectedThread!,
                     'clear',
@@ -563,8 +567,7 @@ class _TalkPageState extends ConsumerState<TalkPage> {
                   );
                 },
                 onAction: (action) {
-                  final all =
-                      threadsAsync.valueOrNull ?? curatedTalkThreads;
+                  final all = threadsAsync.valueOrNull ?? const <TalkThread>[];
                   _completeThreadAction(
                     _selectedThread!,
                     action,
@@ -575,20 +578,34 @@ class _TalkPageState extends ConsumerState<TalkPage> {
             const SizedBox(height: 18),
             _TalkSearch(
               controller: _searchController,
-              isFiltered: _filterIndex != 0,
+              focusNode: _searchFocusNode,
+              isSearching: isSearching,
               onChanged: (value) => setState(() => _query = value),
-              onFilterTap: _showSearchFilters,
+              onCancel: _cancelSearch,
+              onCleared: _searchFocusNode.requestFocus,
             ),
-            const SizedBox(height: 16),
-            _FilterRow(
-              filterIndex: _filterIndex,
-              unreadCount: _totalUnread(
-                _visibleThreads(threadsAsync.valueOrNull ?? curatedTalkThreads),
-              ),
-              onSelect: (index) {
-                HapticFeedback.selectionClick();
-                setState(() => _filterIndex = index);
-              },
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: showFilters
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _FilterRow(
+                        key: const ValueKey('talk-search-filters'),
+                        filterIndex: _filterIndex,
+                        unreadCount: _totalUnread(
+                          _visibleThreads(
+                            threadsAsync.valueOrNull ?? const <TalkThread>[],
+                          ),
+                        ),
+                        onSelect: (index) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _filterIndex = index);
+                        },
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
             const SizedBox(height: 18),
             threadsAsync.when(
@@ -602,7 +619,7 @@ class _TalkPageState extends ConsumerState<TalkPage> {
                   : const _TalkLoadingList(),
               error: (error, _) => _TalkErrorBody(
                 onRetry: () => ref.invalidate(talkThreadsProvider),
-                fallback: _visibleThreads(curatedTalkThreads),
+                fallback: const <TalkThread>[],
                 state: this,
               ),
             ),
@@ -635,23 +652,24 @@ class _InboxHeader extends StatelessWidget {
         IconButton(
           tooltip: 'Camera',
           onPressed: onCamera,
-          icon: Icon(Icons.camera_alt_outlined, color: scheme.onSurface),
+          icon:
+              Icon(DocmacIconlyLight.camera, size: 21, color: scheme.onSurface),
         ),
         PopupMenuButton<String>(
           tooltip: 'Talk options',
           onSelected: onMenu,
           offset: const Offset(0, 48),
-          elevation: 10,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+          icon: Icon(
+            Icons.more_vert_rounded,
+            size: 21,
+            color: scheme.onSurfaceVariant,
           ),
-          icon: const Icon(Icons.more_vert_rounded),
           itemBuilder: (context) => const [
             PopupMenuItem(
               value: 'new',
               height: 52,
               child: _TalkMenuRow(
-                icon: Icons.edit_square,
+                icon: Icon(DocmacIconlyLight.edit, size: 19),
                 label: 'New talk',
               ),
             ),
@@ -659,7 +677,7 @@ class _InboxHeader extends StatelessWidget {
               value: 'circle',
               height: 52,
               child: _TalkMenuRow(
-                icon: Icons.groups_outlined,
+                icon: Icon(DocmacIconlyLight.addUser, size: 19),
                 label: 'New circle',
               ),
             ),
@@ -667,7 +685,10 @@ class _InboxHeader extends StatelessWidget {
               value: 'archive',
               height: 52,
               child: _TalkMenuRow(
-                icon: Icons.archive_outlined,
+                icon: DocmacCommunityIcon(
+                  asset: DocmacCommunityIcons.archive,
+                  size: 19,
+                ),
                 label: 'Archived talks',
               ),
             ),
@@ -675,7 +696,7 @@ class _InboxHeader extends StatelessWidget {
               value: 'select',
               height: 52,
               child: _TalkMenuRow(
-                icon: Icons.checklist_rounded,
+                icon: Icon(DocmacIconlyLight.tickSquare, size: 19),
                 label: 'Select talks',
               ),
             ),
@@ -683,7 +704,7 @@ class _InboxHeader extends StatelessWidget {
               value: 'settings',
               height: 52,
               child: _TalkMenuRow(
-                icon: Icons.tune_rounded,
+                icon: Icon(DocmacIconlyLight.setting, size: 19),
                 label: 'Talk settings',
               ),
             ),
@@ -696,6 +717,7 @@ class _InboxHeader extends StatelessWidget {
 
 class _FilterRow extends StatelessWidget {
   const _FilterRow({
+    super.key,
     required this.filterIndex,
     required this.unreadCount,
     required this.onSelect,
@@ -708,30 +730,39 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         children: [
           _FilterPill(
-              label: 'All talks',
-              active: filterIndex == 0,
-              onTap: () => onSelect(0)),
+            label: 'All talks',
+            icon: Icons.forum_outlined,
+            active: filterIndex == 0,
+            onTap: () => onSelect(0),
+          ),
           const SizedBox(width: 8),
           _FilterPill(
-              label: 'Unread',
-              count: unreadCount > 0 ? '$unreadCount' : null,
-              active: filterIndex == 1,
-              onTap: () => onSelect(1)),
+            label: 'Unread',
+            icon: Icons.mark_chat_unread_outlined,
+            count: unreadCount > 0 ? '$unreadCount' : null,
+            active: filterIndex == 1,
+            onTap: () => onSelect(1),
+          ),
           const SizedBox(width: 8),
           _FilterPill(
-              label: 'Circles',
-              active: filterIndex == 2,
-              onTap: () => onSelect(2)),
+            label: 'Circles',
+            icon: Icons.groups_2_outlined,
+            active: filterIndex == 2,
+            onTap: () => onSelect(2),
+          ),
           const SizedBox(width: 8),
           _FilterPill(
-              label: 'Saved',
-              active: filterIndex == 3,
-              onTap: () => onSelect(3)),
+            label: 'Saved',
+            icon: Icons.bookmark_border_rounded,
+            active: filterIndex == 3,
+            onTap: () => onSelect(3),
+          ),
         ],
       ),
     );
@@ -755,7 +786,7 @@ class _InboxBody extends StatelessWidget {
             archivedCount: state._archivedTalks.length,
             onTap: () => state._openArchivedTalks(
               state.ref.read(talkThreadsProvider).valueOrNull ??
-                  curatedTalkThreads,
+                  const <TalkThread>[],
             ),
           ),
           const SizedBox(height: 22),
@@ -785,7 +816,7 @@ class _InboxBody extends StatelessWidget {
           onResetFilter: state._resetFilter,
           onStartTalk: () => state._showNewTalkPicker(
             state.ref.read(talkThreadsProvider).valueOrNull ??
-                curatedTalkThreads,
+                const <TalkThread>[],
           ),
         ),
       ],
@@ -852,7 +883,8 @@ class _TalkLoadingListState extends State<_TalkLoadingList>
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: scheme.primaryContainer.withValues(alpha: .7),
+                              color:
+                                  scheme.primaryContainer.withValues(alpha: .7),
                               borderRadius: BorderRadius.circular(15),
                             ),
                           ),
@@ -868,7 +900,8 @@ class _TalkLoadingListState extends State<_TalkLoadingList>
                                   height: 13,
                                   width: 120,
                                   decoration: BoxDecoration(
-                                    color: scheme.primaryContainer.withValues(alpha: .7),
+                                    color: scheme.primaryContainer
+                                        .withValues(alpha: .7),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
@@ -880,7 +913,8 @@ class _TalkLoadingListState extends State<_TalkLoadingList>
                                   height: 11,
                                   width: index == 0 ? 190 : 150,
                                   decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerHighest.withValues(alpha: .8),
+                                    color: scheme.surfaceContainerHighest
+                                        .withValues(alpha: .8),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
@@ -929,7 +963,7 @@ class _TalkErrorBody extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Could not load talks. Showing your saved preview.',
+                  'Could not load talks. Check your connection and retry.',
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
@@ -980,7 +1014,7 @@ class _TalkSelectionHeader extends StatelessWidget {
         IconButton(
           tooltip: 'Cancel selection',
           onPressed: onClose,
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(DocmacIconlyLight.arrowLeft, size: 21),
         ),
         const SizedBox(width: 6),
         Text('1', style: Theme.of(context).textTheme.headlineSmall),
@@ -988,54 +1022,112 @@ class _TalkSelectionHeader extends StatelessWidget {
         IconButton(
           tooltip: 'View contact',
           onPressed: onViewContact,
-          icon: Icon(Icons.contact_page_outlined, color: scheme.onSurface),
+          icon: Icon(DocmacIconlyLight.user, size: 21, color: scheme.onSurface),
         ),
         IconButton(
           tooltip: isPinned ? 'Unpin talk' : 'Pin talk',
           onPressed: onPin,
           icon: Icon(
-            isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
-            color: scheme.onSurface,
+            Icons.push_pin_rounded,
+            size: 20,
+            color: isPinned ? scheme.primary : scheme.onSurface,
           ),
         ),
         IconButton(
           tooltip: 'Clear chat',
           onPressed: onClear,
-          icon: Icon(Icons.delete_outline_rounded, color: scheme.onSurface),
+          icon:
+              Icon(DocmacIconlyLight.delete, size: 21, color: scheme.onSurface),
         ),
         IconButton(
           tooltip: isMuted ? 'Unmute notifications' : 'Mute notifications',
           onPressed: onMute,
           icon: Icon(
-            isMuted
-                ? Icons.notifications_outlined
-                : Icons.notifications_off_outlined,
+            isMuted ? DocmacIconlyLight.volumeUp : DocmacIconlyLight.volumeOff,
+            size: 21,
             color: scheme.onSurface,
           ),
         ),
         PopupMenuButton<String>(
           tooltip: 'Selected talk actions',
           onSelected: onAction,
-          icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
+          icon: Icon(
+            Icons.more_vert_rounded,
+            size: 21,
+            color: scheme.onSurfaceVariant,
+          ),
           itemBuilder: (context) => [
-            const PopupMenuItem(value: 'archive', child: Text('Archive chat')),
             const PopupMenuItem(
-                value: 'shortcut', child: Text('Add chat shortcut')),
-            const PopupMenuItem(value: 'contact', child: Text('View contact')),
-            const PopupMenuItem(value: 'unread', child: Text('Mark as unread')),
-            const PopupMenuItem(value: 'all', child: Text('Select all')),
+              value: 'archive',
+              child: _TalkMenuRow(
+                icon: DocmacCommunityIcon(
+                  asset: DocmacCommunityIcons.archive,
+                  size: 19,
+                ),
+                label: 'Archive chat',
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'shortcut',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.plus, size: 19),
+                label: 'Add chat shortcut',
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'contact',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.user, size: 19),
+                label: 'View contact',
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'unread',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.message, size: 19),
+                label: 'Mark as unread',
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'all',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.tickSquare, size: 19),
+                label: 'Select all',
+              ),
+            ),
             PopupMenuItem(
               value: 'lock',
-              child: Text(isLocked ? 'Unlock chat' : 'Lock chat'),
+              child: _TalkMenuRow(
+                icon: Icon(
+                  isLocked ? DocmacIconlyLight.unlock : DocmacIconlyLight.lock,
+                  size: 19,
+                ),
+                label: isLocked ? 'Unlock chat' : 'Lock chat',
+              ),
             ),
             const PopupMenuDivider(),
             PopupMenuItem(
               value: 'favorite',
-              child: Text(
-                  isFavorite ? 'Remove from favorites' : 'Add to favorites'),
+              child: _TalkMenuRow(
+                icon: const Icon(DocmacIconlyLight.star, size: 19),
+                label:
+                    isFavorite ? 'Remove from favorites' : 'Add to favorites',
+              ),
             ),
-            const PopupMenuItem(value: 'clear', child: Text('Clear chat')),
-            const PopupMenuItem(value: 'block', child: Text('Block')),
+            const PopupMenuItem(
+              value: 'clear',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.delete, size: 19),
+                label: 'Clear chat',
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'block',
+              child: _TalkMenuRow(
+                icon: Icon(DocmacIconlyLight.closeSquare, size: 19),
+                label: 'Block',
+              ),
+            ),
           ],
         ),
       ],
@@ -1049,16 +1141,22 @@ class _TalkMenuRow extends StatelessWidget {
     required this.label,
   });
 
-  final IconData icon;
+  final Widget icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 13),
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        SizedBox(width: 22, child: Center(child: icon)),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
       ],
     );
   }
@@ -1247,193 +1345,59 @@ class _ArchivedEmptyState extends StatelessWidget {
   }
 }
 
-class _TalkSearch extends StatefulWidget {
+class _TalkSearch extends StatelessWidget {
   const _TalkSearch({
+    required this.controller,
+    required this.focusNode,
+    required this.isSearching,
     required this.onChanged,
-    required this.onFilterTap,
-    this.controller,
-    this.isFiltered = false,
+    required this.onCancel,
+    required this.onCleared,
   });
 
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool isSearching;
   final ValueChanged<String> onChanged;
-  final VoidCallback onFilterTap;
-  final TextEditingController? controller;
-  final bool isFiltered;
-
-  @override
-  State<_TalkSearch> createState() => _TalkSearchState();
-}
-
-class _TalkSearchState extends State<_TalkSearch> {
-  late TextEditingController _controller;
-  final _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = widget.controller ?? TextEditingController();
-    _controller.addListener(_refresh);
-    _focusNode.addListener(_refresh);
-  }
-
-  @override
-  void didUpdateWidget(_TalkSearch oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.controller != null && widget.controller != _controller) {
-      _controller.removeListener(_refresh);
-      _controller = widget.controller!;
-      _controller.addListener(_refresh);
-    }
-  }
-
-  @override
-  void dispose() {
-    if (widget.controller == null) {
-      _controller.dispose();
-    } else {
-      _controller.removeListener(_refresh);
-    }
-    _focusNode
-      ..removeListener(_refresh)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _refresh() => setState(() {});
-
-  void _clear() {
-    _controller.clear();
-    widget.onChanged('');
-    _focusNode.requestFocus();
-  }
+  final VoidCallback onCancel;
+  final VoidCallback onCleared;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final focused = _focusNode.hasFocus;
-    final hasQuery = _controller.text.isNotEmpty;
+    final ink = Theme.of(context).colorScheme.onSurface;
 
-    final backgroundColor = isDark
-        ? scheme.surfaceContainerHighest.withValues(alpha: 0.35)
-        : scheme.surfaceContainerHighest.withValues(alpha: 0.55);
-
-    final borderColor = focused ? scheme.primary : theme.dividerColor;
-
-    return Semantics(
-      textField: true,
-      label: 'Search talks',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        height: 48,
-        padding: const EdgeInsets.only(left: 14, right: 6),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderColor,
-            width: focused ? 1.5 : 1.0,
+    return Row(
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.centerRight,
+          child: isSearching
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: IconButton(
+                    key: const ValueKey('talk-search-cancel'),
+                    tooltip: 'Cancel search',
+                    onPressed: onCancel,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.arrow_back_rounded, color: ink),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(
+          child: DocmacSearchBar(
+            controller: controller,
+            focusNode: focusNode,
+            fieldKey: const ValueKey('talk-search-input'),
+            hintText: 'Search...',
+            semanticsLabel: 'Search talks, people and moments',
+            clearTooltip: 'Clear search',
+            onChanged: onChanged,
+            onCleared: onCleared,
           ),
         ),
-        child: Row(
-          children: [
-            AnimatedScale(
-              scale: focused ? 1.05 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                Icons.search_rounded,
-                size: 20,
-                color: focused ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                onChanged: widget.onChanged,
-                textInputAction: TextInputAction.search,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14.5,
-                  letterSpacing: -0.1,
-                ),
-                cursorColor: scheme.primary,
-                cursorWidth: 1.5,
-                decoration: InputDecoration(
-                  hintText: 'Search talks, people and moments',
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
-                    fontSize: 14,
-                    letterSpacing: -0.1,
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  filled: false,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 160),
-              child: hasQuery
-                  ? IconButton(
-                      key: const ValueKey('clear-talk-search'),
-                      tooltip: 'Clear search',
-                      onPressed: _clear,
-                      iconSize: 18,
-                      visualDensity: VisualDensity.compact,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            scheme.onSurface.withValues(alpha: 0.08),
-                        padding: const EdgeInsets.all(6),
-                        minimumSize: const Size(28, 28),
-                      ),
-                      icon: const Icon(Icons.close_rounded),
-                    )
-                  : Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          key: const ValueKey('refine-talk-search'),
-                          tooltip: 'Refine talks',
-                          onPressed: widget.onFilterTap,
-                          iconSize: 19,
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(
-                            Icons.tune_rounded,
-                            color: widget.isFiltered
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (widget.isFiltered)
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: scheme.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: scheme.surface,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }
@@ -1441,12 +1405,14 @@ class _TalkSearchState extends State<_TalkSearch> {
 class _FilterPill extends StatelessWidget {
   const _FilterPill({
     required this.label,
+    required this.icon,
     required this.active,
     required this.onTap,
     this.count,
   });
 
   final String label;
+  final IconData icon;
   final bool active;
   final VoidCallback onTap;
   final String? count;
@@ -1454,62 +1420,65 @@ class _FilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final foreground = active ? scheme.onPrimary : scheme.onSurface;
+    final background = active ? scheme.primary : scheme.surface;
+    final borderColor = active ? scheme.primary : scheme.outlineVariant;
+
     return Semantics(
       button: true,
       selected: active,
-      label: '$label filter',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-          decoration: BoxDecoration(
-            color: active
-                ? scheme.primary
-                : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: active ? scheme.primary : Theme.of(context).dividerColor,
-              width: 1,
+      label: count == null ? '$label filter' : '$label $count filter',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: borderColor, width: 1),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: active ? scheme.onPrimary : scheme.onSurface,
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                  letterSpacing: -0.1,
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 7),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? scheme.onPrimary.withValues(alpha: .22)
-                        : scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(999),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: foreground),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                    letterSpacing: -0.1,
                   ),
-                  child: Text(
-                    count!,
-                    style: TextStyle(
-                      color:
-                          active ? scheme.onPrimary : scheme.onPrimaryContainer,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                ),
+                if (count != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: active
+                          ? foreground.withValues(alpha: .18)
+                          : scheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      count!,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1548,7 +1517,8 @@ class _EmptyTalksView extends StatelessWidget {
     if (hasQuery) {
       icon = Icons.search_off_rounded;
       title = 'No talks found';
-      subtitle = 'Nothing matches "$query". Check for typos or try another search.';
+      subtitle =
+          'Nothing matches "$query". Check for typos or try another search.';
       actionLabel = 'Clear search';
       action = onClearSearch;
     } else {
@@ -1570,14 +1540,16 @@ class _EmptyTalksView extends StatelessWidget {
         case 3:
           icon = Icons.bookmark_border_rounded;
           title = 'No saved talks';
-          subtitle = 'Long press any conversation to bookmark it for quick access.';
+          subtitle =
+              'Long press any conversation to bookmark it for quick access.';
           actionLabel = 'Show all talks';
           action = onResetFilter;
           break;
         default:
           icon = Icons.chat_bubble_outline_rounded;
           title = 'No conversations yet';
-          subtitle = 'Start a conversation with friends, team members, or clients.';
+          subtitle =
+              'Start a conversation with friends, team members, or clients.';
           actionLabel = 'Start a talk';
           action = onStartTalk;
       }
@@ -1631,7 +1603,8 @@ class _EmptyTalksView extends StatelessWidget {
               onPressed: action,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: theme.dividerColor),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                 ),
@@ -1646,7 +1619,8 @@ class _EmptyTalksView extends StatelessWidget {
               ),
               label: Text(
                 actionLabel,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
           ],
@@ -1797,17 +1771,13 @@ class _ThreadRow extends StatelessWidget {
                       thread.preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontSize: 12.5,
                             color: isUnread
                                 ? scheme.onSurface
                                 : scheme.onSurfaceVariant,
-                            fontWeight: isUnread
-                                ? FontWeight.w500
-                                : FontWeight.w400,
+                            fontWeight:
+                                isUnread ? FontWeight.w500 : FontWeight.w400,
                           ),
                     ),
                   ],
@@ -1825,9 +1795,8 @@ class _ThreadRow extends StatelessWidget {
                           color: isUnread
                               ? scheme.primary
                               : scheme.onSurfaceVariant,
-                          fontWeight: isUnread
-                              ? FontWeight.w700
-                              : FontWeight.w400,
+                          fontWeight:
+                              isUnread ? FontWeight.w700 : FontWeight.w400,
                         ),
                   ),
                   const SizedBox(height: 7),

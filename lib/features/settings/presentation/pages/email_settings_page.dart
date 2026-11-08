@@ -1,10 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
 
 /// WhatsApp-style Email Address screen (Image 5).
 /// Allows viewing, editing, domain autocomplete, and removal of account email.
@@ -32,17 +33,8 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
   @override
   void initState() {
     super.initState();
-    final user = ref.read(currentUserProvider);
+    final user = ref.read(authStateProvider).value;
     _controller = TextEditingController(text: user?.email ?? '');
-    _loadSavedEmail();
-  }
-
-  Future<void> _loadSavedEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('user_account_email');
-    if (saved != null && saved.isNotEmpty && mounted) {
-      _controller.text = saved;
-    }
   }
 
   @override
@@ -81,7 +73,14 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
 
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
     if (!emailRegex.hasMatch(email)) {
-      setState(() => _error = 'Enter a valid email format (e.g. name@example.com)');
+      setState(
+          () => _error = 'Enter a valid email format (e.g. name@example.com)');
+      return;
+    }
+
+    final firebaseUser = ref.read(authStateProvider).value;
+    if (firebaseUser == null) {
+      setState(() => _error = 'Sign in before changing your email.');
       return;
     }
 
@@ -91,75 +90,77 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_account_email', email);
+      // Firebase sends a confirmation link; the sign-in email does not change
+      // until the link is opened. Never claim success before that happens.
+      await firebaseUser.verifyBeforeUpdateEmail(email);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Verification link sent to $email. Your sign-in email changes '
+            'after you open it.',
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = _messageFor(error.code);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not send the verification link. Try again.';
+      });
+    }
+  }
 
-      // Attempt Firebase update if user logged in
-      final firebaseUser = ref.read(authStateProvider).value;
-      if (firebaseUser != null) {
-        try {
-          await firebaseUser.verifyBeforeUpdateEmail(email);
-        } catch (_) {
-          // May require recent login in Firebase, preferences updated nonetheless
-        }
-      }
-
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Email updated to $email')),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = 'Failed to update email: $e';
-        });
-      }
+  String _messageFor(String code) {
+    switch (code) {
+      case 'requires-recent-login':
+        return 'Sign in again, then retry the email change.';
+      case 'email-already-in-use':
+        return 'That email is already attached to another account.';
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'too-many-requests':
+        return 'Too many attempts. Wait a while and try again.';
+      case 'network-request-failed':
+        return 'Docmac is offline. Check your connection and try again.';
+      default:
+        return 'Could not send the verification link. Try again.';
     }
   }
 
   Future<void> _removeEmail() async {
-    final confirm = await showDialog<bool>(
+    final firebaseUser = ref.read(authStateProvider).value;
+    if (firebaseUser?.email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No sign-in email is attached.')),
+      );
+      return;
+    }
+
+    await showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Remove email?'),
+        title: const Text('Remove email'),
         content: const Text(
-          'Email helps us verify your account or recover access if you have sign-in issues. '
-          'Are you sure you want to remove it?',
+          'The sign-in email is managed by Firebase Authentication and cannot '
+          'be removed from this screen. You can replace it with a verification '
+          'link, or delete the account.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('Remove'),
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
-
-    if (confirm == true && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_account_email');
-      _controller.clear();
-      setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email address removed.')),
-        );
-        context.pop();
-      }
-    }
   }
 
   void _showLearnMore() {
@@ -169,7 +170,7 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
         title: const Text('Email Verification & Recovery'),
         content: const Text(
           'Adding an email address helps safeguard your Docmac identity. '
-          'We use it strictly for recovery alerts, passkey synchronization, '
+          'We use it strictly for recovery alerts, account notifications, '
           'and customer security notifications. It is never displayed publicly.',
         ),
         actions: [
@@ -187,7 +188,8 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final brandGreen = isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48);
+    final brandGreen =
+        isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48);
 
     return Scaffold(
       appBar: AppBar(
@@ -195,13 +197,18 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Options',
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             onSelected: (val) {
               if (val == 'remove') _removeEmail();
             },
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'remove',
-                child: Text('Remove email'),
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.delete,
+                  label: 'Remove email',
+                  destructive: true,
+                ),
               ),
             ],
           ),
@@ -252,7 +259,8 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
                         width: _focusNode.hasFocus ? 1.5 : 1.0,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: TextField(
                       controller: _controller,
                       focusNode: _focusNode,
@@ -341,7 +349,7 @@ class _EmailSettingsPageState extends ConsumerState<EmailSettingsPage> {
                           ),
                         )
                       : const Text(
-                          'Next',
+                          'Send link',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,

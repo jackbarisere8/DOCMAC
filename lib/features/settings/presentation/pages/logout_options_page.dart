@@ -26,9 +26,11 @@ class LogoutOptionsPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
         children: [
-          Text('Before you go', style: Theme.of(context).textTheme.headlineSmall),
+          Text('Before you go',
+              style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 6),
-          Text('Most account concerns can be handled without ending your session.',
+          Text(
+              'Most account concerns can be handled without ending your session.',
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 22),
           Container(
@@ -56,7 +58,8 @@ class LogoutOptionsPage extends ConsumerWidget {
                 icon: DocmacIconlyLight.delete,
                 title: 'Clear cache',
                 subtitle: 'Free device space. Your cloud content stays safe.',
-                onTap: () => _notice(context, 'Cache controls are preparing a safe cleanup.'),
+                onTap: () => _notice(
+                    context, 'Cache controls are preparing a safe cleanup.'),
               ),
               _Option(
                 icon: DocmacIconlyLight.swap,
@@ -68,7 +71,8 @@ class LogoutOptionsPage extends ConsumerWidget {
                 icon: DocmacIconlyLight.infoCircle,
                 title: 'Contact support',
                 subtitle: 'Tell us what is not working before you leave.',
-                onTap: () => _notice(context, 'Support will be available from Help and feedback.'),
+                onTap: () => _notice(context,
+                    'Support will be available from Help and feedback.'),
               ),
             ]),
           ),
@@ -78,14 +82,16 @@ class LogoutOptionsPage extends ConsumerWidget {
               minimumSize: const Size.fromHeight(56),
               foregroundColor: colors.error,
               side: BorderSide(color: colors.error.withValues(alpha: .35)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
             ),
             onPressed: () => _confirmLogout(context, ref),
             icon: const Icon(DocmacIconlyLight.logout),
             label: const Text('Sign out of Docmac'),
           ),
           const SizedBox(height: 14),
-          Text('Signing out removes this account from this device. Your data remains in your Docmac account.',
+          Text(
+              'Signing out removes this account from this device. Your data remains in your Docmac account.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall),
         ],
@@ -94,7 +100,8 @@ class LogoutOptionsPage extends ConsumerWidget {
   }
 
   static void _notice(BuildContext context, String message) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final confirm = await showDialog<bool>(
@@ -103,9 +110,12 @@ class LogoutOptionsPage extends ConsumerWidget {
         title: const Text('Sign out of Docmac?'),
         content: const Text('You can sign back in whenever you are ready.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Stay signed in')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Stay signed in')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Sign out'),
           ),
@@ -119,7 +129,11 @@ class LogoutOptionsPage extends ConsumerWidget {
 }
 
 class _Option extends StatelessWidget {
-  const _Option({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  const _Option(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.onTap});
   final IconData icon;
   final String title;
   final String subtitle;

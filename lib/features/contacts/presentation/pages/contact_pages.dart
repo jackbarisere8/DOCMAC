@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
 
 class ContactCountry {
   const ContactCountry(this.name, this.code, this.flag, [this.nativeName]);
@@ -165,7 +168,7 @@ const docmacCountries = [
   ContactCountry('Zimbabwe', '+263', '🇿🇼'),
 ];
 
-const _contacts = [
+const _sampleContacts = [
   ('Amara Okafor', 'A', 'Available'),
   ('David Mensah', 'D', 'Design circle'),
   ('Nora Williams', 'N', 'Wave back to begin a conversation'),
@@ -173,6 +176,9 @@ const _contacts = [
   ('Emma Clarke', 'E', 'Sent you a new moment'),
   ('Jack Wilson', 'J', 'Active now'),
 ];
+
+List<(String, String, String)> get _contacts =>
+    AppFeatureFlags.localPreviews ? _sampleContacts : const [];
 
 class NewTalkPage extends StatefulWidget {
   const NewTalkPage({super.key});
@@ -189,8 +195,7 @@ class _NewTalkPageState extends State<NewTalkPage> {
     final colors = Theme.of(context).colorScheme;
     final normalizedQuery = _query.toLowerCase();
     final matches = _contacts
-        .where((contact) =>
-            contact.$1.toLowerCase().contains(normalizedQuery))
+        .where((contact) => contact.$1.toLowerCase().contains(normalizedQuery))
         .toList();
     return Scaffold(
       appBar: AppBar(
@@ -198,16 +203,51 @@ class _NewTalkPageState extends State<NewTalkPage> {
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Contact options',
-            color: colors.surface,
-            surfaceTintColor: Colors.transparent,
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             onSelected: _handleMenu,
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'broadcast', child: Text('New broadcast')),
-              PopupMenuItem(value: 'settings', child: Text('Contact settings')),
-              PopupMenuItem(value: 'invite', child: Text('Invite a contact')),
-              PopupMenuItem(value: 'contacts', child: Text('People')),
-              PopupMenuItem(value: 'refresh', child: Text('Refresh')),
-              PopupMenuItem(value: 'help', child: Text('Help')),
+              PopupMenuItem(
+                value: 'broadcast',
+                child: DocmacMenuItem(
+                  icon: Icons.campaign_outlined,
+                  label: 'New broadcast',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.setting,
+                  label: 'Contact settings',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'invite',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.addUser,
+                  label: 'Invite a contact',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'contacts',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.user,
+                  label: 'People',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'refresh',
+                child: DocmacMenuItem(
+                  icon: Icons.refresh_rounded,
+                  label: 'Refresh',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'help',
+                child: DocmacMenuItem(
+                  icon: Icons.help_outline_rounded,
+                  label: 'Help',
+                ),
+              ),
             ],
           ),
         ],
@@ -215,12 +255,10 @@ class _NewTalkPageState extends State<NewTalkPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
-          TextField(
+          DocmacSearchBar(
+            hintText: 'Search name or number',
+            semanticsLabel: 'Search name or number',
             onChanged: (value) => setState(() => _query = value),
-            decoration: const InputDecoration(
-              hintText: 'Search name or number',
-              prefixIcon: Icon(Icons.search_rounded),
-            ),
           ),
           const SizedBox(height: 18),
           ListTile(
@@ -241,20 +279,29 @@ class _NewTalkPageState extends State<NewTalkPage> {
           Text('Frequently contacted',
               style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          for (final contact in matches)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: colors.primary.withValues(alpha: .75),
-                foregroundColor: colors.onPrimary,
-                child: Text(contact.$2),
+          if (_contacts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Contact discovery is not available yet. Start a private talk '
+                'with an exact @username from New talk.',
               ),
-              title: Text(contact.$1),
-              subtitle: Text(contact.$3),
-              trailing: Icon(Icons.radio_button_unchecked_rounded,
-                  color: colors.onSurfaceVariant),
-              onTap: () => context.push('/chat'),
-            ),
+            )
+          else
+            for (final contact in matches)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: colors.primary.withValues(alpha: .75),
+                  foregroundColor: colors.onPrimary,
+                  child: Text(contact.$2),
+                ),
+                title: Text(contact.$1),
+                subtitle: Text(contact.$3),
+                trailing: Icon(Icons.radio_button_unchecked_rounded,
+                    color: colors.onSurfaceVariant),
+                onTap: () => context.push('/chat'),
+              ),
         ],
       ),
     );
@@ -269,16 +316,16 @@ class _NewTalkPageState extends State<NewTalkPage> {
         context.push('/contacts');
         return;
       case 'refresh':
-        _notice('Your contacts are up to date.');
+        _notice('Contact refresh is not available yet.');
         return;
       case 'broadcast':
-        _notice('New broadcast is ready to set up.');
+        _notice('New broadcasts are not available yet.');
         return;
       case 'invite':
-        _notice('An invite link is ready to share.');
+        _notice('Contact invites are not available yet.');
         return;
       case 'help':
-        _notice('Choose a contact to start a private talk.');
+        _notice('Start a private talk with an exact @username from New talk.');
         return;
     }
   }
@@ -310,14 +357,23 @@ class ContactsDirectoryPage extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           children: [
-            for (final contact in _contacts)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(child: Text(contact.$2)),
-                title: Text(contact.$1),
-                subtitle: Text(contact.$3),
-                onTap: () => context.push('/chat'),
-              ),
+            if (_contacts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Text(
+                  'Contacts are not available yet. Start a private talk with '
+                  'an exact @username from New talk.',
+                ),
+              )
+            else
+              for (final contact in _contacts)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(child: Text(contact.$2)),
+                  title: Text(contact.$1),
+                  subtitle: Text(contact.$3),
+                  onTap: () => context.push('/chat'),
+                ),
           ],
         ),
       );
@@ -331,8 +387,6 @@ class ContactSettingsPage extends StatefulWidget {
 }
 
 class _ContactSettingsPageState extends State<ContactSettingsPage> {
-  bool _saveContacts = true;
-
   void _showBlockedAccounts(BuildContext context) {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
@@ -348,30 +402,10 @@ class _ContactSettingsPageState extends State<ContactSettingsPage> {
               Text('Blocked Accounts',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 6),
-              Text(
-                'Blocked people cannot call or message you in your Orbit.',
-                style: Theme.of(context).textTheme.bodyMedium,
+              const Text(
+                'Blocking is not available yet. No accounts are blocked in '
+                'this build, so there is nothing to show or unblock here.',
               ),
-              const SizedBox(height: 16),
-              for (final blocked in const [
-                'Spam Caller (+1 555-0199)',
-                'Unknown Signal (+44 7700 900077)'
-              ])
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading:
-                      const Icon(Icons.block_rounded, color: Colors.red),
-                  title: Text(blocked),
-                  trailing: TextButton(
-                    onPressed: () {
-                      Navigator.pop(sheetCtx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Unblocked $blocked')),
-                      );
-                    },
-                    child: const Text('Unblock'),
-                  ),
-                ),
             ],
           ),
         ),
@@ -388,17 +422,17 @@ class _ContactSettingsPageState extends State<ContactSettingsPage> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Blocked accounts'),
-              subtitle: const Text('2'),
+              subtitle: const Text('Not available yet'),
               onTap: () => _showBlockedAccounts(context),
             ),
             const SizedBox(height: 36),
-            SwitchListTile(
+            const SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Orbit contacts'),
-              subtitle: const Text(
-                  'Contacts are saved to your Orbit account so they are available across your devices.'),
-              value: _saveContacts,
-              onChanged: (value) => setState(() => _saveContacts = value),
+              title: Text('Orbit contacts'),
+              subtitle: Text(
+                  'Contact sync is not available yet. Contacts stay on this device in this build.'),
+              value: false,
+              onChanged: null,
             ),
           ],
         ),
@@ -419,7 +453,6 @@ class _NewContactPageState extends State<NewContactPage> {
   final _lastName = TextEditingController();
   late final TextEditingController _phone;
   ContactCountry _country = docmacCountries.first;
-  bool _syncToPhone = false;
 
   @override
   void initState() {
@@ -460,11 +493,11 @@ class _NewContactPageState extends State<NewContactPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content:
-              Text('${_firstName.text.trim()} has been added to contacts.')),
+      const SnackBar(
+        content:
+            Text('Saving contacts is not available yet. Nothing was saved.'),
+      ),
     );
-    context.pop();
   }
 
   @override
@@ -508,12 +541,13 @@ class _NewContactPageState extends State<NewContactPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SwitchListTile(
+                const SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.sync_rounded),
-                  title: const Text('Sync contact to phone'),
-                  value: _syncToPhone,
-                  onChanged: (value) => setState(() => _syncToPhone = value),
+                  secondary: Icon(Icons.sync_rounded),
+                  title: Text('Sync contact to phone'),
+                  subtitle: Text('Phone contact sync is not available yet.'),
+                  value: false,
+                  onChanged: null,
                 ),
                 const Spacer(),
                 SizedBox(
@@ -542,13 +576,11 @@ class _CountryPickerPageState extends State<CountryPickerPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final countryQuery = _query.trim().toLowerCase();
-    final countries = docmacCountries
-        .where((country) {
-          return countryQuery.isEmpty ||
-              country.name.toLowerCase().contains(countryQuery) ||
-              country.code.replaceAll(' ', '').contains(countryQuery);
-        })
-        .toList()
+    final countries = docmacCountries.where((country) {
+      return countryQuery.isEmpty ||
+          country.name.toLowerCase().contains(countryQuery) ||
+          country.code.replaceAll(' ', '').contains(countryQuery);
+    }).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
     return Scaffold(
@@ -569,12 +601,13 @@ class _CountryPickerPageState extends State<CountryPickerPage> {
                   Expanded(
                     child: Text(
                       'Choose a country',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: scheme.onSurface,
-                            fontSize: 23,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.5,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: scheme.onSurface,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -.5,
+                              ),
                     ),
                   ),
                   Icon(Icons.public_rounded, color: scheme.primary, size: 22),
@@ -584,33 +617,11 @@ class _CountryPickerPageState extends State<CountryPickerPage> {
             Container(height: 1, color: scheme.outlineVariant),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-              child: TextField(
+              child: DocmacSearchBar(
                 autofocus: true,
+                hintText: 'Search country or code',
+                semanticsLabel: 'Search country or code',
                 onChanged: (value) => setState(() => _query = value),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Search country or code',
-                  prefixIcon: Icon(Icons.search_rounded,
-                      color: scheme.onSurfaceVariant),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () => setState(() => _query = ''),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                  filled: true,
-                  fillColor: scheme.surfaceContainerHighest,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: scheme.primary, width: 1.5),
-                  ),
-                ),
               ),
             ),
             Padding(

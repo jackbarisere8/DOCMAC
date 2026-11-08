@@ -39,6 +39,9 @@ migrate_working_dir/
 /gradle_build.txt
 /flutter_doctor.txt
 
+# Node dependencies for the Firestore rules tests.
+/rules-test/node_modules/
+
 # Symbolication related
 app.*.symbols
 

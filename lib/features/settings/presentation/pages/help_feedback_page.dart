@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
 
 class HelpFeedbackPage extends StatelessWidget {
   const HelpFeedbackPage({super.key});
@@ -28,26 +28,43 @@ class HelpFeedbackPage extends StatelessWidget {
             ),
             _HelpRow(
               icon: DocmacIconlyLight.document,
-              title: 'Terms and privacy',
-              onTap: () => _notice(context, 'Terms and privacy are ready to review.'),
+              title: 'Privacy information',
+              subtitle: 'What Docmac enforces today',
+              onTap: () => context.push('/settings/privacy-help'),
             ),
             _HelpRow(
               icon: DocmacIconlyLight.danger,
               title: 'Safety reports',
-              onTap: () => _notice(context, 'Safety reports will appear here.'),
+              onTap: () =>
+                  _notice(context, 'Safety reporting is not available yet.'),
             ),
             _HelpRow(
               icon: DocmacIconlyLight.infoCircle,
               title: 'App info',
-              subtitle: 'Docmac 1.0.0',
-              onTap: () => _notice(context, 'Docmac 1.0.0'),
+              subtitle: 'About this build',
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  title: const Text('Docmac'),
+                  content: const Text(
+                    'Version information is not available in this build.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       );
 
   static void _notice(BuildContext context, String message) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
 }
 
 class HelpCenterPage extends StatefulWidget {
@@ -62,12 +79,35 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   var _query = '';
 
   static const _topics = [
-    _HelpTopic('Chats & Messaging', 'Messages, backups, notifications, media, voice and video notes, AI experiences.', Icons.forum_outlined, route: '/help/chats'),
-    _HelpTopic('Communities & Circles', 'Community spaces, admin permissions, and member guides.', Icons.groups_outlined, route: '/help/communities'),
-    _HelpTopic('Status & Moments', 'Sharing updates, privacy, views, and third-party integrations.', Icons.amp_stories_outlined, route: '/help/status'),
-    _HelpTopic('Privacy, Safety, and Security', 'End-to-end encryption, account controls, and reporting.', Icons.shield_outlined, route: '/help/privacy-safety-security'),
-    _HelpTopic('Troubleshooting & Diagnostics', 'Fixing issues, connectivity, account recovery, and foreign devices.', Icons.build_outlined, route: '/help/troubleshooting'),
-    _HelpTopic('Live & Calls', 'Voice rooms, audio calls, and scheduled sessions.', Icons.call_outlined),
+    _HelpTopic(
+        'Chats & Messaging',
+        'Messages, backups, notifications, media, voice and video notes, AI experiences.',
+        Icons.forum_outlined,
+        route: '/help/chats'),
+    _HelpTopic(
+        'Communities & Circles',
+        'Community spaces, admin permissions, and member guides.',
+        Icons.groups_outlined,
+        route: '/help/communities'),
+    _HelpTopic(
+        'Status & Moments',
+        'Sharing updates, privacy, views, and third-party integrations.',
+        Icons.amp_stories_outlined,
+        route: '/help/status'),
+    _HelpTopic(
+        'Privacy, Safety, and Security',
+        'Privacy controls, account safety, and reporting.',
+        Icons.shield_outlined,
+        route: '/help/privacy-safety-security'),
+    _HelpTopic(
+        'Troubleshooting & Diagnostics',
+        'Fixing issues, connectivity, account recovery, and foreign devices.',
+        Icons.build_outlined,
+        route: '/help/troubleshooting'),
+    _HelpTopic(
+        'Live & Calls',
+        'Voice rooms, audio calls, and scheduled sessions.',
+        Icons.call_outlined),
   ];
   static const _articles = [
     'How to create and share a status',
@@ -88,7 +128,9 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final topics = _topics.where((item) => _matches('${item.title} ${item.description}')).toList();
+    final topics = _topics
+        .where((item) => _matches('${item.title} ${item.description}'))
+        .toList();
     final articles = _articles.where(_matches).toList();
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
@@ -98,29 +140,22 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-            decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(24)),
+            decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(24)),
             child: Column(children: [
-              Icon(Icons.support_agent_rounded, size: 42, color: scheme.onPrimaryContainer),
+              Icon(Icons.support_agent_rounded,
+                  size: 42, color: scheme.onPrimaryContainer),
               const SizedBox(height: 8),
-              Text('How can we help?', style: Theme.of(context).textTheme.headlineSmall),
+              Text('How can we help?',
+                  style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 16),
-              TextField(
+              DocmacSearchBar(
                 controller: _search,
+                hintText: 'Search Help Center',
+                semanticsLabel: 'Search Help Center',
+                clearTooltip: 'Clear help search',
                 onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: InputDecoration(
-                  hintText: 'Search Help Center',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear help search',
-                          onPressed: () {
-                            _search.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                ),
               ),
             ]),
           ),
@@ -142,10 +177,14 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               },
             ),
           if (topics.isEmpty && articles.isEmpty)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Center(child: Text('No help topics match that search.'))),
+            const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child:
+                    Center(child: Text('No help topics match that search.'))),
           if (articles.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text('Popular articles', style: Theme.of(context).textTheme.titleMedium),
+            Text('Popular articles',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final article in articles)
               _HelpCenterRow(
@@ -155,7 +194,8 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                   HapticFeedback.selectionClick();
                   if (article.contains('status')) {
                     context.push('/help/status');
-                  } else if (article.contains('connection') || article.contains('feature')) {
+                  } else if (article.contains('connection') ||
+                      article.contains('feature')) {
                     context.push('/help/troubleshooting');
                   } else {
                     _showArticle(context, article);
@@ -174,7 +214,8 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
     );
   }
 
-  static void _showArticle(BuildContext context, String title, [String? subtitle]) {
+  static void _showArticle(BuildContext context, String title,
+      [String? subtitle]) {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
       context: context,
@@ -197,8 +238,14 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                 const SizedBox(height: 16),
               ],
               Text(
-                'Docmac protects your privacy and signals with end-to-end encryption. All messages and voice sessions are encrypted on your device and can only be decrypted by the intended recipient.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+                'Docmac limits every conversation to its members using Firebase '
+                'Authentication and Firestore security rules. Messages are not '
+                'end-to-end encrypted yet; that work will ship before it is '
+                'advertised.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(height: 1.5),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -216,147 +263,51 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   }
 }
 
-class SendFeedbackPage extends StatefulWidget {
+class SendFeedbackPage extends StatelessWidget {
   const SendFeedbackPage({super.key});
 
   @override
-  State<SendFeedbackPage> createState() => _SendFeedbackPageState();
-}
-
-class _SendFeedbackPageState extends State<SendFeedbackPage> {
-  final _feedback = TextEditingController();
-  Uint8List? _attachment;
-  String? _attachmentName;
-
-  @override
-  void initState() {
-    super.initState();
-    _feedback.addListener(_refresh);
-  }
-
-  @override
-  void dispose() {
-    _feedback
-      ..removeListener(_refresh)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _refresh() => setState(() {});
-
-  Future<void> _addScreenshot() async {
-    try {
-      final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1440);
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _attachment = bytes;
-        _attachmentName = file.name;
-      });
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('We could not add that screenshot.')));
-      }
-    }
-  }
-
-  void _submit() {
-    if (_feedback.text.trim().isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanks. Your feedback is ready to send.')));
-    context.pop();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final canSubmit = _feedback.text.trim().isNotEmpty;
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: AppBar(title: const Text('Send feedback')),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Describe a technical issue or share an idea. For safety concerns, visit the Help Center first.',
-                style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _feedback,
-              minLines: 6,
-              maxLines: 8,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'Describe the issue or feedback', alignLabelWithHint: true),
-            ),
-            const SizedBox(height: 22),
-            Text('Screenshot (optional)', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 4),
-            Text('Remove sensitive information before attaching it.', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 12),
-            _FeedbackAttachment(
-              bytes: _attachment,
-              name: _attachmentName,
-              onAdd: _addScreenshot,
-              onRemove: () => setState(() {
-                _attachment = null;
-                _attachmentName = null;
-              }),
-            ),
-            const Spacer(),
-            Text('By sending, you allow Docmac to review related technical information to help address your feedback.',
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: canSubmit ? _submit : null, child: const Text('Send feedback')),
-          ]),
-        ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+        children: [
+          Icon(Icons.feedback_outlined, size: 52, color: scheme.primary),
+          const SizedBox(height: 18),
+          Text(
+            'Feedback submission is not available yet',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'This build does not send feedback or screenshots to a server. '
+            'The previous form collected text and claimed it was ready to '
+            'send, so it has been removed rather than pretending to work.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+          ),
+          const SizedBox(height: 26),
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: const Text('Back'),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _FeedbackAttachment extends StatelessWidget {
-  const _FeedbackAttachment({required this.bytes, required this.name, required this.onAdd, required this.onRemove});
-
-  final Uint8List? bytes;
-  final String? name;
-  final VoidCallback onAdd;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (bytes == null) {
-      return OutlinedButton.icon(
-        onPressed: onAdd,
-        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56), alignment: Alignment.centerLeft),
-        icon: const Icon(Icons.add_photo_alternate_outlined),
-        label: const Text('Add screenshot'),
-      );
-    }
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.memory(bytes!, width: 76, height: 76, fit: BoxFit.cover),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Text(name ?? 'Screenshot', maxLines: 2, overflow: TextOverflow.ellipsis)),
-        IconButton(tooltip: 'Remove screenshot', onPressed: onRemove, icon: const Icon(Icons.close_rounded)),
-      ]),
     );
   }
 }
 
 class _HelpRow extends StatelessWidget {
-  const _HelpRow({required this.icon, required this.title, required this.onTap, this.subtitle});
+  const _HelpRow(
+      {required this.icon,
+      required this.title,
+      required this.onTap,
+      this.subtitle});
 
   final IconData icon;
   final String title;
@@ -375,7 +326,11 @@ class _HelpRow extends StatelessWidget {
 }
 
 class _HelpCenterRow extends StatelessWidget {
-  const _HelpCenterRow({required this.icon, required this.title, required this.onTap, this.subtitle});
+  const _HelpCenterRow(
+      {required this.icon,
+      required this.title,
+      required this.onTap,
+      this.subtitle});
 
   final IconData icon;
   final String title;

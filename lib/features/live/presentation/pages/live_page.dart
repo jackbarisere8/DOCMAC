@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../data/models/call_record.dart';
@@ -93,6 +94,14 @@ class _LivePageState extends ConsumerState<LivePage> {
             const SizedBox(height: 4),
             Text('Choose how you want to connect.',
                 style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Calls in this build are simulated on your device. No audio is sent and nobody is dialled.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+            ),
             const SizedBox(height: 16),
             _QuickActions(
               favoritesActive: activeFilter == CallFilter.favorites,
@@ -117,7 +126,8 @@ class _LivePageState extends ConsumerState<LivePage> {
                 TextButton(
                   onPressed: () {
                     HapticFeedback.selectionClick();
-                    ref.read(callFilterProvider.notifier).state = CallFilter.all;
+                    ref.read(callFilterProvider.notifier).state =
+                        CallFilter.all;
                   },
                   child: const Text('Show all'),
                 )
@@ -171,7 +181,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Make time together',
                 style: Theme.of(context).textTheme.headlineLarge),
             const SizedBox(height: 3),
@@ -241,9 +252,7 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Expanded(
             child: _QuickAction(
-                icon: DocmacIconlyLight.voice,
-                label: 'Voice',
-                onTap: onVoice)),
+                icon: DocmacIconlyLight.voice, label: 'Voice', onTap: onVoice)),
         const SizedBox(width: 10),
         Expanded(
             child: _QuickAction(
@@ -253,9 +262,7 @@ class _QuickActions extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
             child: _QuickAction(
-                icon: Icons.dialpad_rounded,
-                label: 'Keypad',
-                onTap: onKeypad)),
+                icon: Icons.dialpad_rounded, label: 'Keypad', onTap: onKeypad)),
         const SizedBox(width: 10),
         Expanded(
             child: _QuickAction(
@@ -292,7 +299,8 @@ class _QuickAction extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? scheme.primaryContainer : scheme.surface,
           border: Border.all(
-              color: active ? scheme.onSurface : Theme.of(context).dividerColor),
+              color:
+                  active ? scheme.onSurface : Theme.of(context).dividerColor),
           borderRadius: BorderRadius.circular(17),
         ),
         child: Column(
@@ -303,8 +311,9 @@ class _QuickAction extends StatelessWidget {
                 height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color:
-                      active ? scheme.onSurface : scheme.surfaceContainerHighest,
+                  color: active
+                      ? scheme.onSurface
+                      : scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(icon,
@@ -350,9 +359,7 @@ class _CallList extends StatelessWidget {
             ),
             if (index != calls.length - 1)
               Divider(
-                  height: 1,
-                  indent: 72,
-                  color: Theme.of(context).dividerColor),
+                  height: 1, indent: 72, color: Theme.of(context).dividerColor),
           ],
         ]),
       );
@@ -397,8 +404,8 @@ class _CallRow extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded,
-                    color: Colors.red),
+                leading:
+                    const Icon(Icons.delete_outline_rounded, color: Colors.red),
                 title: const Text('Remove from Recent Calls',
                     style: TextStyle(color: Colors.red)),
                 onTap: () {
@@ -477,7 +484,9 @@ class _CallRow extends StatelessWidget {
                   color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(10)),
               child: Icon(
-                  call.video ? DocmacIconlyLight.video : DocmacIconlyLight.voice,
+                  call.video
+                      ? DocmacIconlyLight.video
+                      : DocmacIconlyLight.voice,
                   size: 16),
             ),
           ]),
@@ -545,16 +554,27 @@ class _PeopleSheet extends StatelessWidget {
                 Text('Choose someone who is ready to talk.',
                     style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 14),
-                for (final person in _people)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: _Avatar(initial: person.$2, tint: person.$3),
-                    title: Text(person.$1),
-                    subtitle: Text(person.$4),
-                    trailing:
-                        const Icon(DocmacIconlyLight.arrowRight, size: 18),
-                    onTap: () => Navigator.pop(context, (person.$5, person.$1)),
-                  ),
+                if (_people.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'The people picker is not available yet. Start a private '
+                      'talk with an exact @username, or use the keypad to open '
+                      'the simulated call screen.',
+                    ),
+                  )
+                else
+                  for (final person in _people)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: _Avatar(initial: person.$2, tint: person.$3),
+                      title: Text(person.$1),
+                      subtitle: Text(person.$4),
+                      trailing:
+                          const Icon(DocmacIconlyLight.arrowRight, size: 18),
+                      onTap: () =>
+                          Navigator.pop(context, (person.$5, person.$1)),
+                    ),
               ]),
         ),
       );
@@ -674,9 +694,12 @@ class _Key extends StatelessWidget {
       );
 }
 
-const _people = [
+const _samplePeople = [
   ('Emma Clarke', 'E', AppColors.accent, 'Available now', 'emma'),
   ('David Okafor', 'D', Color(0xFFD9E9F8), 'Last signal yesterday', 'david'),
   ('Tobi Adeyemi', 'T', Color(0xFFE6DFEF), 'Available now', 'tobi'),
   ('Jack Wilson', 'J', Color(0xFFF5E6C8), 'Last signal Monday', 'jack'),
 ];
+
+List<(String, String, Color, String, String)> get _people =>
+    AppFeatureFlags.localPreviews ? _samplePeople : const [];

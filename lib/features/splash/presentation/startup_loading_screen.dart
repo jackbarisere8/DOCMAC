@@ -238,7 +238,8 @@ class _DocmacVectorLogoPainter extends CustomPainter {
         ..strokeWidth = 3.2
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..color = Colors.white.withValues(alpha: (1.0 - fillProgress).clamp(0.2, 1.0));
+        ..color = Colors.white
+            .withValues(alpha: (1.0 - fillProgress).clamp(0.2, 1.0));
 
       final outerMetrics = outerPath.computeMetrics();
       for (final metric in outerMetrics) {

@@ -212,17 +212,23 @@ class _ListsSettingsPageState extends State<ListsSettingsPage> {
                 children: [
                   _ChipGraphic(
                     icon: Icons.chat_bubble_rounded,
-                    color: isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48),
+                    color: isDark
+                        ? const Color(0xFF2E9C92)
+                        : const Color(0xFF1B6B48),
                   ),
                   const SizedBox(width: 8),
                   _ChipGraphic(
                     icon: Icons.favorite_rounded,
-                    color: isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48),
+                    color: isDark
+                        ? const Color(0xFF2E9C92)
+                        : const Color(0xFF1B6B48),
                   ),
                   const SizedBox(width: 8),
                   _ChipGraphic(
                     icon: Icons.add_rounded,
-                    color: isDark ? const Color(0xFF2E9C92) : const Color(0xFF1B6B48),
+                    color: isDark
+                        ? const Color(0xFF2E9C92)
+                        : const Color(0xFF1B6B48),
                   ),
                 ],
               ),
@@ -235,6 +241,19 @@ class _ListsSettingsPageState extends State<ListsSettingsPage> {
             style: theme.textTheme.bodyMedium?.copyWith(
               height: 1.4,
               color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'Lists are saved on this device only. They do not filter the '
+              'Talk inbox yet.',
+              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 20),
@@ -250,7 +269,8 @@ class _ListsSettingsPageState extends State<ListsSettingsPage> {
                 onTap: _createCustomList,
                 borderRadius: BorderRadius.circular(24),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -289,8 +309,11 @@ class _ListsSettingsPageState extends State<ListsSettingsPage> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(item.icon, color: scheme.onSurfaceVariant),
-              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(item.subtitle, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+              title: Text(item.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(item.subtitle,
+                  style:
+                      TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
               onTap: _openEditLists,
             ),
 
@@ -323,7 +346,8 @@ class _ListsSettingsPageState extends State<ListsSettingsPage> {
                 leading: Icon(item.icon, color: scheme.onSurfaceVariant),
                 title: Text(item.name),
                 subtitle: const Text('Tap to add back'),
-                trailing: Icon(Icons.add_circle_outline_rounded, color: scheme.primary),
+                trailing: Icon(Icons.add_circle_outline_rounded,
+                    color: scheme.primary),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   setState(() {
@@ -513,13 +537,17 @@ class _EditListsSheetState extends State<_EditListsSheet> {
                   key: ValueKey(item.id),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                   leading: Icon(item.icon, color: scheme.onSurfaceVariant),
-                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(item.subtitle, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+                  title: Text(item.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(item.subtitle,
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant, fontSize: 13)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                        icon:
+                            const Icon(Icons.delete_outline_rounded, size: 20),
                         tooltip: 'Delete',
                         onPressed: () => _deleteItem(index),
                       ),
@@ -564,10 +592,12 @@ class _EditListsSheetState extends State<_EditListsSheet> {
               for (int i = 0; i < _available.length; i++)
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                  leading: Icon(_available[i].icon, color: scheme.onSurfaceVariant),
+                  leading:
+                      Icon(_available[i].icon, color: scheme.onSurfaceVariant),
                   title: Text(_available[i].name),
                   trailing: IconButton(
-                    icon: Icon(Icons.add_circle_outline_rounded, color: scheme.primary),
+                    icon: Icon(Icons.add_circle_outline_rounded,
+                        color: scheme.primary),
                     onPressed: () => _restoreItem(i),
                   ),
                 ),

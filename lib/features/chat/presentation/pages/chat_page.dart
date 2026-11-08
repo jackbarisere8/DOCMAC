@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +9,10 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../../core/ui/docmac_chat_icons.dart';
 import '../../../../core/ui/docmac_community_icons.dart';
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/chat_message.dart';
 import '../providers/chat_providers.dart';
@@ -16,17 +20,20 @@ import '../providers/chat_providers.dart';
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
     super.key,
-    this.chatId = 'jack',
-    this.personName = 'Jack Wilson',
-    this.personInitial = 'J',
-    this.status = 'Active now',
+    this.chatId,
+    this.peerUid,
+    this.peerHandle,
+    this.personName = 'Talk',
+    this.personInitial = 'T',
+    this.status = 'Status unavailable',
   });
 
-  /// Firestore `chats/{chatId}` document id. Threaded from Talk inbox
-  /// (`TalkThread.chatId`) and the router (`/talk/person/:personId`,
-  /// `/chat?person=`). Curated preview ids (`jack`, `emma`, …) match the
-  /// Talk fallback so deep links stay stable before chats are provisioned.
-  final String chatId;
+  /// Firestore `chats/{chatId}` document id when it is already known (a Talk
+  /// inbox row). New conversations may instead supply [peerUid]/[peerHandle];
+  /// the page then asks the server for the canonical 1:1 chat.
+  final String? chatId;
+  final String? peerUid;
+  final String? peerHandle;
   final String personName;
   final String personInitial;
   final String status;
@@ -56,6 +63,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   /// Read receipts already flipped this session (avoids update loops).
   final _markedRead = <String>{};
 
+  /// Server-resolved conversation details for a new 1:1 talk.
+  String? _resolvedChatId;
+  String? _resolvedPeerName;
+  String? _resolvedPeerHandle;
+  bool _resolvingChat = false;
+  String? _resolveError;
+
   Timer? _recordingTicker;
   DateTime? _recordingStartedAt;
   Duration _recordingDuration = Duration.zero;
@@ -74,6 +88,87 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void initState() {
     super.initState();
     _messageController.addListener(_updateComposer);
+    if (_activeChatId.isEmpty &&
+        (widget.peerUid != null || widget.peerHandle != null)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _resolveChat());
+    }
+  }
+
+  String get _activeChatId => _resolvedChatId ?? widget.chatId ?? '';
+
+  String get _personName {
+    final resolved = _resolvedPeerName;
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    return widget.personName;
+  }
+
+  String get _personInitial {
+    if (_resolvedPeerName != null && _personName.isNotEmpty) {
+      return _personName[0].toUpperCase();
+    }
+    return widget.personInitial;
+  }
+
+  String get _status {
+    if (_resolveError != null) return 'Not connected';
+    if (_resolvingChat) return 'Connecting…';
+    final handle = _resolvedPeerHandle ?? widget.peerHandle;
+    if (widget.peerUid != null && handle != null && handle.isNotEmpty) {
+      return '@$handle';
+    }
+    return widget.status;
+  }
+
+  Future<bool> _resolveChat() async {
+    if (_activeChatId.isNotEmpty) return true;
+    if (_resolvingChat) return false;
+    final uid = _uid;
+    if (uid == null) return false;
+    if (widget.peerUid == null && widget.peerHandle == null) return false;
+
+    setState(() {
+      _resolvingChat = true;
+      _resolveError = null;
+    });
+
+    try {
+      final chat = await ref.read(chatRepositoryProvider).ensureDirectChat(
+            peerUid: widget.peerUid,
+            peerHandle: widget.peerHandle,
+            peerName: widget.personName,
+          );
+      if (!mounted) return false;
+      setState(() {
+        _resolvedChatId = chat.chatId;
+        _resolvedPeerName = chat.peerName;
+        _resolvedPeerHandle = chat.peerHandle ?? widget.peerHandle;
+        _resolvingChat = false;
+      });
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() {
+        _resolveError = _describeResolveError(error);
+        _resolvingChat = false;
+      });
+      return false;
+    }
+  }
+
+  String _describeResolveError(Object error) {
+    if (error is FirebaseFunctionsException) {
+      switch (error.code) {
+        case 'not-found':
+          return 'That account is not on Docmac yet.';
+        case 'unauthenticated':
+          return 'Sign in to start a talk.';
+        case 'permission-denied':
+          return 'You cannot open this conversation.';
+        case 'unavailable':
+          return 'Docmac is offline. Check your connection and retry.';
+      }
+    }
+    return 'Could not open this conversation. Check your connection and retry.';
   }
 
   @override
@@ -122,7 +217,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       setState(() {
         _previewOutbox.add(ChatMessage(
           id: 'preview-local-${DateTime.now().millisecondsSinceEpoch}',
-          chatId: widget.chatId,
+          chatId: _activeChatId,
           senderId: 'preview-me',
           text: text,
           createdAt: DateTime.now(),
@@ -137,21 +232,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     setState(() => _sending = true);
     try {
-      final repository = ref.read(chatRepositoryProvider);
-      await repository.ensureChatExists(
-        chatId: widget.chatId,
-        currentUid: uid,
-        peerName: widget.personName,
-      );
+      if (_activeChatId.isEmpty) {
+        final ready = await _resolveChat();
+        if (!ready) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(_resolveError ?? 'Could not start talk.')),
+            );
+          }
+          return;
+        }
+      }
 
+      final repository = ref.read(chatRepositoryProvider);
+      final chatId = _activeChatId;
       final message = ChatMessage(
         id: '${uid}_${DateTime.now().millisecondsSinceEpoch}',
-        chatId: widget.chatId,
+        chatId: chatId,
         senderId: uid,
         text: text,
         createdAt: DateTime.now(),
       );
-      await repository.sendMessage(chatId: widget.chatId, message: message);
+      await repository.sendMessage(chatId: chatId, message: message);
       if (!mounted) return;
       setState(() {
         _messageController.clear();
@@ -187,16 +289,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _markVisibleRead(List<ChatMessage> messages) {
     final uid = _uid;
-    if (uid == null) return;
+    final chatId = _activeChatId;
+    if (uid == null || chatId.isEmpty) return;
     for (final message in messages) {
       if (message.senderId != uid &&
           !message.isRead &&
           !_markedRead.contains(message.id)) {
         _markedRead.add(message.id);
-        ref.read(chatRepositoryProvider).markAsRead(
-              chatId: widget.chatId,
+        ref
+            .read(chatRepositoryProvider)
+            .markAsRead(
+              chatId: chatId,
               messageId: message.id,
-            ).catchError((_) => null);
+            )
+            .catchError((_) => null);
       }
     }
   }
@@ -385,13 +491,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   void _showMoreActions(List<ChatMessage> messages) {
+    final iconColor = Theme.of(context).colorScheme.onSurface;
     showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(170, 140, 18, 0),
-      items: const [
-        PopupMenuItem(value: 'clear', child: Text('Clear talk')),
-        PopupMenuItem(value: 'export', child: Text('Export conversation')),
-        PopupMenuItem(value: 'shortcut', child: Text('Add Talk shortcut')),
+      items: [
+        PopupMenuItem(
+          value: 'clear',
+          child: _ChatMenuRow(
+            icon: Icon(DocmacIconlyLight.delete, size: 20, color: iconColor),
+            label: 'Clear talk',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'export',
+          child: _ChatMenuRow(
+            icon: DocmacCommunityIcon(
+              asset: DocmacChatIcons.copy,
+              size: 19,
+              color: iconColor,
+            ),
+            label: 'Export conversation',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'shortcut',
+          child: _ChatMenuRow(
+            icon: Icon(DocmacIconlyLight.plus, size: 20, color: iconColor),
+            label: 'Add Talk shortcut',
+          ),
+        ),
       ],
     ).then((value) {
       if (!mounted || value == null) return;
@@ -400,14 +529,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       } else if (value == 'export') {
         final transcript = messages
             .map((m) =>
-                '[${_formatTime(m.createdAt)}] ${_isMine(m) ? 'You' : widget.personName}: ${m.text}')
+                '[${_formatTime(m.createdAt)}] ${_isMine(m) ? 'You' : _personName}: ${m.text}')
             .join('\n');
         Clipboard.setData(ClipboardData(
           text: transcript.isEmpty ? '(empty talk)' : transcript,
         ));
         HapticFeedback.selectionClick();
       } else {
-        Clipboard.setData(ClipboardData(text: widget.personName));
+        Clipboard.setData(ClipboardData(text: _personName));
         HapticFeedback.selectionClick();
       }
     });
@@ -447,14 +576,53 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   void _showMessageActions(ChatMessage message) {
     final isPinned = _pinnedMessageId == message.id;
+    final iconColor = Theme.of(context).colorScheme.onSurface;
     showMenu<String>(
       context: context,
       position: const RelativeRect.fromLTRB(112, 126, 18, 0),
       items: [
-        const PopupMenuItem(value: 'copy', child: Text('Copy')),
-        PopupMenuItem(value: 'pin', child: Text(isPinned ? 'Unpin' : 'Pin')),
-        const PopupMenuItem(value: 'details', child: Text('Details')),
-        const PopupMenuItem(value: 'forward', child: Text('Forward')),
+        PopupMenuItem(
+          value: 'copy',
+          child: _ChatMenuRow(
+            icon: DocmacCommunityIcon(
+              asset: DocmacChatIcons.copy,
+              size: 19,
+              color: iconColor,
+            ),
+            label: 'Copy',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'pin',
+          child: _ChatMenuRow(
+            icon: Icon(
+              Icons.push_pin_rounded,
+              size: 19,
+              color:
+                  isPinned ? Theme.of(context).colorScheme.primary : iconColor,
+            ),
+            label: isPinned ? 'Unpin' : 'Pin',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'details',
+          child: _ChatMenuRow(
+            icon:
+                Icon(DocmacIconlyLight.infoCircle, size: 20, color: iconColor),
+            label: 'Details',
+          ),
+        ),
+        PopupMenuItem(
+          value: 'forward',
+          child: _ChatMenuRow(
+            icon: DocmacCommunityIcon(
+              asset: DocmacChatIcons.forward,
+              size: 19,
+              color: iconColor,
+            ),
+            label: 'Forward',
+          ),
+        ),
       ],
     ).then((value) {
       if (!mounted || value == null) return;
@@ -489,7 +657,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Message details'),
         content: Text(
-          'From: ${_isMine(message) ? 'You' : widget.personName}\n'
+          'From: ${_isMine(message) ? 'You' : _personName}\n'
           'Sent: ${_formatTime(message.createdAt)}\n'
           'Status: ${message.isRead ? 'Read' : 'Sent'}',
         ),
@@ -522,13 +690,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final messagesAsync = ref.watch(chatMessagesProvider(widget.chatId));
+    final chatId = _activeChatId;
+    final messagesAsync = ref.watch(chatMessagesProvider(chatId));
     final preview = _uid == null;
 
-    final fallback = curatedChatMessages(widget.chatId);
-    final serverMessages = messagesAsync.valueOrNull ?? fallback;
     final visible = [
-      ...serverMessages,
+      ...(messagesAsync.valueOrNull ?? const <ChatMessage>[]),
       ..._previewOutbox,
     ].where((m) => !_hiddenIds.contains(m.id)).toList();
 
@@ -548,9 +715,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           selected: selected,
           pinned: pinned,
           preview: preview,
-          isLoading: messagesAsync.isLoading && !messagesAsync.hasValue,
-          hasError: messagesAsync.hasError,
-          onRetry: () => ref.invalidate(chatMessagesProvider(widget.chatId)),
+          isLoading: _resolvingChat ||
+              (messagesAsync.isLoading && !messagesAsync.hasValue),
+          hasError: messagesAsync.hasError || _resolveError != null,
+          onRetry: () {
+            if (_resolveError != null) {
+              setState(() => _resolveError = null);
+              _resolveChat();
+            } else {
+              ref.invalidate(chatMessagesProvider(chatId));
+            }
+          },
         ),
       ),
     );
@@ -630,16 +805,15 @@ class _ChatBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final widget = state.widget;
     final sel = selected;
     final pin = pinned;
     return Column(
       children: [
         sel == null
             ? _ChatHeader(
-                name: widget.personName,
-                initial: widget.personInitial,
-                status: widget.status,
+                name: state._personName,
+                initial: state._personInitial,
+                status: state._status,
                 onMenuSelected: (value) =>
                     state._handleChatMenu(value, messages),
               )
@@ -660,8 +834,7 @@ class _ChatBody extends StatelessWidget {
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () =>
-                              Navigator.of(dialogContext).pop(),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
                           child: const Text('Got it'),
                         ),
                       ],
@@ -688,11 +861,8 @@ class _ChatBody extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Could not load messages. Showing preview.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(
+                    state._resolveError ?? 'Could not load messages.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontSize: 12.5,
                           color: colors.onErrorContainer,
                         ),
@@ -714,8 +884,7 @@ class _ChatBody extends StatelessWidget {
         if (preview && !hasError)
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             color: colors.primaryContainer.withValues(alpha: .5),
             child: Text(
               'Preview — sign in to sync talks.',
@@ -738,7 +907,7 @@ class _ChatBody extends StatelessWidget {
           child: isLoading && messages.isEmpty
               ? const _ChatLoadingList()
               : (messages.isEmpty && state._voiceNotes.isEmpty
-                  ? _ChatEmptyState(name: widget.personName)
+                  ? _ChatEmptyState(name: state._personName)
                   : ListView(
                       controller: state._scrollController,
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -772,10 +941,8 @@ class _ChatBody extends StatelessWidget {
                             message: message,
                             isMine: state._isMine(message),
                             time: state._formatTime(message.createdAt),
-                            isSelected:
-                                message.id == state._selectedMessageId,
-                            onLongPress: () =>
-                                state._selectMessage(message),
+                            isSelected: message.id == state._selectedMessageId,
+                            onLongPress: () => state._selectMessage(message),
                           ),
                         for (final voice in state._voiceNotes)
                           _VoiceBubble(note: voice),
@@ -940,7 +1107,7 @@ class _ChatHeader extends StatelessWidget {
                 context.go('/talk');
               }
             },
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            icon: const Icon(DocmacIconlyLight.arrowLeft, size: 21),
           ),
           const SizedBox(width: 6),
           CircleAvatar(
@@ -973,36 +1140,73 @@ class _ChatHeader extends StatelessWidget {
             tooltip: 'Call $name',
             onPressed: () => context
                 .push('/live/call/${name.toLowerCase().split(' ').first}'),
-            icon: Icon(Icons.call_outlined, color: colors.primary),
+            icon: Icon(
+              DocmacIconlyLight.call,
+              size: 21,
+              color: colors.onSurface,
+            ),
           ),
           IconButton(
             tooltip: 'Start video call',
             onPressed: () => context
                 .push('/live/call/${name.toLowerCase().split(' ').first}'),
-            icon: Icon(Icons.videocam_outlined, color: colors.primary),
+            icon: Icon(
+              DocmacIconlyLight.video,
+              size: 21,
+              color: colors.onSurface,
+            ),
           ),
           PopupMenuButton<String>(
             tooltip: 'Talk options',
-            color: colors.surface,
-            surfaceTintColor: Colors.transparent,
             onSelected: onMenuSelected,
-            icon: Icon(Icons.more_vert_rounded, color: colors.primary),
+            icon: Icon(
+              Icons.more_vert_rounded,
+              size: 21,
+              color: colors.onSurfaceVariant,
+            ),
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'label', child: Text('Label talk')),
-              PopupMenuItem(value: 'media', child: Text('Media, links & docs')),
-              PopupMenuItem(value: 'search', child: Text('Search in talk')),
               PopupMenuItem(
-                  value: 'disappearing', child: Text('Disappearing messages')),
-              PopupMenuItem(value: 'theme', child: Text('Talk theme')),
+                value: 'label',
+                child: DocmacMenuItem(
+                  icon: Icons.label_outline_rounded,
+                  label: 'Label talk',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'media',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.image,
+                  label: 'Media, links & docs',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'search',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.search,
+                  label: 'Search in talk',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'disappearing',
+                child: DocmacMenuItem(
+                  icon: Icons.timer_outlined,
+                  label: 'Disappearing messages',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'theme',
+                child: DocmacMenuItem(
+                  icon: Icons.palette_outlined,
+                  label: 'Talk theme',
+                ),
+              ),
               PopupMenuDivider(),
               PopupMenuItem(
                 value: 'more',
-                child: Row(
-                  children: [
-                    Text('More'),
-                    Spacer(),
-                    Icon(Icons.chevron_right_rounded),
-                  ],
+                child: DocmacMenuItem(
+                  icon: Icons.more_horiz_rounded,
+                  label: 'More',
+                  trailing: Icon(Icons.chevron_right_rounded, size: 18),
                 ),
               ),
             ],
@@ -1042,41 +1246,75 @@ class _MessageSelectionBar extends StatelessWidget {
           IconButton(
             tooltip: 'Cancel selection',
             onPressed: onClose,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            icon: const Icon(DocmacIconlyLight.arrowLeft, size: 21),
           ),
           const SizedBox(width: 14),
           Text('1', style: Theme.of(context).textTheme.headlineSmall),
           const Spacer(),
           IconButton(
-              tooltip: 'Reply',
-              onPressed: onReply,
-              icon: const Icon(Icons.reply_rounded)),
+            tooltip: 'Reply',
+            onPressed: onReply,
+            icon: const DocmacCommunityIcon(
+              asset: DocmacChatIcons.reply,
+              size: 20,
+            ),
+          ),
           IconButton(
-              tooltip: 'Message details',
-              onPressed: onDetails,
-              icon: const Icon(Icons.info_outline_rounded)),
+            tooltip: 'Message details',
+            onPressed: onDetails,
+            icon: const Icon(DocmacIconlyLight.infoCircle, size: 21),
+          ),
           IconButton(
-              tooltip: 'Delete',
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded)),
+            tooltip: 'Delete',
+            onPressed: onDelete,
+            icon: const Icon(DocmacIconlyLight.delete, size: 21),
+          ),
           IconButton(
-              tooltip: 'Forward',
-              onPressed: onForward,
-              icon: const Icon(Icons.forward_rounded)),
+            tooltip: 'Forward',
+            onPressed: onForward,
+            icon: const DocmacCommunityIcon(
+              asset: DocmacChatIcons.forward,
+              size: 20,
+            ),
+          ),
           IconButton(
             tooltip: 'Archive talk',
             onPressed: onArchive,
-            icon: const Icon(Icons.archive_outlined),
+            icon: const DocmacCommunityIcon(
+              asset: DocmacCommunityIcons.archive,
+              size: 20,
+            ),
           ),
           IconButton(
             tooltip: 'Selected message actions',
             onPressed: onMore,
-            icon: Icon(Icons.more_vert_rounded, color: color),
+            icon: DocmacCommunityIcon(
+              asset: DocmacChatIcons.more,
+              size: 20,
+              color: color,
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Keeps menu labels aligned behind the same 22px icon rail.
+class _ChatMenuRow extends StatelessWidget {
+  const _ChatMenuRow({required this.icon, required this.label});
+
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          SizedBox(width: 22, child: Center(child: icon)),
+          const SizedBox(width: 14),
+          Text(label),
+        ],
+      );
 }
 
 class _ReplyStrip extends StatelessWidget {
@@ -1092,12 +1330,14 @@ class _ReplyStrip extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: .5),
-        border: Border(
-            top: BorderSide(color: Theme.of(context).dividerColor)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.reply_rounded, size: 18),
+          const DocmacCommunityIcon(
+            asset: DocmacChatIcons.reply,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
@@ -1163,9 +1403,12 @@ class _ChatMessageSearchDelegate extends SearchDelegate<void> {
             ? message.senderId == uid
             : message.senderId == 'preview-me';
         return ListTile(
-          leading: Icon(
-            mine ? Icons.reply_rounded : Icons.person_outline_rounded,
-          ),
+          leading: mine
+              ? const DocmacCommunityIcon(
+                  asset: DocmacChatIcons.reply,
+                  size: 20,
+                )
+              : const Icon(DocmacIconlyLight.user, size: 20),
           title: Text(message.text),
           subtitle: Text(
             '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
@@ -1216,10 +1459,10 @@ class _PinnedMessageRail extends StatelessWidget {
                 color: colors.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: DocmacCommunityIcon(
-                asset: DocmacCommunityIcons.talkPin,
+              child: Icon(
+                Icons.push_pin_rounded,
                 size: 20,
-                color: colors.onPrimaryContainer,
+                color: colors.primary,
                 semanticLabel: 'Pinned message',
               ),
             ),
@@ -1251,7 +1494,7 @@ class _PinnedMessageRail extends StatelessWidget {
             IconButton(
               tooltip: 'Unpin message',
               onPressed: onUnpin,
-              icon: const Icon(Icons.close_rounded),
+              icon: const Icon(DocmacIconlyLight.closeSquare, size: 20),
             ),
           ],
         ),
@@ -1465,7 +1708,8 @@ class _RecordingStatus extends StatelessWidget {
             IconButton(
               tooltip: 'Delete voice note',
               onPressed: onDelete,
-              icon: Icon(Icons.delete_outline_rounded, color: colors.error),
+              icon:
+                  Icon(DocmacIconlyLight.delete, color: colors.error, size: 21),
             ),
             const SizedBox(width: 4),
             Expanded(
@@ -1569,9 +1813,11 @@ class _ChatBubble extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleColor = isMine
-        ? colors.primary
+        ? (isDark ? colors.primaryContainer : colors.primary)
         : (isDark ? colors.surfaceContainerHighest : colors.surface);
-    final textColor = isMine ? colors.onPrimary : colors.onSurface;
+    final textColor = isMine
+        ? (isDark ? colors.onPrimaryContainer : colors.onPrimary)
+        : colors.onSurface;
 
     return GestureDetector(
       onLongPress: onLongPress,
@@ -1586,9 +1832,8 @@ class _ChatBubble extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 320),
               child: Column(
-                crossAxisAlignment: isMine
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1606,23 +1851,20 @@ class _ChatBubble extends StatelessWidget {
                           : Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Text(message.text,
-                        style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: textColor,
-                                  height: 1.35,
-                                )),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: textColor,
+                              height: 1.35,
+                            )),
                   ),
                   const SizedBox(height: 5),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(time,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                                fontSize: 11,
-                              )),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontSize: 11,
+                                  )),
                       if (isMine) ...[
                         const SizedBox(width: 4),
                         Icon(
@@ -1681,8 +1923,8 @@ class _VoiceBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 13),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                 decoration: BoxDecoration(
                   color: colors.primary,
                   borderRadius: const BorderRadius.only(
@@ -1695,8 +1937,7 @@ class _VoiceBubble extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.mic_rounded,
-                        color: colors.onPrimary, size: 19),
+                    Icon(Icons.mic_rounded, color: colors.onPrimary, size: 19),
                     const SizedBox(width: 8),
                     Text('${note.duration.inMinutes}:$seconds',
                         style: Theme.of(context)

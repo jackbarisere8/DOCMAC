@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../config/feature_flags.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
+
 class ForwardMessagePage extends StatefulWidget {
   const ForwardMessagePage({super.key});
 
@@ -14,7 +17,7 @@ class _ForwardMessagePageState extends State<ForwardMessagePage> {
   final _selected = <String>{};
   String _query = '';
 
-  static const _talks = [
+  static const _sampleTalks = [
     ('My Orbit status', 'Share with your circles', Icons.bolt_rounded),
     ('Weekend crew', 'Nora, David, Amara', Icons.groups_rounded),
     ('Jack Wilson', 'Active now', Icons.person_rounded),
@@ -23,6 +26,9 @@ class _ForwardMessagePageState extends State<ForwardMessagePage> {
     ('Tobi Adeyemi', 'Available', Icons.person_rounded),
     ('Emma Clarke', 'Sent you a new moment', Icons.person_rounded),
   ];
+
+  List<(String, String, IconData)> get _talks =>
+      AppFeatureFlags.localPreviews ? _sampleTalks : const [];
 
   @override
   void dispose() {
@@ -56,47 +62,58 @@ class _ForwardMessagePageState extends State<ForwardMessagePage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: TextField(
+            child: DocmacSearchBar(
               focusNode: _searchFocusNode,
+              hintText: 'Search people and circles',
+              semanticsLabel: 'Search people and circles',
               onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                hintText: 'Search people and circles',
-                prefixIcon: Icon(Icons.search_rounded),
-              ),
             ),
           ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               children: [
-                Text('Frequently contacted',
+                Text(
+                    _talks.isEmpty
+                        ? 'Forwarding is not available yet'
+                        : 'Frequently contacted',
                     style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 6),
-                for (final talk in talks)
-                  ListTile(
+                if (_talks.isEmpty)
+                  const ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: colors.primary.withValues(alpha: .7),
-                      foregroundColor: colors.onPrimary,
-                      child: Icon(talk.$3),
+                    leading: Icon(Icons.info_outline_rounded),
+                    title: Text('Nothing can be forwarded in this build'),
+                    subtitle: Text(
+                      'Forwarding a message to another talk is not available yet. Nothing was sent.',
                     ),
-                    title: Text(talk.$1),
-                    subtitle: Text(talk.$2),
-                    trailing: Checkbox(
-                      shape: const CircleBorder(),
-                      value: _selected.contains(talk.$1),
-                      onChanged: (_) => setState(() {
+                  )
+                else
+                  for (final talk in talks)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: colors.primary.withValues(alpha: .7),
+                        foregroundColor: colors.onPrimary,
+                        child: Icon(talk.$3),
+                      ),
+                      title: Text(talk.$1),
+                      subtitle: Text(talk.$2),
+                      trailing: Checkbox(
+                        shape: const CircleBorder(),
+                        value: _selected.contains(talk.$1),
+                        onChanged: (_) => setState(() {
+                          _selected.contains(talk.$1)
+                              ? _selected.remove(talk.$1)
+                              : _selected.add(talk.$1);
+                        }),
+                      ),
+                      onTap: () => setState(() {
                         _selected.contains(talk.$1)
                             ? _selected.remove(talk.$1)
                             : _selected.add(talk.$1);
                       }),
                     ),
-                    onTap: () => setState(() {
-                      _selected.contains(talk.$1)
-                          ? _selected.remove(talk.$1)
-                          : _selected.add(talk.$1);
-                    }),
-                  ),
               ],
             ),
           ),
@@ -122,13 +139,14 @@ class _ForwardMessagePageState extends State<ForwardMessagePage> {
                     const SizedBox(width: 10),
                     IconButton.filled(
                       tooltip: 'Forward message',
-                      onPressed: _selected.isEmpty
+                      onPressed: _selected.isEmpty || _talks.isEmpty
                           ? null
                           : () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        'Forwarded to ${_selected.length} talk(s).')),
+                                const SnackBar(
+                                  content: Text(
+                                      'Forwarding is not available yet. Nothing was sent.'),
+                                ),
                               );
                               context.pop();
                             },

@@ -1,0 +1,243 @@
+# DOCMAC Production Runbook
+
+This is the Phase 0 operating guide for shipping Docmac to real people. It
+separates what the app actually does today from work that still needs a
+console, a deployment, or a dedicated design phase.
+
+## What ships today
+
+| Surface | State | Notes |
+| --- | --- | --- |
+| Sign-in | Shipped | Firebase Auth: phone OTP and email/password. |
+| 1:1 text chat | Shipped, server-deploy required | Chats are created only by the `ensureDirectChat` callable. |
+| Talk inbox | Shipped | Streams Firestore chats where the uid is a participant. |
+| Account deletion | Shipped, server-deploy required | `deleteAccount` callable removes profile data, membership, and the Auth user. |
+| Crash reporting | Wired | Crashlytics collects in profile/release builds only. |
+| Product analytics | Wired | Firebase Analytics collection is enabled in profile/release builds. |
+| Direct APK | CI ready | `.github/workflows/release-apk.yml` builds and publishes a signed APK. |
+| Play Store bundle | CI ready | The same workflow builds and uploads an AAB artifact for Play Console. |
+| End-to-end encryption | **Not shipped** | Do not describe messages or calls as E2EE. See the gate below. |
+| Voice/video calls | Simulated UI | No audio leaves the device. |
+| Media/uploads | Not shipped | Chat sends text only; UI labels must stay honest. |
+| Payments | Not shipped | No premium surface exists in this build. |
+
+## Deploy order
+
+Run these from the repository root after reviewing the diff:
+
+```bash
+firebase use docmac-88a0d
+firebase functions:secrets:set RESET_OTP_PEPPER
+firebase functions:secrets:set RESEND_API_KEY
+firebase deploy --only functions,firestore:rules,firestore:indexes
+```
+
+`ensureDirectChat` and `deleteAccount` must be deployed before two-account chat
+or account deletion can work. Rules deny client chat creation, so an APK built
+against undeployed functions will report that it cannot start a talk.
+
+Verify what was deployed:
+
+```bash
+firebase functions:list
+firebase firestore:indexes
+```
+
+The chat inbox query needs the composite index in `firestore.indexes.json`
+(`participantIds` contains + `updatedAt` descending). Deploy the indexes before
+the first signed-in launch, otherwise the inbox stream fails.
+
+## Security rules tests
+
+`rules-test/` runs the Firestore emulator with the real `firestore.rules` and
+asserts the security boundaries chat and account deletion depend on:
+
+- members and legacy participants can read their chat; outsiders cannot;
+- clients cannot create or delete chats, rewrite membership, or spoof senders;
+- messages are append-only and bound to the chat path;
+- public profiles are signed-in readable, owner-written, and handles immutable;
+- `users/{uid}` is owner-only;
+- username claims cannot be transferred or enumerated;
+- password-reset collections are server-only.
+
+Run locally with Java 21+ and the Firebase CLI:
+
+```bash
+cd rules-test
+npm ci
+npm test
+```
+
+CI runs the same command in the `rules` job. The emulator is project
+`demo-docmac-rules`; it makes no network calls to production.
+
+## Firebase Console tasks
+
+### Authentication
+
+1. Enable **Phone** and **Email/Password** providers.
+2. Add every debug and release keystore SHA-1 and SHA-256 under
+   **Project settings → Your apps → Android**.
+3. Re-download `android/app/google-services.json` after changing fingerprints.
+4. Add the production domain to **Authentication → Settings → Authorized
+   domains** if web sign-in is enabled.
+5. Configure the password-reset email template if email accounts are enabled.
+
+### API key restrictions
+
+The Android API key must stay usable by Firebase SDKs. In **Google Cloud
+Console → APIs & Services → Credentials**, edit the Android key and:
+
+- Restrict it to Android apps with package `com.jack.docmac` and the registered
+  SHA-1/SHA-256 fingerprints.
+- Restrict API access to the APIs the SDKs call: Identity Toolkit,
+  Cloud Firestore, Firebase Installations, Firebase App Check, and Token
+  Service. Do not add APIs that are not used.
+- Keep a separate unrestricted browser key only if the web build needs it.
+
+Test sign-in, chat, and account deletion after restricting the key; API key
+mistakes usually surface as `auth/api-key-not-valid` or Firestore
+`PERMISSION_DENIED` responses.
+
+### App Check
+
+**App Check is not wired into this build. Do not enable enforcement yet.**
+Enforcing it while the app has no App Check provider would block every
+Firestore and Functions request.
+
+Before enforcement:
+
+1. Add `firebase_app_check` and activate Play Integrity for release builds and
+   the debug provider for debug builds.
+2. Register the debug token in the console and keep it out of source control.
+3. Monitor App Check metrics for at least a week before enforcing.
+4. Enforce App Check for Cloud Functions and Firestore only after the release
+   APK and Play build both pass on physical devices.
+5. Test the sideloaded APK separately. Play Integrity behavior for apps
+   installed outside Play must be verified on a physical device before
+   enforcing; do not assume emulator results apply.
+
+### Crashlytics and Analytics
+
+1. Open a release build on a physical device and confirm the app appears under
+   **Crashlytics**.
+2. Force a test crash and confirm it is grouped correctly, then disable the
+   test crash code.
+3. Enable Crashlytics alerts (new fatal issue, regression, velocity).
+4. Confirm Analytics debug view receives events. The app enables collection in
+   profile/release builds only; debug builds intentionally stay silent.
+5. Set data retention and sharing settings to match the privacy policy.
+
+### Budgets and quotas
+
+Create a Google Cloud budget alert for the production project. For 10,000
+users, watch Firestore reads, Cloud Functions invocations, Auth SMS volume, and
+Crashlytics event volume. Set a daily budget alert at a low threshold so a
+viral loop or retry bug does not silently run up cost.
+
+## Environment separation
+
+Production and staging must not share a Firebase project. Before the first
+public release:
+
+1. Create `docmac-staging` (or reuse a dedicated dev project) and keep
+   `docmac-88a0d` as production.
+2. Run `flutterfire configure` per environment and commit neither
+   `google-services.json` secrets nor service-account keys.
+3. Use `firebase use` or `.firebaserc` aliases per shell before deploying.
+4. Point the staging build at staging functions with
+   `--dart-define=DOCMAC_ENV=staging` only after the app reads that flag.
+5. Keep staging and production signing keys separate; register both
+   fingerprints in their respective projects.
+
+## Release channels
+
+### Direct APK
+
+Trigger **Release APK** with `versionName`, `versionCode`, channel, and notes.
+The workflow fails if release signing secrets are missing, builds the APK,
+builds the AAB, verifies both artifacts, and publishes the APK to GitHub
+Releases.
+
+### Play Store
+
+1. Download the `docmac-<version>-aab` workflow artifact.
+2. Upload it in Play Console to the appropriate track (internal → closed →
+   production).
+3. Use Play App Signing. The CI keystore is the upload key; Google holds the
+   app signing key.
+4. Complete Data safety, content rating, and privacy policy declarations.
+5. The AAB is not published to GitHub Releases; only the APK is.
+
+## End-to-end encryption gate
+
+E2EE is a product requirement but not an implemented feature. Do not enable
+copy that says messages, calls, media, or backups are encrypted end-to-end.
+
+Before E2EE can ship, complete a design review covering:
+
+- Per-device identity keys and authenticated prekey bundles.
+- X3DH-style session setup and a Double Ratchet message layer.
+- Multi-device enrolment, device revocation, and key backup/recovery.
+- Safety-number verification and key-change warnings.
+- Migration of existing plaintext Firestore history.
+- Attachment encryption and key management.
+- Call media encryption (insertable streams/WebRTC) once calling is real.
+- Metadata limits: Firestore still sees participants, timestamps, and routing.
+- Server-side abuse reporting that does not silently break the E2EE promise.
+
+Until that ships, `SecurityNotificationsPage`, privacy help, and marketing copy
+must describe the controls that actually exist: Firebase Authentication and
+Firestore rules restrict conversation documents to members, and the service
+operator can access stored content for maintenance.
+
+## Demo content
+
+Debug and profile builds use sample conversations, people, moments, and
+activity to exercise unfinished surfaces. Release builds show honest empty
+states instead. The two preview switches can be set explicitly in a non-release
+build for screenshots or design review:
+
+```bash
+flutter run \
+  --dart-define=DOCMAC_SIGNED_OUT_PREVIEWS=true \
+  --dart-define=DOCMAC_LOCAL_PREVIEWS=true
+```
+
+Release builds always compile this sample content out, so no store build can
+present fabricated people as real accounts.
+
+## Verification checklist
+
+Before publishing:
+
+```bash
+flutter analyze
+flutter test
+cd functions && npm test && npm run check
+cd rules-test && npm test
+```
+
+The `rules` CI job runs the Firestore rules suite automatically, so a red
+`Firestore rules test` check blocks a merge.
+
+Two-account device test:
+
+1. Create account A and account B on two devices.
+2. Start a talk from A using B's `@username`.
+3. Send messages both ways; confirm the same chat appears in both inboxes.
+4. Mark messages read; confirm the badge clears.
+5. Delete account B; confirm A keeps delivered history and B can no longer
+   sign in.
+6. Sign in as A and confirm the deleted account is no longer listed as a chat
+   participant.
+
+## Rollback
+
+- Re-deploy the previous functions revision with
+  `firebase deploy --only functions` from the last known-good tag.
+- Rules and indexes are versioned in git; redeploy from the previous tag.
+- Halt the Play rollout in Play Console rather than shipping a second bad
+  build.
+- If Crashlytics shows a fatal regression tied to a new release, publish a
+  hotfix APK and use Play staged rollout controls.

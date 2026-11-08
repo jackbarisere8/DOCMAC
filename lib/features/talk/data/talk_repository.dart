@@ -1,11 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../config/feature_flags.dart';
 import '../../../config/firebase/firebase_configuration.dart';
 import '../../chat/data/repositories/chat_repository.dart';
 import 'talk_thread.dart';
 
-/// Streams the Talk inbox from Firestore via [ChatRepository.watchUserChats],
-/// falling back to curated preview threads when signed out or offline.
+/// Streams the Talk inbox from Firestore via [ChatRepository.watchUserChats].
+///
+/// Signed-out preview mode still uses [curatedTalkThreads] so the marketing
+/// screens can render without an account. Authenticated mode never injects
+/// demo conversations: an empty inbox is a real empty inbox.
 class TalkRepository {
   TalkRepository({FirebaseFirestore? firestore, ChatRepository? chatRepository})
       : _chatRepository =
@@ -14,24 +18,17 @@ class TalkRepository {
   final ChatRepository _chatRepository;
 
   Stream<List<TalkThread>> streamThreads({String? uid}) async* {
-    // Yield curated fallback threads immediately so the inbox displays in 0ms
-    // without frozen skeleton screens while Firestore establishes connection.
-    yield curatedTalkThreads;
-
     if (!FirebaseConfiguration.isAvailable || uid == null || uid.isEmpty) {
+      yield AppFeatureFlags.signedOutPreviews
+          ? curatedTalkThreads
+          : const <TalkThread>[];
       return;
     }
 
     try {
-      await for (final threads in _chatRepository.watchUserChats(uid)) {
-        if (threads.isNotEmpty) {
-          yield threads;
-        } else {
-          yield curatedTalkThreads;
-        }
-      }
+      yield* _chatRepository.watchUserChats(uid);
     } catch (_) {
-      yield curatedTalkThreads;
+      yield const <TalkThread>[];
     }
   }
 }

@@ -1,5 +1,11 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../config/firebase/firebase_configuration.dart';
 import '../../../core/models/app_user.dart';
@@ -8,6 +14,18 @@ class AuthServiceUnavailableException implements Exception {
   const AuthServiceUnavailableException(this.message);
 
   final String message;
+}
+
+/// Raised by the password-reset endpoints. [code] mirrors the server's error
+/// token so the UI can tell "wrong code" apart from "service unreachable".
+class PasswordResetException implements Exception {
+  const PasswordResetException(this.code, {this.retryAfterSeconds});
+
+  final String code;
+  final int? retryAfterSeconds;
+
+  @override
+  String toString() => 'PasswordResetException($code)';
 }
 
 class AuthService {
@@ -158,6 +176,16 @@ class AuthService {
         },
         SetOptions(merge: true),
       );
+      transaction.set(
+        firestore.collection('publicProfiles').doc(user.uid),
+        {
+          'uid': user.uid,
+          'username': normalizedUsername,
+          'displayName': name.isNotEmpty ? name : normalizedUsername,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     });
 
     final updatedUser = _firebaseAuth.currentUser ?? user;
@@ -257,6 +285,16 @@ class AuthService {
         },
         SetOptions(merge: true),
       );
+      transaction.set(
+        firestore.collection('publicProfiles').doc(finalUser.uid),
+        {
+          'uid': finalUser.uid,
+          'username': normalizedUsername,
+          'displayName': name.isNotEmpty ? name : normalizedUsername,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     });
 
     final updatedUser = _firebaseAuth.currentUser ?? finalUser;
@@ -329,6 +367,15 @@ class AuthService {
             'createdAt': FieldValue.serverTimestamp(),
           },
           SetOptions(merge: true));
+      transaction.set(
+          firestore.collection('publicProfiles').doc(user.uid),
+          {
+            'uid': user.uid,
+            'username': normalizedUsername,
+            'displayName': name?.isNotEmpty == true ? name : normalizedUsername,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true));
     });
   }
 
@@ -396,6 +443,97 @@ class AuthService {
     return _firebaseAuth.sendPasswordResetEmail(email: email);
   }
 
+  // ---------------------------------------------------------------------------
+  // Six-digit password reset (Cloud Functions in functions/index.js)
+  // ---------------------------------------------------------------------------
+
+  /// Base URL of the reset functions. Point this at the emulator with:
+  /// `--dart-define=DOCMAC_API_BASE=http://10.0.2.2:5001/<project>/us-central1`
+  static const _apiBaseOverride = String.fromEnvironment('DOCMAC_API_BASE');
+
+  String get _resetApiBase {
+    if (_apiBaseOverride.isNotEmpty) return _apiBaseOverride;
+    final projectId = Firebase.app().options.projectId;
+    if (projectId.isEmpty) {
+      throw const PasswordResetException('server_error');
+    }
+    return 'https://us-central1-$projectId.cloudfunctions.net';
+  }
+
+  /// Sends a single-use six-digit code. Returns the emulator's dev code when
+  /// the backend runs locally with `ALLOW_DEV_CODE=true`, otherwise null.
+  Future<String?> requestPasswordResetCode({required String email}) async {
+    final payload = await _postReset('resetRequest', {'email': email.trim()});
+    final devCode = payload['devCode'];
+    return devCode is String && devCode.isNotEmpty ? devCode : null;
+  }
+
+  /// Exchanges the code for a single-use token that authorises the new password.
+  Future<String> verifyPasswordResetCode({
+    required String email,
+    required String code,
+  }) async {
+    final payload = await _postReset('resetVerify', {
+      'email': email.trim(),
+      'code': code.trim(),
+    });
+    final token = payload['token'];
+    if (token is! String || token.isEmpty) {
+      throw const PasswordResetException('invalid_code');
+    }
+    return token;
+  }
+
+  Future<void> completePasswordReset({
+    required String token,
+    required String password,
+  }) async {
+    await _postReset('resetComplete', {'token': token, 'password': password});
+  }
+
+  Future<Map<String, dynamic>> _postReset(
+    String function,
+    Map<String, Object?> body,
+  ) async {
+    final uri = Uri.parse('$_resetApiBase/$function');
+
+    final http.Response response;
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      throw const PasswordResetException('network');
+    } catch (_) {
+      throw const PasswordResetException('network');
+    }
+
+    Map<String, dynamic> payload = const {};
+    if (response.body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) payload = decoded;
+      } catch (_) {
+        // Fall through to the status-code handling below.
+      }
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return payload;
+    }
+
+    final code = payload['error'];
+    final retryAfter = payload['retryAfterSeconds'];
+    throw PasswordResetException(
+      code is String ? code : 'server_error',
+      retryAfterSeconds: retryAfter is int ? retryAfter : null,
+    );
+  }
+
   Future<void> updateDisplayName(String displayName) async {
     final user = _firebaseAuth.currentUser;
     if (user == null) {
@@ -404,6 +542,45 @@ class AuthService {
     }
     await user.updateDisplayName(displayName);
     await user.reload();
+
+    // Keep the public directory in sync so people who discover this account
+    // see the new name without exposing the private `users` document.
+    if (!FirebaseConfiguration.isAvailable) return;
+    final firestore = FirebaseFirestore.instance;
+    final profile = await firestore.collection('users').doc(user.uid).get();
+    final username = profile.data()?['username'];
+    if (username is! String || username.isEmpty) return;
+    await firestore.collection('publicProfiles').doc(user.uid).set(
+      {
+        'uid': user.uid,
+        'username': username,
+        'displayName':
+            displayName.trim().isEmpty ? username : displayName.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Deletes the signed-in account and all server-owned profile data through
+  /// the `deleteAccount` Cloud Function, then clears the local session.
+  Future<void> deleteAccount() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw const AuthServiceUnavailableException(
+        'There is no signed-in account to delete.',
+      );
+    }
+
+    final callable = FirebaseFunctions.instance.httpsCallable('deleteAccount');
+    await callable.call<void>();
+
+    try {
+      await _firebaseAuth.signOut();
+    } catch (_) {
+      // The Auth record is gone; a local sign-out failure must not turn a
+      // successful deletion into an error screen.
+    }
   }
 
   Future<void> sendEmailVerification() async {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
 
 /// Relays are Docmac's one-to-many publishing identities.
 class RelaysPage extends StatelessWidget {
@@ -23,6 +23,8 @@ class RelaysPage extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
+            const _LocalRelayPreviewNotice(),
+            const SizedBox(height: 18),
             Text('Tune in to voices worth returning to.',
                 style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 18),
@@ -33,10 +35,14 @@ class RelaysPage extends StatelessWidget {
             Text('Suggested Relays',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 10),
-            const _SuggestedRelay('Design Notes', '@designnotes',
-                'Creative process, clearly shared.'),
-            const _SuggestedRelay('Local Lens', '@locallens',
-                'Small stories from close to home.'),
+            const Card(
+              child: ListTile(
+                leading: Icon(DocmacIconlyLight.discovery),
+                title: Text('Relay discovery is not available yet'),
+                subtitle: Text('This build cannot list or recommend real Relay '
+                    'accounts.'),
+              ),
+            ),
           ],
         ),
       );
@@ -70,6 +76,8 @@ class _RelayCreatePageState extends State<RelayCreatePage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           children: [
+            const _LocalRelayPreviewNotice(),
+            const SizedBox(height: 18),
             const Center(child: _RelayAvatar(size: 92, editable: true)),
             const SizedBox(height: 26),
             TextField(
@@ -240,21 +248,61 @@ class _RelayHomePageState extends State<RelayHomePage> {
             tooltip: 'Relay options',
             onSelected: _handleMenu,
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'drop', child: Text('Create Drop')),
-              PopupMenuItem(value: 'schedule', child: Text('Schedule Drop')),
-              PopupMenuItem(value: 'analytics', child: Text('Relay analytics')),
               PopupMenuItem(
-                  value: 'tunedIn', child: Text('Manage tuned-in people')),
+                value: 'drop',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.plus,
+                  label: 'Create Drop',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'schedule',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.calendar,
+                  label: 'Schedule Drop',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'analytics',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.chart,
+                  label: 'Relay analytics',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'tunedIn',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.user,
+                  label: 'Manage tuned-in people',
+                ),
+              ),
               PopupMenuDivider(),
-              PopupMenuItem(value: 'share', child: Text('Share Relay')),
-              PopupMenuItem(value: 'report', child: Text('Report Relay')),
+              PopupMenuItem(
+                value: 'share',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.send,
+                  label: 'Share Relay',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'report',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.danger,
+                  label: 'Report Relay',
+                  destructive: true,
+                ),
+              ),
             ],
-            icon: const Icon(DocmacIconlyLight.moreCircle),
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
           ),
         ],
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _LocalRelayPreviewNotice(),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 14),
             child: Column(
@@ -329,12 +377,12 @@ class _RelayHomePageState extends State<RelayHomePage> {
         _ => ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const _AboutRow('Created', 'August 2026'),
+              const _AboutRow('Created', 'Not tracked in this build'),
               _AboutRow('Visibility', relay.visibility.label),
               _AboutRow('Category', relay.category),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () => _notice('Relay links are not available yet.'),
                 icon: const Icon(DocmacIconlyLight.send),
                 label: const Text('Share Relay'),
               ),
@@ -343,7 +391,6 @@ class _RelayHomePageState extends State<RelayHomePage> {
       };
 
   void _handleMenu(String value) {
-    final relay = RelayStore.current;
     switch (value) {
       case 'drop':
         context.push('/relays/drop');
@@ -352,18 +399,16 @@ class _RelayHomePageState extends State<RelayHomePage> {
         context.push('/relays/analytics');
         return;
       case 'schedule':
-        _notice('Scheduling is ready for your next Drop.');
+        _notice('Drop scheduling is not available yet.');
         return;
       case 'tunedIn':
-        _notice('Tuned-in people management will open here.');
+        _notice('Tuned-in people management is not available yet.');
         return;
       case 'share':
-        Clipboard.setData(ClipboardData(text: 'https://docmac.app/@${relay.handle}'));
-        HapticFeedback.selectionClick();
-        _notice('Relay link copied to clipboard.');
+        _notice('Relay links are not available yet.');
         return;
       case 'report':
-        _notice('Report options will open here.');
+        _notice('Reporting is not available yet.');
         return;
     }
   }
@@ -530,17 +575,13 @@ class _TunedInList extends StatelessWidget {
           Text("People who choose to receive this Relay's Drops.",
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 16),
-          for (final tunedInPerson in const [
-            ('Emma Clarke', 'emma', 'E'),
-            ('David Mensah', 'davidm', 'D'),
-            ('Amara Okafor', 'amara', 'A'),
-          ])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(child: Text(tunedInPerson.$3)),
-              title: Text(tunedInPerson.$1),
-              subtitle: Text('@${tunedInPerson.$2}'),
-            ),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(DocmacIconlyLight.infoCircle),
+            title: Text('Tuned-in people are not available yet'),
+            subtitle: Text(
+                'Relays are a local preview and cannot show real followers.'),
+          ),
         ],
       );
 }
@@ -627,49 +668,41 @@ class RelayAnalyticsPage extends StatelessWidget {
   const RelayAnalyticsPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Relay analytics')),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text('Audience and Drop performance',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
-            const Row(children: [
-              Expanded(child: _Metric('12.4K', 'Tuned In')),
-              SizedBox(width: 10),
-              Expanded(child: _Metric('+8.2%', 'Growth')),
-            ]),
-            const SizedBox(height: 10),
-            const Row(children: [
-              Expanded(child: _Metric('8.9K', 'Drop reach')),
-              SizedBox(width: 10),
-              Expanded(child: _Metric('18%', 'Engagement')),
-            ]),
-            const SizedBox(height: 24),
-            const _AnalyticsLine('Shares', '326'),
-            const _AnalyticsLine('Responses', '84'),
-            const _AnalyticsLine('Live viewers', '—'),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Relay analytics')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text('Audience and Drop performance',
+              style: theme.textTheme.titleLarge),
+          const SizedBox(height: 18),
+          const Card(
+            child: ListTile(
+              leading: Icon(DocmacIconlyLight.infoCircle),
+              title: Text('Analytics are not available yet'),
+              subtitle: Text(
+                  'Relays are a local preview in this build, so there are no '
+                  'real reach, growth, or engagement numbers to report.'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class RelayStore {
   RelayStore._();
 
   static Relay current = Relay(
-    name: 'Docmac News',
-    handle: 'docmac',
-    description:
-        'Updates from the private place where your people are present.',
+    name: 'Sample Relay',
+    handle: 'samplerelay',
+    description: 'A local preview of a Relay. Create your own to replace it.',
     category: 'Technology',
     visibility: RelayVisibility.public,
-  )..drops.add(RelayDrop(
-      'A calmer way to share, talk and stay close is taking shape.',
-      allowReplies: true,
-      forgePerspective: true,
-    ));
+  );
 }
 
 class Relay {
@@ -685,7 +718,7 @@ class Relay {
   final String description;
   final String category;
   final RelayVisibility visibility;
-  int tunedInCount = 12400;
+  int tunedInCount = 0;
   final List<RelayDrop> drops = [];
 
   String get tunedInLabel => tunedInCount >= 1000
@@ -731,31 +764,34 @@ class _RelayCard extends StatelessWidget {
       );
 }
 
-class _SuggestedRelay extends StatefulWidget {
-  const _SuggestedRelay(this.name, this.handle, this.description);
-  final String name;
-  final String handle;
-  final String description;
+class _LocalRelayPreviewNotice extends StatelessWidget {
+  const _LocalRelayPreviewNotice();
 
   @override
-  State<_SuggestedRelay> createState() => _SuggestedRelayState();
-}
-
-class _SuggestedRelayState extends State<_SuggestedRelay> {
-  bool _isTunedIn = false;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const _RelayAvatar(size: 44),
-        title: Text(widget.name),
-        subtitle: Text('${widget.handle} · ${widget.description}'),
-        trailing: OutlinedButton(
-          onPressed:
-              _isTunedIn ? null : () => setState(() => _isTunedIn = true),
-          child: Text(_isTunedIn ? 'Tuned In' : 'Tune In'),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 20, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Relays are a local preview in this build. Relays, Drops, and '
+              'Tuned In counts stay on this device and are not published to '
+              'anyone.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RelayAvatar extends StatelessWidget {
@@ -883,35 +919,6 @@ class _AboutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      trailing: Text(value));
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric(this.value, this.label);
-  final String value;
-  final String label;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Theme.of(context).dividerColor)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
-        Text(label)
-      ]));
-}
-
-class _AnalyticsLine extends StatelessWidget {
-  const _AnalyticsLine(this.label, this.value);
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(DocmacIconlyLight.chart),
       title: Text(label),
       trailing: Text(value));
 }

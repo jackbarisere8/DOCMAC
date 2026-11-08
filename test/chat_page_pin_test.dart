@@ -86,22 +86,20 @@ class FakeChatRepository implements ChatRepository {
       Stream.value(curatedTalkThreads);
 
   @override
-  Future<String> createOrGetDirectChat({
-    required String currentUid,
-    required String peerUid,
-    required String peerName,
+  Future<DirectChat> ensureDirectChat({
+    String? peerUid,
+    String? peerHandle,
+    String? peerName,
   }) async =>
-      'chat-1';
+      DirectChat(
+        chatId: 'chat-1',
+        peerUid: peerUid ?? 'peer-uid',
+        peerName: peerName ?? 'Peer',
+        peerHandle: peerHandle,
+      );
 
   @override
   Future<void> markChatRead(String chatId, String uid) async {}
-
-  @override
-  Future<void> ensureChatExists({
-    required String chatId,
-    required String currentUid,
-    required String peerName,
-  }) async {}
 
   void dispose() {
     for (final controller in _controllers.values) {
@@ -131,8 +129,7 @@ Future<FakeChatRepository> pumpLiveChat(
       overrides: [
         currentUserProvider.overrideWithValue(_testUser),
         chatRepositoryProvider.overrideWithValue(fake),
-        chatMessagesProvider
-            .overrideWith((ref, id) => fake.streamMessages(id)),
+        chatMessagesProvider.overrideWith((ref, id) => fake.streamMessages(id)),
       ],
       child: MaterialApp(home: ChatPage(chatId: chatId)),
     ),
@@ -218,8 +215,7 @@ void main() {
     expect(fake.messages.any((m) => m.text == 'Hello?'), isFalse);
   });
 
-  testWidgets('stream error shows retry with preview fallback',
-      (tester) async {
+  testWidgets('stream error shows retry without fake fallback', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -234,8 +230,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Could not load messages'), findsOneWidget);
-    // Curated fallback keeps the surface useful.
-    expect(find.text('Perfect. I will bring the coffee.'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
+    // Signed-in failures must never be replaced with demo history.
+    expect(find.text('Perfect. I will bring the coffee.'), findsNothing);
   });
 }

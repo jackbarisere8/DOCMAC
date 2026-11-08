@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../config/firebase/firebase_configuration.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/chat_message.dart';
@@ -8,10 +9,9 @@ import '../../data/repositories/chat_repository.dart';
 final chatRepositoryProvider =
     Provider<ChatRepository>((ref) => ChatRepository());
 
-/// Preview inbox shown when signed out or Firebase is unconfigured, so the
-/// chat surface still renders instead of a blank spinner. Sender `preview-me`
-/// is treated as mine only in preview mode; authenticated mode compares
-/// [ChatMessage.senderId] to the uid.
+/// Preview conversation shown only when signed out or when Firebase is not
+/// configured. Authenticated users always see their real Firestore messages;
+/// demo text must never appear in a production conversation.
 List<ChatMessage> curatedChatMessages(String chatId) {
   final now = DateTime.now();
   return [
@@ -39,29 +39,19 @@ List<ChatMessage> curatedChatMessages(String chatId) {
   ];
 }
 
-/// Live messages for [chatId]. Preview mode (signed out / unconfigured)
-/// emits [curatedChatMessages]; authenticated mode streams
-/// `chats/{chatId}/messages` ordered by `createdAt` (see `ChatRepository`
-/// and `firestore.rules` chat-member rule).
+/// Live messages for [chatId].
+///
+/// Preview mode (signed out / unconfigured) emits [curatedChatMessages].
+/// Authenticated mode streams `chats/{chatId}/messages` and surfaces errors
+/// to the chat surface instead of replacing them with fake history.
 final chatMessagesProvider =
-    StreamProvider.family<List<ChatMessage>, String>((ref, chatId) async* {
-  final fallback = curatedChatMessages(chatId);
-  yield fallback;
-
-  try {
-    final user = ref.watch(currentUserProvider);
-    if (!FirebaseConfiguration.isAvailable || user == null) {
-      return;
-    }
-    final repository = ref.watch(chatRepositoryProvider);
-    await for (final messages in repository.streamMessages(chatId)) {
-      if (messages.isNotEmpty) {
-        yield messages;
-      } else {
-        yield const <ChatMessage>[];
-      }
-    }
-  } catch (_) {
-    yield fallback;
+    StreamProvider.family<List<ChatMessage>, String>((ref, chatId) {
+  final user = ref.watch(currentUserProvider);
+  if (!FirebaseConfiguration.isAvailable || user == null || chatId.isEmpty) {
+    final canPreview = user == null && AppFeatureFlags.signedOutPreviews;
+    return Stream.value(
+      canPreview ? curatedChatMessages(chatId) : const <ChatMessage>[],
+    );
   }
+  return ref.watch(chatRepositoryProvider).streamMessages(chatId);
 });

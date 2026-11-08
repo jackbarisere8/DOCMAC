@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('GlobalSearchPage shows recent searches and category cards on launch',
+  testWidgets(
+      'GlobalSearchPage shows recent searches and category cards on launch',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -20,7 +21,8 @@ void main() {
     expect(find.text('Circles & Spaces'), findsOneWidget);
   });
 
-  testWidgets('GlobalSearchPage filters results when typing query and clears properly',
+  testWidgets(
+      'GlobalSearchPage filters results when typing query and clears properly',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -30,7 +32,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Enter a search query
-    await tester.enterText(find.byKey(const ValueKey('global-search-input')), 'Emma');
+    await tester.enterText(
+        find.byKey(const ValueKey('global-search-input')), 'Emma');
     await tester.pumpAndSettle();
 
     // Verify search matches
@@ -53,7 +56,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Should AI replace traditional homework?'), findsOneWidget);
+    expect(
+        find.text('Should AI replace traditional homework?'), findsOneWidget);
   });
 
   testWidgets('GlobalSearchPage shows friendly empty state for unknown query',
@@ -69,4 +73,3 @@ void main() {
     expect(find.text('Show all categories'), findsOneWidget);
   });
 }
-

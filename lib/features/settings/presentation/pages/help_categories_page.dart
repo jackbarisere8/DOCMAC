@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
+
 /// Reusable scaffold for Help Center subcategories matching WhatsApp design
 /// (Images 1-5). Includes real-time search and the pinned "? Contact us" FAB.
 class HelpCategoryScaffold extends StatefulWidget {
@@ -36,40 +40,18 @@ class _HelpCategoryScaffoldState extends State<HelpCategoryScaffold> {
 
   void _openContactDialog(BuildContext context) {
     HapticFeedback.selectionClick();
-    final controller = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Contact Support'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('How can our technical support team assist you today?'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Describe your issue in detail...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+        title: const Text('Contact support'),
+        content: const Text(
+          'Support messaging is not available yet. This build cannot send '
+          'support requests, so nothing you type here would reach the team.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Support request sent.')),
-              );
-            },
-            child: const Text('Submit'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -84,22 +66,19 @@ class _HelpCategoryScaffoldState extends State<HelpCategoryScaffold> {
     return Scaffold(
       appBar: AppBar(
         title: _isSearching
-            ? TextField(
+            ? DocmacSearchBar(
                 controller: _searchController,
                 autofocus: true,
-                onChanged: (val) {
-                  widget.onSearchChanged?.call(val);
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search ${widget.title.toLowerCase()}...',
-                  hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                  border: InputBorder.none,
-                ),
+                height: 42,
+                hintText: 'Search ${widget.title.toLowerCase()}...',
+                semanticsLabel: 'Search ${widget.title.toLowerCase()}',
+                onChanged: widget.onSearchChanged,
               )
             : Text(widget.title),
         actions: [
           IconButton(
-            icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
+            icon:
+                Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
             tooltip: _isSearching ? 'Close search' : 'Search',
             onPressed: () {
               setState(() {
@@ -115,14 +94,21 @@ class _HelpCategoryScaffoldState extends State<HelpCategoryScaffold> {
           ),
           PopupMenuButton<String>(
             tooltip: 'Options',
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'terms',
-                child: Text('Terms of service'),
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.document,
+                  label: 'Terms of service',
+                ),
               ),
               PopupMenuItem(
                 value: 'privacy',
-                child: Text('Privacy policy'),
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.shieldDone,
+                  label: 'Privacy policy',
+                ),
               ),
             ],
           ),
@@ -172,27 +158,37 @@ class HelpPrivacySafetySecurityPage extends StatelessWidget {
       sectionHeader: 'Privacy, Safety, and Security',
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.lock_outline_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Privacy', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.lock_outline_rounded,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Privacy',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
             context.push('/settings/privacy-help');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.shield_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Safety', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.shield_outlined, color: scheme.onSurface, size: 22),
+          title: const Text('Safety',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Safety', 'Learn how Docmac protects against spam, harassment, and unauthorized access with proactive reporting tools.');
+            _showTopicInfo(context, 'Safety',
+                'Safety reporting is not available yet. Docmac limits conversations to their members with account access controls while reporting tools are being built.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.security_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Security', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.security_outlined, color: scheme.onSurface, size: 22),
+          title: const Text('Security',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
             context.push('/settings/security-notifications');
@@ -216,36 +212,50 @@ class HelpCommunitiesPage extends StatelessWidget {
       sectionHeader: 'Communities',
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           leading: Icon(Icons.flag_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.w500)),
+          title: const Text('Get Started',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Getting Started with Communities', 'Create topic-based announcement spaces and bring related Circles together under one roof.');
+            _showTopicInfo(context, 'Getting Started with Communities',
+                'Create topic-based announcement spaces and bring related Circles together under one roof.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.manage_accounts_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Admin', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.manage_accounts_outlined,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Admin',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Community Admins', 'Community admins can manage member permissions, add or remove sub-circles, and broadcast announcements.');
+            _showTopicInfo(context, 'Community Admins',
+                'Community admins can manage member permissions, add or remove sub-circles, and broadcast announcements.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.group_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Member', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.group_outlined, color: scheme.onSurface, size: 22),
+          title: const Text('Member',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Member Guide', 'Browse community topics, join sub-circles, and customize notification settings for individual groups.');
+            _showTopicInfo(context, 'Member Guide',
+                'Browse community topics, join sub-circles, and customize notification settings for individual groups.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.lock_outline_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Privacy, Safety, and Security', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.lock_outline_rounded,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Privacy, Safety, and Security',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
             context.push('/help/privacy-safety-security');
@@ -269,72 +279,102 @@ class HelpChatsPage extends StatelessWidget {
       sectionHeader: 'Chats',
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.chat_bubble_outline_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Individual and Group Chats', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.chat_bubble_outline_rounded,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Individual and Group Chats',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Individual and Group Chats', 'Start 1:1 direct conversations or create private Circles with up to 1,024 participants.');
+            _showTopicInfo(context, 'Individual and Group Chats',
+                'Start 1:1 conversations with another account. Circles and group conversation screens are a local preview in this build and are not delivered to other accounts yet.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.cloud_upload_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Back Up and Restore', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.cloud_upload_outlined,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Back Up and Restore',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Back Up and Restore', 'Keep your chat history, media, and encryption keys backed up to your personal cloud storage.');
+            _showTopicInfo(context, 'Back Up and Restore',
+                'Chat backup is not available in this build. Your conversations are stored in Docmac and return when you sign in on the same account.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.notifications_none_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.notifications_none_rounded,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Notifications',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
             context.push('/notifications/preferences');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.image_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Media', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.image_outlined, color: scheme.onSurface, size: 22),
+          title: const Text('Media',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Media Handling', 'Send high-resolution photos, documents up to 2GB, and HD video with automatic compression controls.');
+            _showTopicInfo(context, 'Media Handling',
+                'Media messages are not available in this build; chat sends text only. Photo, document, and video sharing will ship with its own upload, storage, and privacy work.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.mic_none_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Voice Messages and Chats', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.mic_none_rounded, color: scheme.onSurface, size: 22),
+          title: const Text('Voice Messages and Chats',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Voice Notes', 'Record voice messages with hands-free lock, preview playback before sending, and variable speed.');
+            _showTopicInfo(context, 'Voice Notes',
+                'Record voice messages with hands-free lock, preview playback before sending, and variable speed.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.videocam_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('Video Notes', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading:
+              Icon(Icons.videocam_outlined, color: scheme.onSurface, size: 22),
+          title: const Text('Video Notes',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'Instant Video Notes', 'Tap and hold the camera icon to record circular video notes up to 60 seconds.');
+            _showTopicInfo(context, 'Instant Video Notes',
+                'Video notes are not available in this build. Chat currently sends text only.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.auto_awesome_outlined, color: scheme.onSurface, size: 22),
-          title: const Text('AI Experiences', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.auto_awesome_outlined,
+              color: scheme.onSurface, size: 22),
+          title: const Text('AI Experiences',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showTopicInfo(context, 'AI in Docmac', 'Docmac Forge and perspective engines provide on-demand summaries and assistive drafting without compromising E2EE.');
+            _showTopicInfo(context, 'AI in Docmac',
+                'Docmac Forge and perspective engines provide on-demand summaries and assistive drafting on content you choose to share.');
           },
         ),
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          leading: Icon(Icons.help_outline_rounded, color: scheme.onSurface, size: 22),
-          title: const Text('Troubleshooting', style: TextStyle(fontWeight: FontWeight.w500)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          leading: Icon(Icons.help_outline_rounded,
+              color: scheme.onSurface, size: 22),
+          title: const Text('Troubleshooting',
+              style: TextStyle(fontWeight: FontWeight.w500)),
           onTap: () {
             HapticFeedback.selectionClick();
             context.push('/help/troubleshooting');
@@ -376,7 +416,10 @@ class _HelpStatusPageState extends State<HelpStatusPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final normalized = _query.trim().toLowerCase();
-    final filtered = _articles.where((a) => normalized.isEmpty || a.toLowerCase().contains(normalized)).toList();
+    final filtered = _articles
+        .where(
+            (a) => normalized.isEmpty || a.toLowerCase().contains(normalized))
+        .toList();
 
     return HelpCategoryScaffold(
       title: 'Status',
@@ -392,12 +435,17 @@ class _HelpStatusPageState extends State<HelpStatusPage> {
         else
           for (final article in filtered)
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              leading: Icon(Icons.article_outlined, color: scheme.onSurfaceVariant, size: 22),
-              title: Text(article, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14.5)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              leading: Icon(Icons.article_outlined,
+                  color: scheme.onSurfaceVariant, size: 22),
+              title: Text(article,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w500, fontSize: 14.5)),
               onTap: () {
                 HapticFeedback.selectionClick();
-                _showTopicInfo(context, article, 'Documentation and step-by-step guidance for $article.');
+                _showTopicInfo(context, article,
+                    'Documentation and step-by-step guidance for $article.');
               },
             ),
       ],
@@ -410,7 +458,8 @@ class HelpTroubleshootingPage extends StatefulWidget {
   const HelpTroubleshootingPage({super.key});
 
   @override
-  State<HelpTroubleshootingPage> createState() => _HelpTroubleshootingPageState();
+  State<HelpTroubleshootingPage> createState() =>
+      _HelpTroubleshootingPageState();
 }
 
 class _HelpTroubleshootingPageState extends State<HelpTroubleshootingPage> {
@@ -440,7 +489,10 @@ class _HelpTroubleshootingPageState extends State<HelpTroubleshootingPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final normalized = _query.trim().toLowerCase();
-    final filtered = _articles.where((a) => normalized.isEmpty || a.toLowerCase().contains(normalized)).toList();
+    final filtered = _articles
+        .where(
+            (a) => normalized.isEmpty || a.toLowerCase().contains(normalized))
+        .toList();
 
     return HelpCategoryScaffold(
       title: 'Troubleshooting',
@@ -456,12 +508,17 @@ class _HelpTroubleshootingPageState extends State<HelpTroubleshootingPage> {
         else
           for (final article in filtered)
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              leading: Icon(Icons.article_outlined, color: scheme.onSurfaceVariant, size: 22),
-              title: Text(article, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14.5)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              leading: Icon(Icons.article_outlined,
+                  color: scheme.onSurfaceVariant, size: 22),
+              title: Text(article,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w500, fontSize: 14.5)),
               onTap: () {
                 HapticFeedback.selectionClick();
-                _showTopicInfo(context, article, 'Diagnostic and troubleshooting instructions for $article.');
+                _showTopicInfo(context, article,
+                    'Diagnostic and troubleshooting instructions for $article.');
               },
             ),
       ],
@@ -487,4 +544,3 @@ void _showTopicInfo(BuildContext context, String title, String detail) {
     ),
   );
 }
-

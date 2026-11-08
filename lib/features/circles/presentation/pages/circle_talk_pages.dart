@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
 
 /// A Circle is Docmac's name for a private group conversation.
 class CircleCreatePage extends StatefulWidget {
@@ -37,6 +38,8 @@ class _CircleCreatePageState extends State<CircleCreatePage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 88),
           children: [
+            const _LocalCirclePreviewNotice(),
+            const SizedBox(height: 18),
             Row(
               children: [
                 const _CircleAvatar(size: 62, showCamera: true),
@@ -171,10 +174,7 @@ class CircleTalkPage extends StatefulWidget {
 
 class _CircleTalkPageState extends State<CircleTalkPage> {
   final _composer = TextEditingController();
-  final _messages = <String>[
-    'Welcome to the Circle. Use this space to share plans and stay connected.',
-    'Glad to be here!',
-  ];
+  final _messages = <String>[];
 
   @override
   void dispose() {
@@ -222,56 +222,112 @@ class _CircleTalkPageState extends State<CircleTalkPage> {
           ),
           PopupMenuButton<String>(
             tooltip: 'Circle options',
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             onSelected: _handleMenu,
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'members', child: Text('Add members')),
-              PopupMenuItem(value: 'info', child: Text('Circle info')),
-              PopupMenuItem(value: 'media', child: Text('Circle media')),
-              PopupMenuItem(value: 'search', child: Text('Search messages')),
-              PopupMenuItem(value: 'mute', child: Text('Mute notifications')),
               PopupMenuItem(
-                  value: 'disappearing', child: Text('Disappearing messages')),
+                value: 'members',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.addUser,
+                  label: 'Add members',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'info',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.infoCircle,
+                  label: 'Circle info',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'media',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.image,
+                  label: 'Circle media',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'search',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.search,
+                  label: 'Search messages',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'mute',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.volumeOff,
+                  label: 'Mute notifications',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'disappearing',
+                child: DocmacMenuItem(
+                  icon: Icons.timer_outlined,
+                  label: 'Disappearing messages',
+                ),
+              ),
               PopupMenuDivider(),
-              PopupMenuItem(value: 'more', child: Text('More options')),
+              PopupMenuItem(
+                value: 'more',
+                child: DocmacMenuItem(
+                  icon: Icons.more_horiz_rounded,
+                  label: 'More options',
+                ),
+              ),
             ],
-            icon: const Icon(DocmacIconlyLight.moreCircle),
           ),
         ],
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _LocalCirclePreviewNotice(),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               children: [
                 const Center(child: _StatusChip(text: 'Private Circle')),
                 const SizedBox(height: 18),
-                for (var index = 0; index < _messages.length; index++)
-                  Align(
-                    alignment: index.isEven
-                        ? Alignment.centerLeft
-                        : Alignment.centerRight,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 11),
-                      decoration: BoxDecoration(
-                        color: index.isEven
-                            ? colors.surfaceContainerHighest
-                            : colors.primary,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        _messages[index],
-                        style: TextStyle(
+                if (_messages.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'No messages yet. Messages you send here stay on this '
+                      'device and are not delivered to other members.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  )
+                else
+                  for (var index = 0; index < _messages.length; index++)
+                    Align(
+                      alignment: index.isEven
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 11),
+                        decoration: BoxDecoration(
                           color: index.isEven
-                              ? colors.onSurface
-                              : colors.onPrimary,
+                              ? colors.surfaceContainerHighest
+                              : colors.primary,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          _messages[index],
+                          style: TextStyle(
+                            color: index.isEven
+                                ? colors.onSurface
+                                : colors.onPrimary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
               ],
             ),
           ),
@@ -400,6 +456,7 @@ class _CircleConversationInfoPageState
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Circle management',
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             onSelected: (value) {
               if (value == 'edit') {
                 context.push('/circle/edit');
@@ -412,9 +469,27 @@ class _CircleConversationInfoPageState
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'members', child: Text('Add members')),
-              PopupMenuItem(value: 'edit', child: Text('Edit Circle')),
-              PopupMenuItem(value: 'export', child: Text('Export chat')),
+              PopupMenuItem(
+                value: 'members',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.addUser,
+                  label: 'Add members',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'edit',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.edit,
+                  label: 'Edit Circle',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'export',
+                child: DocmacMenuItem(
+                  icon: Icons.ios_share_rounded,
+                  label: 'Export chat',
+                ),
+              ),
             ],
           ),
         ],
@@ -474,7 +549,7 @@ class _CircleConversationInfoPageState
           _InfoRow(
               icon: DocmacIconlyLight.profile,
               title: 'Add members to People',
-              onTap: () => _notice('Member contacts are ready to save.')),
+              onTap: () => _notice('Saving contacts is not available yet.')),
           const Divider(),
           for (final member in circle.members)
             ListTile(
@@ -490,7 +565,7 @@ class _CircleConversationInfoPageState
       );
 
   Widget _media() => Center(
-        child: Text('Media, links and docs will appear here.',
+        child: Text('Media sharing is not available yet.',
             style: Theme.of(context).textTheme.bodyMedium),
       );
 
@@ -513,8 +588,9 @@ class _CircleConversationInfoPageState
           const Divider(),
           _InfoRow(
               icon: DocmacIconlyLight.lock,
-              title: 'Encryption',
-              subtitle: 'Messages and calls are end-to-end encrypted.',
+              title: 'Privacy',
+              subtitle:
+                  'Only Circle members can access this Circle’s conversations.',
               onTap: () {}),
           _InfoRow(
               icon: DocmacIconlyLight.activity,
@@ -601,23 +677,20 @@ class _CircleAddMembersPageState extends State<CircleAddMembersPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
         children: [
-          TextField(
+          DocmacSearchBar(
+            hintText: 'Search people',
+            semanticsLabel: 'Search people',
             onChanged: (value) => setState(() => _query = value),
-            decoration: const InputDecoration(
-              hintText: 'Search people',
-              prefixIcon: Icon(DocmacIconlyLight.search),
-            ),
           ),
           _InfoRow(
             icon: DocmacIconlyLight.send,
-            title: 'Invite to Circle via link',
+            title: 'Member search is not available yet',
             emphasis: true,
             onTap: () {
-              Clipboard.setData(const ClipboardData(text: 'https://docmac.app/circle/invite'));
-              HapticFeedback.selectionClick();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Circle invite link copied.')),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Circles are a local preview. This build cannot '
+                    'invite real accounts.'),
+              ));
             },
           ),
           for (final person in people)
@@ -738,7 +811,7 @@ class _CircleEditPageState extends State<CircleEditPage> {
                 _InfoRow(
                     icon: DocmacIconlyLight.send,
                     title: 'Invite links',
-                    subtitle: '1 active link',
+                    subtitle: 'Not available yet',
                     onTap: () => context.push('/circle/access')),
                 _InfoRow(
                     icon: DocmacIconlyLight.shieldDone,
@@ -874,8 +947,6 @@ class CircleAccessPage extends StatefulWidget {
 }
 
 class _CircleAccessPageState extends State<CircleAccessPage> {
-  bool _protectContent = false;
-
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Circle settings')),
@@ -888,38 +959,61 @@ class _CircleAccessPageState extends State<CircleAccessPage> {
               child: ListTile(
                 leading: Icon(DocmacIconlyLight.lock),
                 title: Text('Private Circle'),
-                subtitle: Text('Members join by invitation or an invite link.'),
+                subtitle: Text(
+                    'Membership and access enforcement are not connected in '
+                    'this build. Circles are a local preview.'),
               ),
             ),
             Text('Invite link', style: Theme.of(context).textTheme.titleLarge),
-            Card(
+            const Card(
               child: ListTile(
-                title: const Text('docmac.app/circle/invite'),
-                trailing: IconButton(
-                  tooltip: 'Copy invite link',
-                  icon: const Icon(DocmacIconlyLight.document),
-                  onPressed: () {
-                    Clipboard.setData(const ClipboardData(text: 'https://docmac.app/circle/invite'));
-                    HapticFeedback.selectionClick();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Invite link copied to clipboard.')),
-                    );
-                  },
-                ),
+                leading: Icon(DocmacIconlyLight.document),
+                title: Text('Invite links are not available yet'),
+                subtitle:
+                    Text('This build cannot create or share a working Circle '
+                        'invite.'),
               ),
             ),
-            Card(
-              child: SwitchListTile(
-                title: const Text('Restrict saving content'),
-                subtitle: const Text(
-                    'Members cannot save or forward Circle content.'),
-                value: _protectContent,
-                onChanged: (value) => setState(() => _protectContent = value),
+            const Card(
+              child: ListTile(
+                leading: Icon(DocmacIconlyLight.lock),
+                title: Text('Restrict saving content'),
+                subtitle: Text('Not available yet'),
               ),
             ),
           ],
         ),
       );
+}
+
+class _LocalCirclePreviewNotice extends StatelessWidget {
+  const _LocalCirclePreviewNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 20, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Circle group chat is a local preview in this build. Messages '
+              'you send stay on this device and are not delivered to other '
+              'members.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class CircleTalkStore {
@@ -968,14 +1062,10 @@ class CircleTalk {
   }
 }
 
-const circlePeople = [
-  'Amara Okafor',
-  'David Mensah',
-  'Nora Williams',
-  'Tobi Adeyemi',
-  'Emma Clarke',
-  'Jack Wilson',
-];
+// Circles are a local preview, so there is no directory of real accounts to
+// show here. Fabricated names would look like real people to reviewers and
+// users, so the picker stays empty until member search is implemented.
+const circlePeople = <String>[];
 
 Future<List<String>?> showCircleMemberPicker(BuildContext context,
     {required List<String> initial}) {
@@ -990,21 +1080,31 @@ Future<List<String>?> showCircleMemberPicker(BuildContext context,
           child: Column(
             children: [
               const ListTile(title: Text('Add members')),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final person in circlePeople)
-                      CheckboxListTile(
-                        title: Text(person),
-                        value: picked.contains(person),
-                        onChanged: (_) => setSheetState(() =>
-                            picked.contains(person)
-                                ? picked.remove(person)
-                                : picked.add(person)),
-                      ),
-                  ],
+              if (circlePeople.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Member search is not available yet. This build cannot '
+                    'invite real accounts to a Circle.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final person in circlePeople)
+                        CheckboxListTile(
+                          title: Text(person),
+                          value: picked.contains(person),
+                          onChanged: (_) => setSheetState(() =>
+                              picked.contains(person)
+                                  ? picked.remove(person)
+                                  : picked.add(person)),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: SizedBox(

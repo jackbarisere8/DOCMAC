@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../feature_flags.dart';
 
 import '../../features/auth/presentation/pages/auth_page.dart';
 import '../../features/auth/presentation/pages/hero_screen.dart';
@@ -17,11 +18,14 @@ import '../../features/chat/presentation/pages/chat_preferences_pages.dart';
 import '../../features/chat/presentation/pages/forward_message_page.dart';
 import '../../features/circles/presentation/pages/circle_pages.dart';
 import '../../features/circles/presentation/pages/circle_talk_pages.dart';
+import '../../features/connections/presentation/pages/connections_page.dart';
 import '../../features/contacts/presentation/pages/contact_pages.dart';
+import '../../features/talk/presentation/pages/new_direct_chat_page.dart';
 import '../../features/forge/presentation/pages/forge_page.dart';
 import '../../features/foundry/presentation/pages/foundry_page.dart';
 import '../../features/live/presentation/pages/voice_call_page.dart';
 import '../../features/live/presentation/pages/schedule_call_page.dart';
+import '../../features/moments/presentation/pages/moment_archive_page.dart';
 import '../../features/moments/presentation/pages/moments_page.dart';
 import '../../features/people/presentation/pages/person_space_page.dart';
 import '../../features/people/presentation/pages/people_page.dart';
@@ -262,6 +266,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/moments/archive',
+        builder: (context, state) => const MomentArchivePage(),
+      ),
+      GoRoute(
         path: '/forge',
         builder: (context, state) => const ForgePage(),
       ),
@@ -302,15 +310,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/talk/new',
+        builder: (context, state) => const NewDirectChatPage(),
+      ),
+      GoRoute(
         path: '/talk/person/:personId',
         builder: (context, state) {
           final id = state.pathParameters['personId']!;
           final info = _personInfo(id);
           return ChatPage(
-            chatId: state.uri.queryParameters['chat'] ?? id,
-            personName: info.$1,
+            chatId: state.uri.queryParameters['chat'],
+            peerUid: state.uri.queryParameters['uid'],
+            peerHandle: state.uri.queryParameters['handle'] ?? id,
+            personName: state.uri.queryParameters['name'] ?? info.$1,
             personInitial: info.$2,
-            status: info.$3 ? 'Active now' : 'Last active recently',
+            status: AppFeatureFlags.localPreviews && info.$3
+                ? 'Active now'
+                : 'Status unavailable',
           );
         },
       ),
@@ -350,11 +366,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final personId = state.uri.queryParameters['person'];
           final info = personId != null ? _personInfo(personId) : null;
           return ChatPage(
-            chatId:
-                state.uri.queryParameters['chat'] ?? personId ?? 'jack',
-            personName: info?.$1 ?? 'Jack Wilson',
-            personInitial: info?.$2 ?? 'J',
-            status: (info?.$3 ?? true) ? 'Active now' : 'Last active recently',
+            chatId: state.uri.queryParameters['chat'],
+            peerUid: state.uri.queryParameters['uid'],
+            peerHandle: state.uri.queryParameters['handle'] ?? personId,
+            personName: state.uri.queryParameters['name'] ?? info?.$1 ?? 'Talk',
+            personInitial: info?.$2 ?? 'T',
+            status: AppFeatureFlags.localPreviews && (info?.$3 ?? false)
+                ? 'Active now'
+                : 'Status unavailable',
           );
         },
       ),
@@ -461,11 +480,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/contacts/new-talk',
-        builder: (context, state) => const NewTalkPage(),
+        builder: (context, state) => const NewDirectChatPage(),
+      ),
+      GoRoute(
+        path: '/connections',
+        builder: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          final filter = state.uri.queryParameters['filter'];
+          return ConnectionsPage(
+            initialTab: tab == 'contacts'
+                ? ConnectionTab.contacts
+                : ConnectionTab.followers,
+            initialFollowerFilter: switch (filter) {
+              'following' => FollowerFilter.following,
+              'requests' => FollowerFilter.requests,
+              _ => FollowerFilter.followers,
+            },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/followers',
+        builder: (context, state) => const ConnectionsPage(),
       ),
       GoRoute(
         path: '/contacts',
-        builder: (context, state) => const PeoplePage(),
+        builder: (context, state) => const ConnectionsPage(
+          initialTab: ConnectionTab.contacts,
+        ),
       ),
       GoRoute(
         path: '/people',
@@ -506,8 +548,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 /// Maps a person ID (lowercase slug) to (name, initial, isOnline).
-/// Mirrors the static roster in PersonSpacePage so both surfaces stay in sync.
-(String, String, bool) _personInfo(String id) => switch (id) {
+/// Mirrors the static roster in PersonSpacePage for debug previews only.
+(String, String, bool) _personInfo(String id) {
+  if (AppFeatureFlags.localPreviews) {
+    return switch (id) {
       'jack' => ('Jack Wilson', 'J', true),
       'emma' => ('Emma Clarke', 'E', true),
       'david' => ('David Okafor', 'D', false),
@@ -515,9 +559,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       'amara' => ('Amara Okafor', 'A', true),
       'noraw' => ('Nora Williams', 'N', false),
       'tobi' => ('Tobi Adeyemi', 'T', false),
-      _ => (
-          id[0].toUpperCase() + id.substring(1), // capitalise first letter
-          id[0].toUpperCase(),
-          false,
-        ),
+      _ => _fallbackPersonInfo(id),
     };
+  }
+  return _fallbackPersonInfo(id);
+}
+
+(String, String, bool) _fallbackPersonInfo(String id) {
+  if (id.isEmpty) return ('Talk', 'T', false);
+  final name = id[0].toUpperCase() + id.substring(1);
+  return (name, id[0].toUpperCase(), false);
+}

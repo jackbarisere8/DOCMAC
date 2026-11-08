@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../config/feature_flags.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../models/call_record.dart';
 
@@ -22,55 +23,57 @@ class PersistentCallRepository implements CallRepository {
     return _preferences ??= await SharedPreferences.getInstance();
   }
 
-  static List<CallRecord> get initialSeeds => [
-        CallRecord(
-          id: 'seed-1',
-          personId: 'emma',
-          name: 'Emma Clarke',
-          initial: 'E',
-          detail: 'Voice signal · 18 min',
-          when: '6:21 PM',
-          tintValue: AppColors.accent.toARGB32(),
-          favorite: true,
-          durationSeconds: 1080,
-          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        ),
-        CallRecord(
-          id: 'seed-2',
-          personId: 'david',
-          name: 'David Okafor',
-          initial: 'D',
-          detail: 'Missed video signal',
-          when: '4:40 PM',
-          tintValue: 0xFFD9E9F8,
-          video: true,
-          missed: true,
-          timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-        ),
-        CallRecord(
-          id: 'seed-3',
-          personId: 'tobi',
-          name: 'Tobi Adeyemi',
-          initial: 'T',
-          detail: 'Voice signal · 42 min',
-          when: 'Yesterday',
-          tintValue: 0xFFE6DFEF,
-          favorite: true,
-          durationSeconds: 2520,
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-        CallRecord(
-          id: 'seed-4',
-          personId: 'jack',
-          name: 'Jack Wilson',
-          initial: 'J',
-          detail: 'Voice signal · 6 min',
-          when: 'Mon',
-          tintValue: 0xFFF5E6C8,
-          durationSeconds: 360,
-          timestamp: DateTime.now().subtract(const Duration(days: 3)),
-        ),
-      ];
+  static List<CallRecord> get initialSeeds => !AppFeatureFlags.localPreviews
+      ? const <CallRecord>[]
+      : [
+          CallRecord(
+            id: 'seed-1',
+            personId: 'emma',
+            name: 'Emma Clarke',
+            initial: 'E',
+            detail: 'Voice signal · 18 min',
+            when: '6:21 PM',
+            tintValue: AppColors.accent.toARGB32(),
+            favorite: true,
+            durationSeconds: 1080,
+            timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+          ),
+          CallRecord(
+            id: 'seed-2',
+            personId: 'david',
+            name: 'David Okafor',
+            initial: 'D',
+            detail: 'Missed video signal',
+            when: '4:40 PM',
+            tintValue: 0xFFD9E9F8,
+            video: true,
+            missed: true,
+            timestamp: DateTime.now().subtract(const Duration(hours: 4)),
+          ),
+          CallRecord(
+            id: 'seed-3',
+            personId: 'tobi',
+            name: 'Tobi Adeyemi',
+            initial: 'T',
+            detail: 'Voice signal · 42 min',
+            when: 'Yesterday',
+            tintValue: 0xFFE6DFEF,
+            favorite: true,
+            durationSeconds: 2520,
+            timestamp: DateTime.now().subtract(const Duration(days: 1)),
+          ),
+          CallRecord(
+            id: 'seed-4',
+            personId: 'jack',
+            name: 'Jack Wilson',
+            initial: 'J',
+            detail: 'Voice signal · 6 min',
+            when: 'Mon',
+            tintValue: 0xFFF5E6C8,
+            durationSeconds: 360,
+            timestamp: DateTime.now().subtract(const Duration(days: 3)),
+          ),
+        ];
 
   @override
   Future<List<CallRecord>> getCalls() async {
@@ -91,7 +94,8 @@ class PersistentCallRepository implements CallRepository {
     }
   }
 
-  Future<void> _saveCalls(List<CallRecord> calls, [SharedPreferences? prefs]) async {
+  Future<void> _saveCalls(List<CallRecord> calls,
+      [SharedPreferences? prefs]) async {
     final storage = prefs ?? await _getPrefs();
     final encoded = jsonEncode(calls.map((c) => c.toJson()).toList());
     await storage.setString(_storageKey, encoded);
@@ -130,4 +134,3 @@ class PersistentCallRepository implements CallRepository {
     await prefs.remove(_storageKey);
   }
 }
-

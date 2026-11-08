@@ -1,5 +1,7 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +32,8 @@ Future<void> initializeFirebase() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
+    await _initializeObservability();
+
     // Firebase Console test numbers are the only phone numbers that work with
     // this setting. It is opt-in so a routine debug run cannot silently
     // disable Firebase's Play Integrity/reCAPTCHA protection.
@@ -39,11 +43,37 @@ Future<void> initializeFirebase() async {
       await FirebaseAuth.instance.setSettings(
         appVerificationDisabledForTesting: true,
       );
-      debugPrint('Phone Auth test verification is enabled for this debug build.');
+      debugPrint(
+          'Phone Auth test verification is enabled for this debug build.');
     }
   } catch (error, stackTrace) {
     debugPrint('Firebase initialization failed: $error');
     debugPrintStack(stackTrace: stackTrace);
+  }
+}
+
+/// Connects crash reporting and product analytics without letting either
+/// service take the app down. Debug builds stay out of Crashlytics so local
+/// hot-reload errors never pollute production dashboards.
+Future<void> _initializeObservability() async {
+  if (kDebugMode) return;
+
+  try {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stackTrace) {
+      FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
+      return true;
+    };
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+  } catch (error) {
+    debugPrint('Crashlytics could not start: $error');
+  }
+
+  try {
+    final analytics = FirebaseAnalytics.instance;
+    await analytics.setAnalyticsCollectionEnabled(true);
+  } catch (error) {
+    debugPrint('Analytics could not start: $error');
   }
 }
 

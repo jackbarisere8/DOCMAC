@@ -255,7 +255,8 @@ void main() {
       expect(find.byKey(const Key('signup-username')), findsOneWidget);
       expect(find.byKey(const Key('signup-email')), findsOneWidget);
       expect(find.byKey(const Key('signup-password')), findsOneWidget);
-      expect(find.text('Complete setup'), findsOneWidget);
+      expect(find.byKey(const Key('signup-confirm-password')), findsOneWidget);
+      expect(find.byKey(const Key('signup-submit')), findsOneWidget);
     });
 
     testWidgets(
@@ -288,8 +289,15 @@ void main() {
           find.byKey(const Key('signup-email')), 'ada@example.com');
       await tester.enterText(
           find.byKey(const Key('signup-password')), 'secret123');
-      await tester.ensureVisible(find.text('Complete setup'));
-      await tester.tap(find.text('Complete setup'));
+      await tester.enterText(
+          find.byKey(const Key('signup-confirm-password')), 'secret123');
+      final terms = find.byKey(const Key('signup-terms'));
+      await tester.ensureVisible(terms);
+      await tester.tap(terms);
+      await tester.pump();
+      final submit = find.byKey(const Key('signup-submit'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
       await tester.pumpAndSettle();
 
       // Verify that completeDualSignUp was invoked with exact credentials
@@ -372,7 +380,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Switch to phone
-      await tester.tap(find.text('Sign in with phone number'));
+      await tester.tap(find.text('Phone number'));
       await tester.pumpAndSettle();
 
       expect(find.text('Your phone number'), findsOneWidget);

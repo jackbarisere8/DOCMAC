@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../config/router/app_back.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 
@@ -26,17 +27,18 @@ class _VoiceCallPageState extends State<VoiceCallPage> {
       RegExp(r'^[0-9+()\-\s]+$').hasMatch(widget.personId);
 
   String get name {
-    final known = {
-      'emma': 'Emma Clarke',
-      'jack': 'Jack Wilson',
-      'david': 'David Okafor',
-      'tobi': 'Tobi Adeyemi',
-    }[widget.personId.toLowerCase()];
-    if (known != null) return known;
+    final known = AppFeatureFlags.localPreviews
+        ? const {
+            'emma': 'Emma Clarke',
+            'jack': 'Jack Wilson',
+            'david': 'David Okafor',
+            'tobi': 'Tobi Adeyemi',
+          }
+        : const <String, String>{};
+    final knownName = known[widget.personId.toLowerCase()];
+    if (knownName != null) return knownName;
     if (_isPhoneNumber) return widget.personId;
-    return widget.personId.isNotEmpty
-        ? widget.personId[0].toUpperCase() + widget.personId.substring(1)
-        : 'Private Signal';
+    return 'Docmac member';
   }
 
   @override
@@ -84,9 +86,12 @@ class _VoiceCallPageState extends State<VoiceCallPage> {
               ),
               const ListTile(
                 leading: Icon(DocmacIconlyLight.shieldDone),
-                title: Text('Call Security'),
-                subtitle: Text('End-to-end encrypted voice session'),
-                trailing: Icon(Icons.check_circle_outline, color: Colors.green),
+                title: Text('Call security'),
+                subtitle: Text(
+                  'Calling is a simulated preview in this build. No audio '
+                  'leaves your device.',
+                ),
+                trailing: Icon(Icons.info_outline_rounded),
               ),
             ],
           ),
@@ -146,14 +151,16 @@ class _VoiceCallPageState extends State<VoiceCallPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                connected ? time : 'Connecting signal…',
+                connected
+                    ? 'Simulated call · $time'
+                    : 'Starting simulated call…',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: colors.onPrimary.withValues(alpha: .8),
                     ),
               ),
               const SizedBox(height: 10),
               Text(
-                'End-to-End Encrypted Voice',
+                'Simulated voice preview',
                 style: TextStyle(
                   color: colors.onPrimary.withValues(alpha: .7),
                   fontSize: 12,

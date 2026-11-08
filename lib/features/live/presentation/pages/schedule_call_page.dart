@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../config/feature_flags.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/ui/docmac_iconly.dart';
 import '../../data/scheduled_call_repository.dart';
@@ -21,9 +22,13 @@ class ScheduleCallPage extends StatefulWidget {
 }
 
 class _ScheduleCallPageState extends State<ScheduleCallPage> {
-  final _titleController = TextEditingController(text: 'Design sync');
+  final _titleController = TextEditingController(
+    text: AppFeatureFlags.localPreviews ? 'Design sync' : '',
+  );
   final _noteController = TextEditingController();
-  Set<String> _invitees = {'Emma Clarke', 'David Okafor'};
+  Set<String> _invitees = AppFeatureFlags.localPreviews
+      ? {'Emma Clarke', 'David Okafor'}
+      : <String>{};
   late DateTime _startsAt;
   late DateTime _endsAt;
   bool _isVideo = true;
@@ -96,7 +101,23 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
   }
 
   Future<void> _showPeoplePicker() async {
-    const people = ['Emma Clarke', 'David Okafor', 'Tobi Adeyemi', 'Jack Wilson'];
+    const people = [
+      'Emma Clarke',
+      'David Okafor',
+      'Tobi Adeyemi',
+      'Jack Wilson'
+    ];
+    if (!AppFeatureFlags.localPreviews) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invitee selection is not available yet. This plan is saved '
+            'privately to your account and nobody is notified.',
+          ),
+        ),
+      );
+      return;
+    }
     final next = await showModalBottomSheet<Set<String>>(
       context: context,
       showDragHandle: true,
@@ -110,7 +131,8 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                 Text('Invite your people',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 8),
-                Text('They will receive the call details when you schedule it.',
+                Text(
+                    'This saves a private plan to your account. Invitees are not notified in this build.',
                     style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 14),
                 ...people.map(
@@ -120,7 +142,9 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                     title: Text(person),
                     secondary: _InitialAvatar(name: person, size: 36),
                     onChanged: (isSelected) => setSheetState(() {
-                      isSelected! ? selected.add(person) : selected.remove(person);
+                      isSelected!
+                          ? selected.add(person)
+                          : selected.remove(person);
                     }),
                   ),
                 ),
@@ -145,7 +169,8 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a title so your people know the plan.')),
+        const SnackBar(
+            content: Text('Add a title so your people know the plan.')),
       );
       return;
     }
@@ -176,13 +201,16 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
       context.pop();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${_isVideo ? 'Video' : 'Voice'} signal scheduled for ${DateFormat.jm().format(_startsAt)}.'),
+          content: Text(
+              '${_isVideo ? 'Video' : 'Voice'} signal saved to your plans. '
+              'Invitees are not notified in this build.'),
         ),
       );
     } on FirebaseException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the signal. Please try again.')),
+        const SnackBar(
+            content: Text('Could not save the signal. Please try again.')),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -205,14 +233,16 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                 Text('Make space for a real conversation.',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
-                Text('Choose a moment, a format, and the people who should be there.',
+                Text(
+                    'Choose a moment, a format, and the people who should be there.',
                     style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 24),
                 const _FieldLabel(label: 'Signal title'),
                 TextField(
                   controller: _titleController,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(hintText: 'What are you meeting about?'),
+                  decoration: const InputDecoration(
+                      hintText: 'What are you meeting about?'),
                 ),
                 const SizedBox(height: 22),
                 const _FieldLabel(label: 'When'),
@@ -229,14 +259,20 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                       trailing: 'Change',
                       onTap: _pickDate,
                     ),
-                    Divider(height: 1, indent: 58, color: Theme.of(context).dividerColor),
+                    Divider(
+                        height: 1,
+                        indent: 58,
+                        color: Theme.of(context).dividerColor),
                     _ScheduleRow(
                       icon: Icons.access_time_rounded,
                       label: 'Starts ${DateFormat.jm().format(_startsAt)}',
                       trailing: 'Change',
                       onTap: () => _pickTime(end: false),
                     ),
-                    Divider(height: 1, indent: 58, color: Theme.of(context).dividerColor),
+                    Divider(
+                        height: 1,
+                        indent: 58,
+                        color: Theme.of(context).dividerColor),
                     _ScheduleRow(
                       icon: Icons.timelapse_rounded,
                       label: 'Ends ${DateFormat.jm().format(_endsAt)}',
@@ -286,7 +322,9 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                         height: 38,
                         child: Stack(
                           children: [
-                            for (var index = 0; index < _invitees.length && index < 3; index++)
+                            for (var index = 0;
+                                index < _invitees.length && index < 3;
+                                index++)
                               Positioned(
                                 left: index * 27.0,
                                 child: _InitialAvatar(
@@ -301,11 +339,16 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          _invitees.isEmpty ? 'Add people' : '${_invitees.length} ${_invitees.length == 1 ? 'person' : 'people'} invited',
+                          _invitees.isEmpty
+                              ? (AppFeatureFlags.localPreviews
+                                  ? 'Add people'
+                                  : 'Invitees unavailable')
+                              : '${_invitees.length} ${_invitees.length == 1 ? 'person' : 'people'} invited',
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                       ),
-                      Icon(DocmacIconlyLight.arrowRight, color: scheme.primary, size: 18),
+                      Icon(DocmacIconlyLight.arrowRight,
+                          color: scheme.primary, size: 18),
                     ]),
                   ),
                 ),
@@ -315,15 +358,22 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
                   controller: _noteController,
                   maxLines: 3,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(hintText: 'Context, links, or a small agenda...'),
+                  decoration: const InputDecoration(
+                      hintText: 'Context, links, or a small agenda...'),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile.adaptive(
                   value: _sendReminder,
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Give everyone a nudge'),
-                  subtitle: const Text('A reminder goes out 15 minutes before.'),
-                  onChanged: (value) => setState(() => _sendReminder = value),
+                  subtitle: Text(
+                    AppFeatureFlags.localPreviews
+                        ? 'A reminder goes out 15 minutes before.'
+                        : 'Reminder delivery is not available in this build.',
+                  ),
+                  onChanged: AppFeatureFlags.localPreviews
+                      ? (value) => setState(() => _sendReminder = value)
+                      : null,
                 ),
               ],
             ),
@@ -332,7 +382,8 @@ class _ScheduleCallPageState extends State<ScheduleCallPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
             decoration: BoxDecoration(
               color: scheme.surface,
-              border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+              border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor)),
             ),
             child: SizedBox(
               width: double.infinity,
@@ -373,7 +424,8 @@ class _ScheduleHeader extends StatelessWidget {
             icon: const Icon(DocmacIconlyLight.arrowLeft),
           ),
           const SizedBox(width: 4),
-          Text('Schedule a signal', style: Theme.of(context).textTheme.headlineSmall),
+          Text('Schedule a signal',
+              style: Theme.of(context).textTheme.headlineSmall),
         ]),
       );
 }
@@ -394,7 +446,10 @@ class _FieldLabel extends StatelessWidget {
               if (optional)
                 TextSpan(
                   text: '  optional',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontSize: 12),
                 ),
             ],
           ),
@@ -403,7 +458,11 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _ScheduleRow extends StatelessWidget {
-  const _ScheduleRow({required this.icon, required this.label, required this.trailing, required this.onTap});
+  const _ScheduleRow(
+      {required this.icon,
+      required this.label,
+      required this.trailing,
+      required this.onTap});
   final IconData icon;
   final String label;
   final String trailing;
@@ -422,7 +481,12 @@ class _ScheduleRow extends StatelessWidget {
 }
 
 class _CallFormat extends StatelessWidget {
-  const _CallFormat({required this.selected, required this.icon, required this.title, required this.description, required this.onTap});
+  const _CallFormat(
+      {required this.selected,
+      required this.icon,
+      required this.title,
+      required this.description,
+      required this.onTap});
   final bool selected;
   final IconData icon;
   final String title;
@@ -441,14 +505,21 @@ class _CallFormat extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? scheme.primaryContainer : scheme.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? scheme.primary : Theme.of(context).dividerColor, width: selected ? 1.5 : 1),
+          border: Border.all(
+              color: selected ? scheme.primary : Theme.of(context).dividerColor,
+              width: selected ? 1.5 : 1),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+          Icon(icon,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant),
           const SizedBox(height: 15),
           Text(title, style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 2),
-          Text(description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11)),
+          Text(description,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontSize: 11)),
         ]),
       ),
     );
@@ -456,7 +527,8 @@ class _CallFormat extends StatelessWidget {
 }
 
 class _InitialAvatar extends StatelessWidget {
-  const _InitialAvatar({required this.name, required this.size, this.withBorder = false});
+  const _InitialAvatar(
+      {required this.name, required this.size, this.withBorder = false});
   final String name;
   final double size;
   final bool withBorder;
@@ -469,9 +541,15 @@ class _InitialAvatar extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.accent,
-          border: withBorder ? Border.all(color: Theme.of(context).colorScheme.surface, width: 2) : null,
+          border: withBorder
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.surface, width: 2)
+              : null,
         ),
         child: Text(name.substring(0, 1),
-            style: TextStyle(color: AppColors.brandBase, fontWeight: FontWeight.w800, fontSize: size * .38)),
+            style: TextStyle(
+                color: AppColors.brandBase,
+                fontWeight: FontWeight.w800,
+                fontSize: size * .38)),
       );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
 
 /// Space UI: a community container that holds several topical group talks.
 /// Data is deliberately kept in memory until the community graph is connected.
@@ -50,6 +51,10 @@ class CircleWelcomePage extends StatelessWidget {
                       height: 1.45,
                     ),
               ),
+              const SizedBox(height: 18),
+              // ignore: prefer_const_constructors
+              // ignore: prefer_const_constructors
+              _LocalPreviewNotice(),
               TextButton.icon(
                 onPressed: () => _showCircleExamples(context),
                 icon: const Icon(DocmacIconlyLight.discovery, size: 18),
@@ -130,6 +135,10 @@ class _NewCirclePageState extends State<NewCirclePage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                 children: [
+                  // ignore: prefer_const_constructors
+                  // ignore: prefer_const_constructors
+                  _LocalPreviewNotice(),
+                  const SizedBox(height: 20),
                   const Center(
                       child: _CircleEmblem(size: 120, showAccent: false)),
                   const SizedBox(height: 8),
@@ -222,17 +231,37 @@ class _CircleHomePageState extends State<CircleHomePage> {
             tooltip: 'Space options',
             onSelected: _handleMenu,
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'info', child: Text('Space info')),
-              PopupMenuItem(value: 'invite', child: Text('Invite members')),
-              PopupMenuItem(value: 'settings', child: Text('Space settings')),
+              PopupMenuItem(
+                value: 'info',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.infoCircle,
+                  label: 'Space info',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'invite',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.addUser,
+                  label: 'Invite members',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.setting,
+                  label: 'Space settings',
+                ),
+              ),
             ],
-            icon: const Icon(DocmacIconlyLight.moreCircle),
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 104),
         children: [
+          const _LocalPreviewNotice(),
+          const SizedBox(height: 14),
           _CircleSummary(circle: circle),
           const SizedBox(height: 20),
           _CircleRow(
@@ -289,7 +318,8 @@ class _CircleHomePageState extends State<CircleHomePage> {
         context.push('/spaces/settings');
         return;
       case 'invite':
-        _notice('A Space invite link is ready to share.');
+        _notice('Invites are not available yet. This Space exists only on '
+            'this device.');
         return;
     }
   }
@@ -320,7 +350,8 @@ class _CircleHomePageState extends State<CircleHomePage> {
     controller.dispose();
     if (name == null || name.trim().isEmpty) return;
     setState(() => _CircleStore.current!.groups.add(name.trim()));
-    _notice('${name.trim()} added to your Space.');
+    _notice('${name.trim()} was added to the local preview. Other people '
+        'cannot see it.');
   }
 
   void _notice(String message) => ScaffoldMessenger.of(context)
@@ -407,7 +438,9 @@ class _CircleInfoPageState extends State<CircleInfoPage> {
               icon: DocmacIconlyLight.addUser,
               title: 'Add members',
               emphasized: true,
-              onTap: () => _notice('Invite members from your People list.')),
+              onTap: () => _notice(
+                  'Inviting members is not available yet. This Space is local '
+                  'to this device.')),
           const ListTile(
             contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             leading: CircleAvatar(child: Text('Y')),
@@ -418,17 +451,18 @@ class _CircleInfoPageState extends State<CircleInfoPage> {
           _InfoAction(
               icon: DocmacIconlyLight.swap,
               title: 'Assign new owner',
-              onTap: () => _notice('Choose a member to transfer ownership.')),
+              onTap: () => _notice('Ownership transfer is not available yet.')),
           _InfoAction(
               icon: DocmacIconlyLight.logout,
               title: 'Exit Circle',
               destructive: true,
-              onTap: () => _notice('Owners must assign a new owner first.')),
+              onTap: () =>
+                  _notice('Leaving a Space is not available in this build.')),
           _InfoAction(
               icon: DocmacIconlyLight.danger,
               title: 'Report Circle',
               destructive: true,
-              onTap: () => _notice('Report options will open here.')),
+              onTap: () => _notice('Reporting is not available yet.')),
           _InfoAction(
               icon: DocmacIconlyLight.closeSquare,
               title: 'Deactivate Circle',
@@ -476,6 +510,11 @@ class CircleSettingsPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
           children: const [
             Text('Circle permissions'),
+            SizedBox(height: 8),
+            Text(
+              'These permissions are display-only in this build. Spaces are '
+              'a local preview and do not enforce roles on a server.',
+            ),
             SizedBox(height: 28),
             _SettingCopy('Who can add new members', 'Only Circle admins'),
             SizedBox(height: 28),
@@ -506,7 +545,7 @@ class CircleDeactivatePage extends StatelessWidget {
               Text('Deactivate “${circle.name}”?',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
-              Text('This action cannot be undone.',
+              Text('This removes the local preview on this device only.',
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
@@ -514,19 +553,19 @@ class CircleDeactivatePage extends StatelessWidget {
               const SizedBox(height: 36),
               const _ImpactRow(
                   icon: DocmacIconlyLight.hide,
-                  title: 'Groups will be disconnected',
+                  title: 'Local preview will be cleared',
                   detail:
-                      'Groups will still work as usual, outside this Circle.'),
+                      'The Space is stored only in this build and is not shared with anyone.'),
               const _ImpactRow(
                   icon: DocmacIconlyLight.volumeOff,
-                  title: 'Announcements will close',
+                  title: 'No announcements are sent',
                   detail:
-                      'Members will no longer receive new Circle announcements.'),
+                      'Announcements are not delivered to other people in this build.'),
               const _ImpactRow(
                   icon: DocmacIconlyLight.delete,
-                  title: 'Circle info will be deleted',
+                  title: 'Local Space data will be removed',
                   detail:
-                      'Members will lose access to this Circle’s groups and information.'),
+                      'The Space disappears from this device. No other member is affected.'),
               const Spacer(),
               SizedBox(
                 width: double.infinity,
@@ -548,8 +587,9 @@ class CircleDeactivatePage extends StatelessWidget {
   void _confirmDeactivate(BuildContext context) {
     _CircleStore.current = null;
     context.go('/circles');
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your Circle has been deactivated.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Local Space preview cleared. No other member was '
+            'affected.')));
   }
 }
 
@@ -578,8 +618,9 @@ class _AnnouncementSettingsState extends State<_AnnouncementSettings> {
           const Divider(height: 28),
           const _InfoAction(
               icon: DocmacIconlyLight.lock,
-              title: 'Encryption',
-              subtitle: 'Messages and calls are end-to-end encrypted.'),
+              title: 'Privacy',
+              subtitle:
+                  'Only Circle members can access this Circle’s conversations.'),
           const _InfoAction(
               icon: DocmacIconlyLight.activity,
               title: 'Disappearing messages',
@@ -787,6 +828,36 @@ class _ImpactRow extends StatelessWidget {
           ],
         ),
       );
+}
+
+class _LocalPreviewNotice extends StatelessWidget {
+  const _LocalPreviewNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 20, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Spaces are a local preview in this build. A Space you create '
+              'stays on this device, is not shared with other people, and '
+              'disappears when the app restarts.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CircleStore {

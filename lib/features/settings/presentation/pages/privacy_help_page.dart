@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/ui/docmac_iconly.dart';
+import '../../../../shared/widgets/docmac_menu_item.dart';
+import '../../../../shared/widgets/docmac_search_bar.dart';
+
 /// WhatsApp-style Privacy Help Center screen (Image 5).
 /// Contains the complete index of privacy, encryption, and data-rights documentation.
 class PrivacyHelpPage extends StatefulWidget {
@@ -23,64 +27,64 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
 
   static const _articles = [
     _PrivacyArticle(
-      'About end-to-end encryption',
-      'All personal chats, calls, media, and voice notes are end-to-end encrypted by default using cryptographic keys held exclusively on your devices.',
+      'About message privacy',
+      'Docmac does not encrypt messages end-to-end yet. Today, access is limited to the people in each conversation by Firebase Authentication and Firestore security rules. End-to-end encryption is planned before it is offered.',
     ),
     _PrivacyArticle(
       'About privacy checkup',
-      'Privacy Checkup guides you through multiple layers of protection, letting you choose the right level of security for messages, calls, and personal info.',
+      'Privacy Checkup is not available yet. This build has no guided flow for choosing message, call, or personal-info protections.',
     ),
     _PrivacyArticle(
       'How to change your privacy settings',
-      'Learn how to adjust who can see your presence, last seen, profile picture, about info, and status updates.',
+      'Audience controls for presence, last seen, profile pictures, about info, and status updates are not available yet. This build does not apply choices that the server never receives.',
     ),
     _PrivacyArticle(
       'How to change group privacy settings',
-      'Decide who can add you to Circles and Spaces. Choose between Everyone, My Contacts, or My Contacts Except.',
+      'Controls for who can add you to Circles and Spaces are not available yet.',
     ),
     _PrivacyArticle(
       'How to protect your IP address on Docmac calls',
-      'Relaying calls through Docmac servers masks your device IP address from peer participants for enhanced network privacy.',
+      'Calling is a simulated UI in this build. No call audio or video leaves the device, so there are no relayed calls or peer IP addresses to protect yet.',
     ),
     _PrivacyArticle(
       'Does Docmac collect or sell your data?',
-      'Docmac does not sell your personal data, nor do we read or analyze encrypted message content for advertising.',
+      'Docmac does not sell your personal data, nor do we use private message content for advertising.',
     ),
     _PrivacyArticle(
       'About advanced chat privacy',
-      'Discover features like Chat Lock, disappearing messages, and screenshot prevention for view-once media.',
+      'Chat Lock, disappearing messages, and screenshot prevention are not available yet. The manual passcode on this device does not encrypt messages.',
     ),
     _PrivacyArticle(
       'Privacy at a Glance: Additional Information about using Status and Channels',
-      'Understand how audience selectors and subscriber lists protect your identity across Relays and public channels.',
+      'Audience selectors and subscriber lists for Relays and public channels are not available yet.',
     ),
     _PrivacyArticle(
       'How to silence unknown callers',
-      'Calls from unknown numbers can be automatically silenced while still appearing in your call history and arrivals feed.',
+      'Unknown-caller silencing is not available yet, and calls are simulated in this build.',
     ),
     _PrivacyArticle(
       'About last seen and online',
-      'Control whether contacts can see when you were last active or if you are currently online in the app.',
+      'Last seen and online visibility controls are not available yet. Docmac does not show this information from this screen.',
     ),
     _PrivacyArticle(
       'About Docmac permissions',
-      'An overview of system permissions (Camera, Microphone, Contacts, Photos) requested by Docmac and how they are handled.',
+      'Permission prompts appear only when a specific feature asks for a capability. Photo-library access may be requested when you attach an image. This build does not use camera, microphone, or contacts permissions for messaging.',
     ),
     _PrivacyArticle(
-      'How to use app lock',
-      'Lock Docmac with biometrics (Face ID, Fingerprint) or device PIN so your conversations remain protected if your phone is unlocked.',
+      'How to use manual lock',
+      'Set a 4-digit passcode under Settings → Lock app and tap Lock now to cover the app until you enter it. This build does not lock automatically when it returns from the background.',
     ),
     _PrivacyArticle(
       'About sharing your device’s location',
-      'Live Location sharing is end-to-end encrypted and automatically stops after the duration you select.',
+      'Live Location sharing is not available yet.',
     ),
     _PrivacyArticle(
       'Exercising your privacy rights on Docmac',
-      'How to request your account data report, delete your profile, or manage third-party connected integrations.',
+      'You can delete your account from Settings → Account. Account data export and third-party connected integrations are not available yet.',
     ),
     _PrivacyArticle(
       'What is traceability and why does Docmac oppose it?',
-      'Why client-side message tracing undermines end-to-end encryption and jeopardizes digital safety for journalists and everyday citizens.',
+      'Why client-side message tracing undermines private communication and jeopardizes digital safety for journalists and everyday citizens.',
     ),
     _PrivacyArticle(
       'The threat of traceability in Brazil and privacy',
@@ -177,15 +181,13 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
     return Scaffold(
       appBar: AppBar(
         title: _searching
-            ? TextField(
+            ? DocmacSearchBar(
                 controller: _searchController,
                 autofocus: true,
+                height: 42,
+                hintText: 'Search privacy topics...',
+                semanticsLabel: 'Search privacy topics',
                 onChanged: (val) => setState(() => _filter = val),
-                decoration: InputDecoration(
-                  hintText: 'Search privacy topics...',
-                  hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                  border: InputBorder.none,
-                ),
               )
             : const Text('Privacy'),
         actions: [
@@ -206,14 +208,21 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
           ),
           PopupMenuButton<String>(
             tooltip: 'Options',
+            icon: const Icon(Icons.more_vert_rounded, size: 21),
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'terms',
-                child: Text('Terms of service'),
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.document,
+                  label: 'Terms of service',
+                ),
               ),
               PopupMenuItem(
                 value: 'policy',
-                child: Text('Privacy policy'),
+                child: DocmacMenuItem(
+                  icon: DocmacIconlyLight.shieldDone,
+                  label: 'Privacy policy',
+                ),
               ),
             ],
           ),
@@ -258,7 +267,8 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
           else
             for (final article in filtered)
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 leading: Icon(
                   Icons.article_outlined,
                   color: scheme.onSurfaceVariant,
@@ -278,4 +288,3 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
     );
   }
 }
-
