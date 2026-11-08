@@ -619,8 +619,6 @@ class _TalkPageState extends ConsumerState<TalkPage> {
                   : const _TalkLoadingList(),
               error: (error, _) => _TalkErrorBody(
                 onRetry: () => ref.invalidate(talkThreadsProvider),
-                fallback: const <TalkThread>[],
-                state: this,
               ),
             ),
             const SizedBox(height: 18),
@@ -936,47 +934,63 @@ class _TalkLoadingListState extends State<_TalkLoadingList>
 }
 
 class _TalkErrorBody extends StatelessWidget {
-  const _TalkErrorBody({
-    required this.onRetry,
-    required this.fallback,
-    required this.state,
-  });
+  const _TalkErrorBody({required this.onRetry});
 
   final VoidCallback onRetry;
-  final List<TalkThread> fallback;
-  final _TalkPageState state;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: scheme.errorContainer,
-            borderRadius: BorderRadius.circular(16),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 22),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.error.withValues(alpha: .25)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.cloud_off_outlined,
+              color: scheme.onErrorContainer,
+              size: 26,
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(Icons.cloud_off_outlined, color: scheme.onErrorContainer),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Could not load talks. Check your connection and retry.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: scheme.onErrorContainer),
+          const SizedBox(height: 14),
+          Text(
+            'Could not load talks',
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Check your connection and try again. Your conversations have not '
+            'been deleted.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.4,
                 ),
-              ),
-              TextButton(onPressed: onRetry, child: const Text('Retry')),
-            ],
           ),
-        ),
-        const SizedBox(height: 14),
-        _InboxBody(threads: fallback, state: state),
-      ],
+          const SizedBox(height: 18),
+          FilledButton.tonalIcon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }

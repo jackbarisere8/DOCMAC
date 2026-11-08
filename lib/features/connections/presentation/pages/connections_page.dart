@@ -122,26 +122,31 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
           ),
           const SizedBox(width: 6),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: DocmacSearchBar(
+              fieldKey: const ValueKey('connections-search'),
+              controller: _searchController,
+              height: 46,
+              hintText: _tab == ConnectionTab.followers
+                  ? 'Search connections'
+                  : 'Search contacts or numbers',
+              semanticsLabel: _tab == ConnectionTab.followers
+                  ? 'Search connections'
+                  : 'Search contacts',
+              onChanged: (value) => setState(() => _query = value.trim()),
+            ),
+          ),
+        ),
       ),
       body: ValueListenableBuilder<ConnectionsState>(
         valueListenable: controller,
         builder: (context, connections, _) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
             children: [
-              DocmacSearchBar(
-                fieldKey: const ValueKey('connections-search'),
-                controller: _searchController,
-                height: 46,
-                hintText: _tab == ConnectionTab.followers
-                    ? 'Search connections'
-                    : 'Search contacts or numbers',
-                semanticsLabel: _tab == ConnectionTab.followers
-                    ? 'Search connections'
-                    : 'Search contacts',
-                onChanged: (value) => setState(() => _query = value.trim()),
-              ),
-              const SizedBox(height: 14),
               _CircleTabs(
                 selected: _tab,
                 followerCount: connections.followerCount,
