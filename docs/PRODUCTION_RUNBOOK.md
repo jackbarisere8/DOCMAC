@@ -15,9 +15,9 @@ console, a deployment, or a dedicated design phase.
 | Crash reporting | Wired | Crashlytics collects in profile/release builds only. |
 | Product analytics | Wired | Firebase Analytics collection is enabled in profile/release builds. |
 | CI | Green | Flutter analyze/test, Android debug APK build, Functions tests, and Firestore rules tests pass on `main`. |
-| Cloud Functions deployment | **Blocked** | Cloud Functions API disabled, Blaze plan unconfirmed, and reset secrets unset. |
-| Direct APK | CI configured, signing blocked | The release workflow exists, but the GitHub `production` environment and signing secrets are not set up. |
-| Play Store bundle | CI configured, signing blocked | The workflow can build an AAB once signing secrets exist; Play Console setup is not started. |
+| Cloud Functions deployment | **Blocked on billing** | Cloud Functions API disabled and the project is still on Spark; reset secrets are unset. |
+| Direct APK | **Shipped, v1.0.5** | The `production` environment and all four signing secrets are configured; v1.0.5 is a signed GitHub Release. |
+| Play Store bundle | CI ready, upload pending | The workflow builds a signed AAB; download it from the v1.0.5 run and upload it in Play Console. |
 | End-to-end encryption | **Not shipped** | Do not describe messages or calls as E2EE. See the gate below. |
 | Voice/video calls | Simulated UI | No audio leaves the device. |
 | Media/uploads | Not shipped | Chat sends text only; UI labels must stay honest. |
@@ -26,11 +26,17 @@ console, a deployment, or a dedicated design phase.
 ## Deploy order
 
 The project must be on the Blaze (pay-as-you-go) plan before functions can be
-deployed, and the **Cloud Functions API** must be enabled. A `firebase
-functions:list` call currently fails with `SERVICE_DISABLED` until it is. Enable
-it from <https://console.developers.google.com/apis/api/cloudfunctions.googleapis.com/overview?project=docmac-88a0d>
+deployed, and the **Cloud Functions API** must be enabled. Upgrade at
+<https://console.firebase.google.com/project/docmac-88a0d/usage/details>, then
+enable the API from
+<https://console.developers.google.com/apis/api/cloudfunctions.googleapis.com/overview?project=docmac-88a0d>
 and retry after a few minutes. The first deploy also needs Cloud Build, Cloud
 Run, Artifact Registry, and Secret Manager; the CLI prompts to enable them.
+
+Firestore rules and all four composite indexes are already deployed. The
+remaining deploy is functions only, then `firebase functions:list` should show
+`ensureDirectChat`, `deleteAccount`, `resetRequest`, `resetVerify`, and
+`resetComplete`.
 
 Run these from the repository root after reviewing the diff:
 
@@ -194,14 +200,13 @@ keyAlias=docmac-upload
 storeFile=C:\path\to\docmac-upload.jks
 ```
 
-Create the GitHub `production` environment before the first release: open the
-repository's **Settings → Environments → New environment**, name it
-`production`, and add required reviewers if releases should wait for manual
-approval. The release job reads environment secrets, not repository secrets;
-without this environment and the four signing secrets below, the workflow
-stops at “Restore signing keystore”.
+The GitHub `production` environment exists and the four signing secrets below
+are configured. v1.0.5 was built from it successfully. The release job reads
+environment secrets, not repository secrets; a replacement environment must
+provide all four. Add required reviewers if future releases should wait for
+manual approval.
 
-Add the following secrets to the GitHub `production` environment:
+The environment secrets are:
 
 | Secret | Value |
 | --- | --- |
