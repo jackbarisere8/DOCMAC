@@ -14,8 +14,10 @@ console, a deployment, or a dedicated design phase.
 | Account deletion | Shipped, server-deploy required | `deleteAccount` callable removes profile data, membership, and the Auth user. |
 | Crash reporting | Wired | Crashlytics collects in profile/release builds only. |
 | Product analytics | Wired | Firebase Analytics collection is enabled in profile/release builds. |
-| Direct APK | CI ready | `.github/workflows/release-apk.yml` builds and publishes a signed APK. |
-| Play Store bundle | CI ready | The same workflow builds and uploads an AAB artifact for Play Console. |
+| CI | Green | Flutter analyze/test, Functions tests, and Firestore rules tests pass on `main`. |
+| Cloud Functions deployment | **Blocked** | Cloud Functions API disabled, Blaze plan unconfirmed, and reset secrets unset. |
+| Direct APK | CI configured, signing blocked | The release workflow exists, but the GitHub `production` environment and signing secrets are not set up. |
+| Play Store bundle | CI configured, signing blocked | The workflow can build an AAB once signing secrets exist; Play Console setup is not started. |
 | End-to-end encryption | **Not shipped** | Do not describe messages or calls as E2EE. See the gate below. |
 | Voice/video calls | Simulated UI | No audio leaves the device. |
 | Media/uploads | Not shipped | Chat sends text only; UI labels must stay honest. |
