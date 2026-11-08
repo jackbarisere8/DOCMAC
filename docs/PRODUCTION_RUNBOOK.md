@@ -166,8 +166,17 @@ Releases.
    production).
 3. Use Play App Signing. The CI keystore is the upload key; Google holds the
    app signing key.
-4. Complete Data safety, content rating, and privacy policy declarations.
-5. The AAB is not published to GitHub Releases; only the APK is.
+4. Publish a privacy policy URL and complete Data safety, content rating, and
+   target-audience declarations. Account for Firebase Auth (email/phone),
+   Firestore messages and profiles, Crashlytics diagnostics, and Analytics
+   events. Messages are transported over TLS but are **not** end-to-end
+   encrypted; the Data safety form must not claim otherwise.
+5. Provide the public account-deletion URL required by Google Play in addition
+   to the in-app path (**Me → Settings → Account → Delete account**). The page
+   must explain what deletion removes, what is retained for other participants,
+   and how to request deletion by email.
+6. Complete the account-deletion declaration in Play Console with the same URL.
+7. The AAB is not published to GitHub Releases; only the APK is.
 
 ## End-to-end encryption gate
 
