@@ -58,6 +58,8 @@ app.*.map.json
 # source control; losing the keystore prevents future updates to a published app.
 /android/key.properties
 /android/keystore/
+*.jks
+*.keystore
 
 # Credentials and locally injected configuration. Firebase client config is
 # intentionally versioned; never add server credentials or signing material.

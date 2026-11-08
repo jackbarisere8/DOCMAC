@@ -32,6 +32,17 @@ firebase functions:secrets:set RESEND_API_KEY
 firebase deploy --only functions,firestore:rules,firestore:indexes
 ```
 
+Generate the pepper as at least 32 random bytes, for example
+`openssl rand -hex 32` or, in PowerShell, `$bytes = New-Object byte[] 32;
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes);
+-join ($bytes | ForEach-Object { $_.ToString('x2') })`.
+Store it only in the secret manager; changing it invalidates outstanding reset
+codes. `RESEND_API_KEY` comes from Resend. The default sender is
+`Docmac <no-reply@docmac.app>`; verify that domain in Resend before relying on
+email reset, or change the default in `functions/index.js` to another verified
+sender. Without a valid mail key the app reports that a code was sent but no
+email is delivered, which is why delivery must be tested before launch.
+
 `ensureDirectChat` and `deleteAccount` must be deployed before two-account chat
 or account deletion can work. Rules deny client chat creation, so an APK built
 against undeployed functions will report that it cannot start a talk.
@@ -55,9 +66,11 @@ asserts the security boundaries chat and account deletion depend on:
 - members and legacy participants can read their chat; outsiders cannot;
 - clients cannot create or delete chats, rewrite membership, or spoof senders;
 - messages are append-only and bound to the chat path;
-- public profiles are signed-in readable, owner-written, and handles immutable;
+- public profiles are exact-read only for signed-in users, owner-written, and
+  cannot be listed in bulk;
 - `users/{uid}` is owner-only;
-- username claims cannot be transferred or enumerated;
+- username claims cannot be transferred, listed in bulk, or deleted; a single
+  handle remains publicly checkable so onboarding can show availability;
 - password-reset collections are server-only.
 
 Run locally with Java 21+ and the Firebase CLI:
@@ -149,6 +162,46 @@ public release:
    `--dart-define=DOCMAC_ENV=staging` only after the app reads that flag.
 5. Keep staging and production signing keys separate; register both
    fingerprints in their respective projects.
+
+## Release signing setup
+
+The release workflow refuses to build without a keystore. Create the upload
+key once and store it outside the repository; losing it prevents future
+updates, although Google Play App Signing keeps the app signing key if the
+upload key is reset.
+
+```powershell
+keytool -genkeypair -v -keystore docmac-upload.jks -alias upload `
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Create `android/key.properties` locally for device builds (it is gitignored):
+
+```properties
+storePassword=<store password>
+keyPassword=<key password>
+keyAlias=upload
+storeFile=C:\path\to\docmac-upload.jks
+```
+
+Add the following repository secrets to the GitHub `production` environment:
+
+| Secret | Value |
+| --- | --- |
+| `KEYSTORE_BASE64` | `[Convert]::ToBase64String([IO.File]::ReadAllBytes("docmac-upload.jks"))` |
+| `KEYSTORE_PASSWORD` | The `storePassword` above. |
+| `KEY_ALIAS` | `upload` |
+| `KEY_PASSWORD` | The `keyPassword` above. |
+
+On macOS/Linux, encode the keystore with `base64 -w0 docmac-upload.jks` (or
+`base64 docmac-upload.jks | tr -d '\n'`). `WEBSITE_SYNC_TOKEN` is optional; without
+it the website picks the release up on its next scheduled sync.
+
+Register the upload key fingerprints with Firebase and Google Cloud:
+
+```bash
+keytool -list -v -keystore docmac-upload.jks -alias upload
+```
 
 ## Release channels
 
