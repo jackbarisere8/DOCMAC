@@ -156,7 +156,14 @@ exports.resetRequest = onRequest(
       }
 
       const user = await findUserByEmail(email);
-      if (!user) return res.status(200).json({ ok: true });
+      // Every well-formed address gets the same response shape. Returning
+      // `expiresInSeconds` only for registered accounts would let a caller
+      // enumerate which emails have Docmac accounts.
+      const body = {
+        ok: true,
+        expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+      };
+      if (!user) return res.status(200).json(body);
 
       const code = generateCode();
       const createdAt = Date.now();
@@ -184,11 +191,6 @@ exports.resetRequest = onRequest(
       if (!delivered) {
         logger.error('Reset code stored but not delivered.', { key });
       }
-
-      const body = {
-        ok: true,
-        expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
-      };
 
       // Local emulator only, and only when explicitly opted in. This keeps the
       // flow testable without a mail provider and can never run in production.

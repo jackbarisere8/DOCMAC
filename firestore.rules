@@ -102,7 +102,11 @@ service cloud.firestore {
     // Public identity directory. Private contact details stay in `users`;
     // this document only holds the name and handle other people may discover.
     match /publicProfiles/{userId} {
-      allow get, list: if signedIn();
+      // Exact-profile reads only. The app resolves a profile after an exact
+      // @username lookup; broad directory browsing is a later feature and must
+      // not be enabled accidentally by a permissive list rule.
+      allow get: if signedIn();
+      allow list: if false;
       allow create: if signedIn()
           && request.auth.uid == userId
           && request.resource.data.keys().hasOnly([

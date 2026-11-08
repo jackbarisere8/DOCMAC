@@ -327,6 +327,10 @@ describe('publicProfiles', () => {
     await assertFails(getDoc(doc(anonDb(), 'publicProfiles', ALICE)));
   });
 
+  it('denies broad directory listing', async () => {
+    await assertFails(getDocs(collection(dbFor(BOB), 'publicProfiles')));
+  });
+
   it('lets an owner create their public profile', async () => {
     await assertSucceeds(
       setDoc(doc(dbFor(CAROL), 'publicProfiles', CAROL), {
