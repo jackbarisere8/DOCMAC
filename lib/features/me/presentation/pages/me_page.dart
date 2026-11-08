@@ -260,10 +260,11 @@ class _MePageState extends ConsumerState<MePage> {
       // The local profile remains editable when Firebase is not configured.
     } catch (_) {
       if (mounted) {
+        setState(() => _name = name);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Could not update your name online. Changes saved locally.',
+              'Could not update your name online. The change was not applied.',
             ),
           ),
         );
@@ -2707,6 +2708,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               Text(
                 'A clear headline and location make your profile feel human.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Only your name is saved to your account in this build. '
+                'Headline, bio, location, links, and contact details are not '
+                'saved or published yet.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 18),
               _ProfileField(controller: _nameController, label: 'Name'),

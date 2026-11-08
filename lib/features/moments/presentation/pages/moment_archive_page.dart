@@ -180,8 +180,10 @@ class _MomentArchivePageState extends State<MomentArchivePage> {
         SnackBar(
           content: Text(
             count == 1
-                ? 'Moment removed from your archive.'
-                : '$count moments removed from your archive.',
+                ? 'Preview only: removed from this local archive. '
+                    'Nothing was deleted from Docmac.'
+                : 'Preview only: $count moments removed from this local '
+                    'archive. Nothing was deleted from Docmac.',
           ),
         ),
       );
@@ -807,7 +809,7 @@ class _ArchiveEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Moments move here after their 24 hours are up.',
+              'Moment archiving is not available yet in this build.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: scheme.onSurfaceVariant,

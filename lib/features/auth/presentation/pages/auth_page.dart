@@ -384,7 +384,12 @@ class _SignInScaffold extends StatelessWidget {
                   onTap: () {
                     HapticFeedback.selectionClick();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Google Sign-In ready.')),
+                      const SnackBar(
+                        content: Text(
+                          'Google Sign-In is not available yet. '
+                          'Use email or phone instead.',
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -397,7 +402,12 @@ class _SignInScaffold extends StatelessWidget {
                   onTap: () {
                     HapticFeedback.selectionClick();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Apple Sign-In ready.')),
+                      const SnackBar(
+                        content: Text(
+                          'Apple Sign-In is not available yet. '
+                          'Use email or phone instead.',
+                        ),
+                      ),
                     );
                   },
                 ),

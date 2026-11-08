@@ -124,42 +124,18 @@ class _PrivacyHelpPageState extends State<PrivacyHelpPage> {
 
   void _openContactUs() {
     HapticFeedback.selectionClick();
-    final controller = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Contact Docmac Privacy Support'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tell us how we can help with your privacy or security questions:',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Describe your issue or question...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+        title: const Text('Contact Docmac privacy support'),
+        content: const Text(
+          'In-app support messages are not available yet. Nothing you type '
+          'on this screen can be delivered in this build.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Support request submitted.')),
-              );
-            },
-            child: const Text('Submit'),
+            child: const Text('Close'),
           ),
         ],
       ),

@@ -134,9 +134,7 @@ class _MomentsPageState extends State<MomentsPage> {
     setState(() => _myMoments.insert(0, moment));
     _showToast(
       context,
-      AppFeatureFlags.localPreviews
-          ? 'Moment shared with ${draft.audience.toLowerCase()} for 24 hours.'
-          : 'Moment saved on this device. Sharing is not available yet.',
+      'Moment added for this session. Sharing is not available yet.',
     );
   }
 
@@ -189,7 +187,7 @@ class _MomentsPageState extends State<MomentsPage> {
       _peopleMoments.removeWhere((item) => item.id == moment.id);
       _savedMoments.remove(moment.id);
     });
-    _showToast(context, 'Moment deleted.');
+    _showToast(context, 'Moment removed for this session.');
   }
 
   Future<void> _handleMomentAction(_Moment moment, String action) async {
@@ -305,7 +303,7 @@ class _MomentsPageState extends State<MomentsPage> {
             title: 'Your moments',
             detail: AppFeatureFlags.localPreviews
                 ? 'Only you can see who watched'
-                : 'Stored on this device in this build',
+                : 'Visible only in this session',
             count: _myMoments.length,
           ),
           const SizedBox(height: 8),
@@ -384,8 +382,8 @@ class _SharingWithNotice extends StatelessWidget {
           Expanded(
             child: Text(
               AppFeatureFlags.localPreviews
-                  ? 'New moments will be shared with $person.'
-                  : 'New moments are saved on this device only. Sharing with $person is not available yet.',
+                  ? 'Preview only: new moments stay in this session. Sharing with $person is not available yet.'
+                  : 'New moments stay in this session only. Sharing with $person is not available yet.',
               style: TextStyle(
                 color: scheme.onSurface,
                 fontSize: 12,

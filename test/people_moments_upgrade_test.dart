@@ -101,10 +101,11 @@ void main() {
 
     expect(find.text('A quiet morning, a full heart.'), findsNothing);
     expect(find.text('8 views'), findsNothing);
-    expect(find.text('Moment deleted.'), findsOneWidget);
+    expect(find.text('Moment removed for this session.'), findsOneWidget);
   });
 
-  testWidgets('New moment sheet previews and shares a caption', (tester) async {
+  testWidgets('New moment sheet adds a caption for this session only',
+      (tester) async {
     await _pumpPage(tester, const MomentsPage());
 
     await tester.tap(find.byKey(const ValueKey('new-moment')));
@@ -122,5 +123,11 @@ void main() {
 
     expect(find.text('A fresh page'), findsOneWidget);
     expect(find.text('No views yet'), findsOneWidget);
+    expect(
+      find.text(
+        'Moment added for this session. Sharing is not available yet.',
+      ),
+      findsOneWidget,
+    );
   });
 }

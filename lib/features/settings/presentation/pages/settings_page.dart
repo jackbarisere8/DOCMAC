@@ -745,7 +745,7 @@ class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
     if (!mounted) return;
     _pinController.text = '••••';
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Passcode saved. App lock is ready.')),
+      const SnackBar(content: Text('Passcode saved. Manual lock is ready.')),
     );
   }
 
