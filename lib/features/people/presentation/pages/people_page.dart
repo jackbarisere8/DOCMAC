@@ -26,9 +26,9 @@ final List<_PeopleProfile> _receivedLinkRequests = AppFeatureFlags.localPreviews
 final ValueNotifier<List<_PeopleProfile>> _pendingLinkRequests =
     ValueNotifier(List.of(_receivedLinkRequests));
 
-/// People you have sent a Link request to. Shared by the People hub, the Add
-/// people sheet, Discover and the Link requests page so a request never has to
-/// be sent twice.
+/// Preview-only outgoing requests. Link requests are not implemented yet, so
+/// release builds never add to this set and the UI must not claim anything was
+/// sent.
 final ValueNotifier<Set<String>> _outgoingLinkRequests = ValueNotifier(
     AppFeatureFlags.localPreviews ? <String>{'tobi'} : <String>{});
 
@@ -239,9 +239,14 @@ class _PeopleRequestsPageState extends State<PeopleRequestsPage> {
                       trailing: _RequestActions(
                         onAccept: () => _resolve(
                           person,
-                          'You are now linked with ${person.name.split(' ').first}.',
+                          'Preview only: removed from this list on this device. '
+                          'Linking is not available yet.',
                         ),
-                        onIgnore: () => _resolve(person, 'Request ignored.'),
+                        onIgnore: () => _resolve(
+                          person,
+                          'Preview only: request hidden on this device. '
+                          'No one was notified.',
+                        ),
                       ),
                     ),
                 ],
@@ -305,7 +310,8 @@ class _YourPeoplePageState extends State<YourPeoplePage> {
     );
     _showNotice(
       context,
-      'You are now linked with ${person.name.split(' ').first}.',
+      'Preview only: removed from this list on this device. '
+      'Linking is not available yet.',
     );
   }
 
@@ -313,7 +319,10 @@ class _YourPeoplePageState extends State<YourPeoplePage> {
     _pendingLinkRequests.value = List.unmodifiable(
       _pendingLinkRequests.value.where((request) => request != person),
     );
-    _showNotice(context, 'Request ignored.');
+    _showNotice(
+      context,
+      'Preview only: request hidden on this device. No one was notified.',
+    );
   }
 
   @override
@@ -591,12 +600,12 @@ void _showAddPeopleSheet(BuildContext pageContext) {
   );
 }
 
-void _sendLinkRequest(_PeopleProfile person) {
-  if (_outgoingLinkRequests.value.contains(person.username)) return;
-  _outgoingLinkRequests.value = Set.unmodifiable({
-    ..._outgoingLinkRequests.value,
-    person.username,
-  });
+void _sendLinkRequest(BuildContext context, _PeopleProfile person) {
+  _showNotice(
+    context,
+    'Link requests are not available yet. Nothing was sent to '
+    '${person.name.split(' ').first}.',
+  );
 }
 
 class _LinkRequestsBanner extends StatelessWidget {
@@ -1051,7 +1060,7 @@ class _AddPersonTile extends StatelessWidget {
               else
                 FilledButton.tonalIcon(
                   key: ValueKey('add-person-${person.username}'),
-                  onPressed: () => _sendLinkRequest(person),
+                  onPressed: () => _sendLinkRequest(context, person),
                   icon: const Icon(DocmacIconlyLight.addUser, size: 15),
                   label: const Text('Add'),
                   style: FilledButton.styleFrom(
@@ -1484,10 +1493,7 @@ class _LinkButton extends StatelessWidget {
             return const _StatusPill(label: 'Requested');
           }
           return TextButton.icon(
-            onPressed: () {
-              _sendLinkRequest(person);
-              _showNotice(context, 'Link request sent to ${person.name}.');
-            },
+            onPressed: () => _sendLinkRequest(context, person),
             icon: const Icon(DocmacIconlyLight.addUser, size: 15),
             label: const Text('Link'),
           );

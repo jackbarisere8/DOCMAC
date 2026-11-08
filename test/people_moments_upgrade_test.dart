@@ -37,7 +37,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('add-person-mayac')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Requested'), findsOneWidget);
+    expect(
+      find.text(
+        'Link requests are not available yet. Nothing was sent to Maya.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Requested'), findsNothing);
   });
 
   testWidgets('Moment viewer exposes views, menu actions and caption edit',
