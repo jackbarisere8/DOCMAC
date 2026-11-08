@@ -219,10 +219,14 @@ On macOS/Linux, encode the keystore with `base64 -w0 docmac-upload.jks` (or
 `base64 docmac-upload.jks | tr -d '\n'`). `WEBSITE_SYNC_TOKEN` is optional; without
 it the website picks the release up on its next scheduled sync.
 
-Register the upload key fingerprints with Firebase and Google Cloud:
+The upload key fingerprints are registered on the Firebase Android app:
+SHA-1 `73:B9:BE:1B:28:44:F6:F5:35:13:67:94:CE:C9:E0:01:39:42:2F:87` and
+SHA-256 `40:48:E0:03:BA:37:E9:03:A3:3F:24:0A:68:4F:6F:A3:83:F3:F1:6E:EE:28:B5:2B:E9:4B:47:18:D3:13:93:C6`.
+Register any replacement upload key the same way:
 
 ```bash
 keytool -list -v -keystore docmac-upload.jks -alias docmac-upload
+firebase apps:android:sha:create <appId> <shaHash> --project docmac-88a0d
 ```
 
 ## Release channels
