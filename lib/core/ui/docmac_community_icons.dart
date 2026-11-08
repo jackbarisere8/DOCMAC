@@ -43,8 +43,7 @@ class DocmacCommunityIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor =
-        color ??
+    final iconColor = color ??
         IconTheme.of(context).color ??
         Theme.of(context).colorScheme.onSurface;
 

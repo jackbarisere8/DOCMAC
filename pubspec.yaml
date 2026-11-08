@@ -36,5 +36,11 @@ flutter:
   assets:
     - assets/images/
     # Flutter does not bundle assets in nested directories automatically.
+    - assets/icons/chat/
     - assets/icons/community/free_icon_pack/
     - assets/icons/community/smoooth/outline/
+  fonts:
+    - family: DocmacWordmark
+      fonts:
+        - asset: assets/fonts/Unbounded-ExtraBold.ttf
+          weight: 800

@@ -123,10 +123,10 @@ class _AppNavigation extends StatelessWidget {
           child: Container(
             height: 64,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              color: isDark ? scheme.surfaceContainer : scheme.surface,
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                color: scheme.outlineVariant,
                 width: 1,
               ),
               boxShadow: [
@@ -207,11 +207,9 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
 
-    final color = selected
-        ? (isDark ? Colors.white : const Color(0xFF0F172A))
-        : (isDark ? Colors.white38 : const Color(0xFF94A3B8));
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
 
     return Expanded(
       child: Semantics(
@@ -234,9 +232,7 @@ class _NavItem extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
                   decoration: BoxDecoration(
                     color: selected
-                        ? (isDark
-                            ? Colors.white.withValues(alpha: 0.12)
-                            : const Color(0xFF0F172A).withValues(alpha: 0.08))
+                        ? scheme.primary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),

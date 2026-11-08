@@ -11,15 +11,23 @@ final ThemeData lightTheme = ThemeData(
     primary: AppColors.primary,
     onPrimary: Colors.white,
     primaryContainer: AppColors.accent,
-    onPrimaryContainer: AppColors.lightTextPrimary,
+    onPrimaryContainer: AppColors.brandBase,
     secondary: AppColors.primary,
     onSecondary: Colors.white,
     secondaryContainer: AppColors.accent,
-    onSecondaryContainer: AppColors.lightTextPrimary,
+    onSecondaryContainer: AppColors.brandBase,
     tertiary: AppColors.accent,
     onTertiary: AppColors.brandBase,
     surface: AppColors.lightSurface,
     onSurface: AppColors.lightTextPrimary,
+    onSurfaceVariant: AppColors.lightTextSecondary,
+    surfaceContainerLowest: AppColors.lightBackground,
+    surfaceContainerLow: Color(0xFFF0F2F5),
+    surfaceContainer: Color(0xFFEBEDF0),
+    surfaceContainerHigh: Color(0xFFE4E7EB),
+    surfaceContainerHighest: Color(0xFFDCE0E5),
+    outline: Color(0xFF7A8794),
+    outlineVariant: AppColors.lightDivider,
     error: AppColors.danger,
     onError: Colors.white,
   ),
@@ -50,12 +58,26 @@ final ThemeData lightTheme = ThemeData(
   appBarTheme: const AppBarTheme(
     backgroundColor: AppColors.lightBackground,
     foregroundColor: AppColors.lightTextPrimary,
+    surfaceTintColor: Colors.transparent,
     elevation: 0,
     centerTitle: false,
   ),
-  popupMenuTheme: const PopupMenuThemeData(
+  popupMenuTheme: PopupMenuThemeData(
     color: AppColors.lightSurface,
     surfaceTintColor: Colors.transparent,
+    elevation: 12,
+    shadowColor: const Color(0x24000000),
+    menuPadding: const EdgeInsets.symmetric(vertical: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+    ),
+    iconColor: AppColors.lightTextSecondary,
+    iconSize: 20,
+    textStyle: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppColors.lightTextPrimary,
+    ),
   ),
   cardTheme: CardThemeData(
     color: AppColors.lightCard,
@@ -72,6 +94,26 @@ final ThemeData lightTheme = ThemeData(
       padding: const EdgeInsets.symmetric(
         vertical: 16,
         horizontal: AppSpacing.md,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      elevation: 0,
+    ),
+  ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      minimumSize: const Size(64, 44),
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: AppSpacing.md,
+      ),
+      textStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.1,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),

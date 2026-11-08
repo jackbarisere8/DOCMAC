@@ -1,16 +1,14 @@
-
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/ui/docmac_iconly.dart';
 import '../../../contacts/presentation/pages/contact_pages.dart';
-import '../../../me/presentation/profile_media_store.dart';
 import '../../data/auth_service.dart';
 import '../providers/auth_provider.dart';
 
@@ -243,7 +241,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       );
     }
 
-    return _EmailSignInScaffold(
+    return _SignInScaffold(
       loading: _loading,
       error: _error,
       emailController: _email,
@@ -264,8 +262,11 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   }
 }
 
-class _EmailSignInScaffold extends StatelessWidget {
-  const _EmailSignInScaffold({
+/// The email sign-in surface now shares the sky identity used by sign-up so
+/// the two halves of the auth flow read as one product: soft gradient header,
+/// cloud backdrop, and a crisp sheet carrying pill fields.
+class _SignInScaffold extends StatelessWidget {
+  const _SignInScaffold({
     required this.loading,
     required this.error,
     required this.emailController,
@@ -293,353 +294,166 @@ class _EmailSignInScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          tooltip: 'Back',
-          onPressed: loading ? null : onBack,
-          icon: Icon(
-            Icons.arrow_back_rounded,
-            color: scheme.onSurface,
+    return _CreateAccountScaffold(
+      eyebrow: 'Docmac account',
+      title: 'Welcome back',
+      subtitle: 'Sign in to pick up right where you left off.',
+      backTooltip: 'Back',
+      onBack: onBack,
+      loading: loading,
+      error: error,
+      primaryLabel: 'Sign In',
+      primaryButtonKey: const Key('signin-submit'),
+      onPrimary: onSubmitted,
+      form: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SkyTextField(
+            key: const Key('signin-email'),
+            controller: emailController,
+            autofocus: true,
+            leadingIcon: Icons.mail_outline_rounded,
+            hintText: 'Email address',
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
           ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () => _showAuthHelpSheet(context),
-            icon: const Icon(Icons.help_outline_rounded, size: 18),
-            label: const Text('Help'),
-            style: TextButton.styleFrom(
-              foregroundColor: scheme.onSurfaceVariant,
+          const SizedBox(height: 12),
+          _SkyTextField(
+            key: const Key('signin-password'),
+            controller: passwordController,
+            leadingIcon: Icons.lock_outline_rounded,
+            hintText: 'Password',
+            obscureText: obscurePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            suffix: _PasswordVisibilityButton(
+              visible: !obscurePassword,
+              onTap: onToggleObscure,
             ),
+            onSubmitted: (_) => onSubmitted(),
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(
-                    color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
-                      blurRadius: 28,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Top Lockup Badge
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark
-                              ? const Color(0xFF0284C7).withValues(alpha: 0.18)
-                              : const Color(0xFFE0F2FE),
-                        ),
-                        child: const Icon(
-                          Icons.lock_outline_rounded,
-                          size: 22,
-                          color: Color(0xFF0284C7),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Welcome back',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sign in with your email to continue.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Email Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
-                          width: 1.0,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                      child: TextField(
-                        key: const Key('signin-email'),
-                        controller: emailController,
-                        autofocus: true,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.email],
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          labelText: 'Email address',
-                          hintText: 'name@example.com',
-                          labelStyle: TextStyle(
-                            color: isDark ? Colors.white60 : const Color(0xFF64748B),
-                            fontSize: 13.5,
-                          ),
-                          prefixIcon: const Icon(Icons.email_outlined, size: 19),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Password Field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
-                          width: 1.0,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                      child: TextField(
-                        key: const Key('signin-password'),
-                        controller: passwordController,
-                        obscureText: obscurePassword,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => onSubmitted(),
-                        autofillHints: const [AutofillHints.password],
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          labelStyle: TextStyle(
-                            color: isDark ? Colors.white60 : const Color(0xFF64748B),
-                            fontSize: 13.5,
-                          ),
-                          prefixIcon: const Icon(Icons.lock_outline_rounded, size: 19),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 19,
-                            ),
-                            onPressed: onToggleObscure,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: onForgotPassword,
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        ),
-                        child: const Text('Forgot password?', style: TextStyle(fontSize: 13)),
-                      ),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: scheme.error, fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
-                    const SizedBox(height: 6),
-
-                    // Signature Black Pill Submit Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: FilledButton(
-                        key: const Key('signin-submit'),
-                        onPressed: loading ? null : onSubmitted,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                          foregroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: loading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    'Sign In',
-                                    style: TextStyle(
-                                      fontSize: 15.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    DocmacIconlyLight.arrowRight,
-                                    size: 16,
-                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // "or continue with" Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'or continue with',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Social Sign-in Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SocialLoginButton(
-                            icon: const _GoogleIcon(),
-                            label: 'Google',
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Google Sign-In ready.')),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SocialLoginButton(
-                            icon: const Icon(Icons.apple, size: 20),
-                            label: 'Apple',
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Apple Sign-In ready.')),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Switch to Phone Number
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: onSwitchToPhone,
-                        icon: const Icon(Icons.phone_iphone_rounded, size: 17),
-                        label: const Text('Sign in with phone number', style: TextStyle(fontSize: 13.5)),
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        ),
-                      ),
-                    ),
-
-                    // Don't have an account link
-                    Center(
-                      child: TextButton(
-                        onPressed: onGoToRegister,
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        ),
-                        child: Text.rich(
-                          TextSpan(
-                            text: "Don't have an account? ",
-                            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-                            children: const [
-                              TextSpan(
-                                text: 'Sign up',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: loading ? null : onForgotPassword,
+              style: TextButton.styleFrom(
+                foregroundColor: palette.accent,
+                minimumSize: const Size(0, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Forgot password?',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
             ),
           ),
-        ),
+        ],
+      ),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Divider(color: palette.border)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'or continue with',
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: palette.border)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SocialLoginButton(
+                  icon: const _GoogleIcon(),
+                  label: 'Google',
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Google Sign-In ready.')),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SocialLoginButton(
+                  icon: const Icon(Icons.apple, size: 20),
+                  label: 'Apple',
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Apple Sign-In ready.')),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: loading ? null : onSwitchToPhone,
+                icon: const Icon(Icons.phone_iphone_rounded, size: 16),
+                label: const Text(
+                  'Phone number',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.accent,
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              Container(
+                width: 3,
+                height: 3,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: palette.muted.withValues(alpha: 0.45),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _showAuthHelpSheet(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.muted,
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Help',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          _BottomLink(
+            prompt: 'Don\'t have an account?',
+            action: 'Sign up',
+            onTap: onGoToRegister,
+          ),
+        ],
       ),
     );
   }
@@ -702,10 +516,18 @@ class _GoogleLogoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final blue = Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill;
-    final red = Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill;
-    final yellow = Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill;
-    final green = Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill;
+    final blue = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    final red = Paint()
+      ..color = const Color(0xFFEA4335)
+      ..style = PaintingStyle.fill;
+    final yellow = Paint()
+      ..color = const Color(0xFFFBBC05)
+      ..style = PaintingStyle.fill;
+    final green = Paint()
+      ..color = const Color(0xFF34A853)
+      ..style = PaintingStyle.fill;
 
     final center = Offset(w / 2, h / 2);
     final radius = w / 2;
@@ -717,7 +539,8 @@ class _GoogleLogoPainter extends CustomPainter {
     canvas.drawArc(rect, -math.pi * 0.25, math.pi * 0.5, true, blue);
 
     canvas.drawCircle(center, radius * 0.58, Paint()..color = Colors.white);
-    canvas.drawRect(Rect.fromLTWH(w * 0.45, h * 0.38, w * 0.55, h * 0.24), blue);
+    canvas.drawRect(
+        Rect.fromLTWH(w * 0.45, h * 0.38, w * 0.55, h * 0.24), blue);
   }
 
   @override
@@ -1040,17 +863,20 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   final _usernameFocus = FocusNode();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
+  final _confirmPasswordFocus = FocusNode();
   ContactCountry _country = docmacCountries.first;
   int _step = 0;
   bool _loading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _acceptedTerms = false;
   String? _verificationId;
   int? _resendToken;
   String? _error;
-  Uint8List? _profileImageBytes;
 
   String get _fullPhoneNumber => _phoneWithCountry(_country, _phone.text);
 
@@ -1085,9 +911,11 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     _username.dispose();
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     _usernameFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
+    _confirmPasswordFocus.dispose();
     super.dispose();
   }
 
@@ -1213,8 +1041,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
     final username = _username.text.trim().replaceFirst(RegExp(r'^@'), '');
     if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(username)) {
-      setState(
-          () => _error = 'Use 3–20 letters, numbers, or underscores for your username.');
+      setState(() => _error =
+          'Use 3–20 letters, numbers, or underscores for your username.');
       return;
     }
 
@@ -1229,7 +1057,23 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       setState(() => _error = 'Password must be at least 6 characters.');
       return;
     }
+    if (password.isEmpty && _confirmPassword.text.isNotEmpty) {
+      setState(() => _error = 'Enter a password before confirming it.');
+      return;
+    }
+    if (password.isNotEmpty && _confirmPassword.text != password) {
+      setState(() => _error = 'Passwords do not match.');
+      return;
+    }
+    if (!_acceptedTerms) {
+      setState(
+        () => _error =
+            'Please accept the Terms of Service and Privacy Policy to continue.',
+      );
+      return;
+    }
 
+    FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
       _error = null;
@@ -1258,7 +1102,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       if (mounted) context.go('/orbit');
     } on UsernameUnavailableException {
       if (mounted) {
-        setState(() => _error = 'That username is already taken. Choose another.');
+        setState(
+            () => _error = 'That username is already taken. Choose another.');
       }
     } on FirebaseAuthException catch (error) {
       if (mounted) setState(() => _error = _authMessage(error));
@@ -1307,169 +1152,122 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isFirstStep = _step == 0;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
 
-    return _ProfileSetupScaffold(
-      isFirstStep: isFirstStep,
-      loading: _loading,
-      error: _error,
+    return _CreateAccountScaffold(
+      eyebrow: switch (_step) {
+        0 => 'Get started',
+        1 => 'Verification',
+        _ => 'Profile info',
+      },
       title: switch (_step) {
         0 => 'Your phone number',
         1 => 'Confirm your number',
-        _ => 'Profile info',
+        _ => 'Create Account',
       },
-      description: switch (_step) {
+      subtitle: switch (_step) {
         0 =>
           'Choose your country and enter your mobile number for OTP verification.',
         1 =>
           'Enter the six-digit code sent to ${_maskedPhone(_fullPhoneNumber)}.',
-        _ =>
-          'Please enter your full name, username, and email to complete your account.',
+        _ => 'Join Docmac and take the window seat.',
       },
-      primaryAction: switch (_step) {
+      backTooltip: _step == 0 ? 'Close signup' : 'Previous step',
+      onBack: _step == 0 ? () => context.go('/') : _back,
+      loading: _loading,
+      error: _error,
+      primaryLabel: switch (_step) {
         0 => 'Send code',
         1 => 'Verify and continue',
-        _ => 'Complete setup',
+        _ => 'Create Account',
       },
-      onClose: () => context.go('/'),
-      onBack: _back,
-      onContinue: switch (_step) {
+      onPrimary: switch (_step) {
         0 => _confirmAndSendCode,
         1 => _verifyCode,
         _ => _completeProfile,
       },
-      avatar: _step == 2
-          ? _ProfileSetupAvatar(
-              imageBytes: _profileImageBytes,
-              onPickImage: _pickProfileImage,
-            )
-          : null,
-      field: switch (_step) {
+      form: switch (_step) {
         0 => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OutlinedButton(
-                onPressed: _chooseCountry,
-                style: OutlinedButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  minimumSize: const Size.fromHeight(56),
-                  side: BorderSide(color: scheme.outlineVariant),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Text(_country.flag, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _country.name,
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      _country.code,
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.keyboard_arrow_down_rounded),
-                  ],
-                ),
+              _SkyCountryField(
+                country: _country,
+                onTap: _chooseCountry,
               ),
-              const SizedBox(height: 16),
-              TextField(
+              const SizedBox(height: 12),
+              _SkyTextField(
                 key: const Key('signup-phone'),
                 controller: _phone,
                 autofocus: true,
+                leadingIcon: Icons.phone_outlined,
+                hintText: 'Phone number',
+                prefixText: '${_country.code}  ',
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _confirmAndSendCode(),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9+()\-\s]')),
                 ],
-                decoration: InputDecoration(
-                  labelText: 'Phone number',
-                  prefixText: '${_country.code} ',
-                  hintText: '801 234 5678',
-                  filled: false,
-                  prefixIcon: const Icon(Icons.phone_outlined, size: 20),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: scheme.outlineVariant),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: scheme.primary, width: 2),
-                  ),
-                ),
+                onSubmitted: (_) => _confirmAndSendCode(),
               ),
             ],
           ),
         1 => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              _SkyTextField(
                 key: const Key('signup-otp'),
                 controller: _code,
                 autofocus: true,
+                leadingIcon: Icons.password_rounded,
+                hintText: 'Six-digit code',
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _verifyCode(),
                 autofillHints: const [AutofillHints.oneTimeCode],
                 maxLength: 6,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  letterSpacing: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '------',
-                  filled: false,
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide:
-                        BorderSide(color: scheme.outlineVariant, width: 2),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide:
-                        BorderSide(color: scheme.primary, width: 2),
-                  ),
-                ),
+                letterSpacing: 4,
+                onSubmitted: (_) => _verifyCode(),
               ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: _loading ? null : _sendCode,
-                child: const Text('Didn’t receive a code? Send again'),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _loading ? null : _sendCode,
+                  style: TextButton.styleFrom(
+                    foregroundColor: palette.accent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: const Text(
+                    'Send a new code',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
             ],
           ),
         _ => Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _ProfileSetupField(
+              _SkyTextField(
                 key: const Key('signup-full-name'),
                 controller: _name,
-                hint: 'Full name',
+                autofocus: true,
+                leadingIcon: Icons.person_outline_rounded,
+                hintText: 'Full name',
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
-                onSubmitted: () => _usernameFocus.requestFocus(),
+                onSubmitted: (_) => _usernameFocus.requestFocus(),
               ),
-              const SizedBox(height: 20),
-              _ProfileSetupField(
+              const SizedBox(height: 12),
+              _SkyTextField(
                 key: const Key('signup-username'),
                 controller: _username,
                 focusNode: _usernameFocus,
-                autofocus: false,
-                hint: 'Username',
+                leadingIcon: Icons.alternate_email_rounded,
+                hintText: 'Username',
                 prefixText: '@',
                 autocorrect: false,
                 enableSuggestions: false,
@@ -1478,71 +1276,79 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
                   const _LowerCaseTextInputFormatter(),
                 ],
-                onSubmitted: () => _emailFocus.requestFocus(),
+                onSubmitted: (_) => _emailFocus.requestFocus(),
               ),
-              const SizedBox(height: 20),
-              _ProfileSetupField(
+              const SizedBox(height: 12),
+              _SkyTextField(
                 key: const Key('signup-email'),
                 controller: _email,
                 focusNode: _emailFocus,
-                autofocus: false,
-                hint: 'Email address',
+                leadingIcon: Icons.mail_outline_rounded,
+                hintText: 'Email address',
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
-                onSubmitted: () => _passwordFocus.requestFocus(),
+                onSubmitted: (_) => _passwordFocus.requestFocus(),
               ),
-              const SizedBox(height: 20),
-              _ProfileSetupField(
+              const SizedBox(height: 12),
+              _SkyTextField(
                 key: const Key('signup-password'),
                 controller: _password,
                 focusNode: _passwordFocus,
-                autofocus: false,
-                hint: 'Password (for email sign in)',
+                leadingIcon: Icons.lock_outline_rounded,
+                hintText: 'Password',
                 obscureText: _obscurePassword,
-                textInputAction: TextInputAction.done,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 20,
-                  ),
-                  onPressed: () =>
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.next,
+                suffix: _PasswordVisibilityButton(
+                  visible: !_obscurePassword,
+                  onTap: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
                 ),
-                onSubmitted: _completeProfile,
+                onSubmitted: (_) => _confirmPasswordFocus.requestFocus(),
+              ),
+              const SizedBox(height: 12),
+              _SkyTextField(
+                key: const Key('signup-confirm-password'),
+                controller: _confirmPassword,
+                focusNode: _confirmPasswordFocus,
+                leadingIcon: Icons.lock_outline_rounded,
+                hintText: 'Confirm password',
+                obscureText: _obscureConfirmPassword,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.done,
+                suffix: _PasswordVisibilityButton(
+                  visible: !_obscureConfirmPassword,
+                  onTap: () => setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
+                ),
+                onSubmitted: (_) => _completeProfile(),
+              ),
+              const SizedBox(height: 14),
+              _TermsAgreement(
+                accepted: _acceptedTerms,
+                onChanged: (value) {
+                  setState(() {
+                    _acceptedTerms = value;
+                    if (value) _error = null;
+                  });
+                },
+                onTermsTap: () => _showLegalInfo(context, _LegalDocument.terms),
+                onPrivacyTap: () =>
+                    _showLegalInfo(context, _LegalDocument.privacy),
               ),
             ],
           ),
       },
-      footer: _step == 0
-          ? _BottomLink(
+      footer: _step == 1
+          ? null
+          : _BottomLink(
               prompt: 'Already have an account?',
-              action: 'Sign in',
+              action: 'Login',
               onTap: () => context.go('/auth'),
-            )
-          : null,
+            ),
     );
-  }
-
-  Future<void> _pickProfileImage() async {
-    try {
-      final image = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        imageQuality: 86,
-        maxWidth: 1200,
-      );
-      if (image == null) return;
-      final bytes = await image.readAsBytes();
-      if (!mounted) return;
-      setState(() => _profileImageBytes = bytes);
-      ProfileMediaStore.avatarBytes.value = bytes;
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'We could not open the camera. Try again.');
-      }
-    }
   }
 }
 
@@ -1608,186 +1414,325 @@ void _showAuthHelpSheet(BuildContext context) {
   );
 }
 
-/// The profile flow mirrors the calm, spacious mobile composition in
-/// Docmac: one piece of information at a time and a bottom action
-/// that is always easy to reach.
-class _ProfileSetupScaffold extends StatelessWidget {
-  const _ProfileSetupScaffold({
-    required this.isFirstStep,
+/// The create-account surface leans into Docmac's travel-inspired identity:
+/// a soft sky, sculpted clouds, and a crisp white sheet that carries the form.
+/// One scrollable column keeps every field reachable on small screens while
+/// the big bottom action stays easy to hit.
+class _CreateAccountScaffold extends StatelessWidget {
+  const _CreateAccountScaffold({
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.backTooltip,
+    required this.onBack,
     required this.loading,
     required this.error,
-    required this.title,
-    required this.description,
-    required this.primaryAction,
-    required this.field,
-    required this.onClose,
-    required this.onBack,
-    required this.onContinue,
-    this.avatar,
+    required this.primaryLabel,
+    required this.onPrimary,
+    required this.form,
     this.footer,
+    this.primaryButtonKey,
   });
 
-  final bool isFirstStep;
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final String backTooltip;
+  final VoidCallback onBack;
   final bool loading;
   final String? error;
-  final String title;
-  final String description;
-  final String primaryAction;
-  final Widget field;
-  final VoidCallback onClose;
-  final VoidCallback onBack;
-  final VoidCallback onContinue;
-  final Widget? avatar;
+  final String primaryLabel;
+  final VoidCallback onPrimary;
+  final Widget form;
   final Widget? footer;
+  final Key? primaryButtonKey;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
+    final media = MediaQuery.of(context);
+    final heroHeight =
+        media.padding.top + (media.size.height < 700 ? 200.0 : 224.0);
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF090D16) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          tooltip: isFirstStep ? 'Close signup' : 'Previous step',
-          onPressed: isFirstStep ? onClose : onBack,
-          icon: Icon(
-            isFirstStep ? Icons.close_rounded : Icons.arrow_back_rounded,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () => _showAuthHelpSheet(context),
-            icon: const Icon(Icons.help_outline_rounded, size: 18),
-            label: const Text('Help'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.onSurfaceVariant,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: palette.sheet,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: palette.skyBottom,
+        body: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            key: ValueKey(eyebrow),
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              children: [
+                _SkyHero(
+                  height: heroHeight,
+                  eyebrow: eyebrow,
+                  title: title,
+                  subtitle: subtitle,
+                  backTooltip: backTooltip,
+                  onBack: onBack,
+                  palette: palette,
+                  isDark: isDark,
+                ),
+                Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(
+                    minHeight: math.max(
+                      0.0,
+                      constraints.maxHeight - heroHeight,
+                    ),
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.sheet,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.45)
+                            : const Color(0xFF0B2440).withValues(alpha: 0.09),
+                        blurRadius: 34,
+                        offset: const Offset(0, -10),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    minimum: const EdgeInsets.only(bottom: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Center(
+                                child: Container(
+                                  width: 38,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: palette.handle,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              form,
+                              if (error != null) ...[
+                                const SizedBox(height: 12),
+                                _SkyErrorBanner(message: error!),
+                              ],
+                              const SizedBox(height: 16),
+                              _SkyPrimaryButton(
+                                label: primaryLabel,
+                                loading: loading,
+                                palette: palette,
+                                buttonKey: primaryButtonKey,
+                                onPressed: onPrimary,
+                              ),
+                              if (footer != null) ...[
+                                const SizedBox(height: 18),
+                                footer!,
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkyHero extends StatelessWidget {
+  const _SkyHero({
+    required this.height,
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.backTooltip,
+    required this.onBack,
+    required this.palette,
+    required this.isDark,
+  });
+
+  final double height;
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final String backTooltip;
+  final VoidCallback onBack;
+  final _SkyPalette palette;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  palette.skyTop,
+                  palette.skyMid,
+                  palette.skyBottom,
+                ],
+                stops: const [0, 0.62, 1],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _SkyCloudsPainter(
+                palette: palette,
+                isDark: isDark,
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SizedBox.expand(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(26, 6, 26, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _SkyBackButton(
+                            tooltip: backTooltip,
+                            onTap: onBack,
+                            palette: palette,
+                            isDark: isDark,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          eyebrow,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.muted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: palette.ink,
+                                fontSize: 30,
+                                height: 1.05,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.9,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.muted,
+                            fontSize: 13,
+                            height: 1.38,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(26, 28, 26, 28),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
-                      blurRadius: 28,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      description,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
-                        color: isDark ? Colors.white70 : const Color(0xFF64748B),
-                        height: 1.45,
-                      ),
-                    ),
-                    if (avatar != null) ...[
-                      const SizedBox(height: 20),
-                      Center(child: avatar!),
-                      const SizedBox(height: 20),
-                    ] else
-                      const SizedBox(height: 28),
-                    field,
-                    if (error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        error!,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: FilledButton(
-                        onPressed: loading ? null : onContinue,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                          foregroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                          disabledBackgroundColor: isDark
-                              ? Colors.white38
-                              : const Color(0xFF0F172A).withValues(alpha: 0.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: loading
-                            ? SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    primaryAction,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    DocmacIconlyLight.arrowRight,
-                                    size: 16,
-                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                    if (footer != null) ...[
-                      const SizedBox(height: 8),
-                      footer!,
-                    ],
-                  ],
-                ),
+    );
+  }
+}
+
+class _SkyBackButton extends StatelessWidget {
+  const _SkyBackButton({
+    required this.tooltip,
+    required this.onTap,
+    required this.palette,
+    required this.isDark,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+  final _SkyPalette palette;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: isDark ? Colors.white.withValues(alpha: 0.10) : Colors.white,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(
+                Icons.arrow_back_rounded,
+                color: palette.ink,
+                size: 20,
               ),
             ),
           ),
@@ -1797,12 +1742,272 @@ class _ProfileSetupScaffold extends StatelessWidget {
   }
 }
 
-class _ProfileSetupField extends StatelessWidget {
-  const _ProfileSetupField({
+class _SkyCloudsPainter extends CustomPainter {
+  const _SkyCloudsPainter({
+    required this.palette,
+    required this.isDark,
+  });
+
+  final _SkyPalette palette;
+  final bool isDark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width.clamp(320.0, 520.0);
+    _cloud(
+      canvas,
+      Offset(size.width * 0.43, size.height * 0.20),
+      scale * 0.023,
+      opacity: 0.65,
+    );
+    _cloud(
+      canvas,
+      Offset(size.width * 0.12, size.height * 0.18),
+      scale * 0.052,
+      opacity: 0.92,
+    );
+    _cloud(
+      canvas,
+      Offset(size.width * 0.94, size.height * 0.10),
+      scale * 0.038,
+      opacity: 0.78,
+    );
+    _cloud(
+      canvas,
+      Offset(size.width * 0.57, size.height * 0.49),
+      scale * 0.070,
+      opacity: 0.42,
+    );
+    _cloud(
+      canvas,
+      Offset(size.width * 0.72, size.height * 0.37),
+      scale * 0.137,
+    );
+  }
+
+  void _cloud(
+    Canvas canvas,
+    Offset center,
+    double radius, {
+    double opacity = 1,
+  }) {
+    if (radius <= 0) return;
+    final path = Path()
+      ..addOval(
+        Rect.fromCenter(
+          center: center.translate(0, radius * 0.55),
+          width: radius * 4.7,
+          height: radius * 1.15,
+        ),
+      );
+    const puffs = <(double, double, double)>[
+      (-1.62, 0.38, 0.57),
+      (-0.96, 0.02, 0.78),
+      (-0.17, -0.38, 1.00),
+      (0.64, -0.30, 0.90),
+      (1.38, 0.09, 0.70),
+      (1.82, 0.42, 0.49),
+    ];
+    for (final puff in puffs) {
+      path.addOval(
+        Rect.fromCircle(
+          center: center.translate(puff.$1 * radius, puff.$2 * radius),
+          radius: puff.$3 * radius,
+        ),
+      );
+    }
+
+    final bounds = path.getBounds();
+    final shadowAlpha = (isDark ? 0.28 : 0.22) * opacity;
+    canvas.drawPath(
+      path.shift(Offset(0, radius * 0.38)),
+      Paint()
+        ..color = palette.cloudShadow.withValues(alpha: shadowAlpha)
+        ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, radius * 0.44),
+    );
+
+    canvas.save();
+    canvas.clipPath(path);
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          bounds.topCenter,
+          bounds.bottomCenter,
+          [
+            palette.cloudLight.withValues(alpha: opacity),
+            palette.cloudShade.withValues(alpha: opacity),
+          ],
+        ),
+    );
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(
+            bounds.left + bounds.width * 0.36,
+            bounds.top + bounds.height * 0.20,
+          ),
+          bounds.width * 0.56,
+          [
+            Colors.white.withValues(alpha: (isDark ? 0.10 : 0.62) * opacity),
+            Colors.white.withValues(alpha: 0),
+          ],
+        ),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SkyCloudsPainter oldDelegate) =>
+      oldDelegate.isDark != isDark || oldDelegate.palette != palette;
+}
+
+class _SkyPalette {
+  const _SkyPalette({
+    required this.skyTop,
+    required this.skyMid,
+    required this.skyBottom,
+    required this.sheet,
+    required this.field,
+    required this.fieldFocused,
+    required this.ink,
+    required this.muted,
+    required this.icon,
+    required this.border,
+    required this.accent,
+    required this.handle,
+    required this.cloudLight,
+    required this.cloudShade,
+    required this.cloudShadow,
+  });
+
+  final Color skyTop;
+  final Color skyMid;
+  final Color skyBottom;
+  final Color sheet;
+  final Color field;
+  final Color fieldFocused;
+  final Color ink;
+  final Color muted;
+  final Color icon;
+  final Color border;
+  final Color accent;
+  final Color handle;
+  final Color cloudLight;
+  final Color cloudShade;
+  final Color cloudShadow;
+
+  static _SkyPalette of(bool isDark) => isDark ? _dark : _light;
+
+  static const _light = _SkyPalette(
+    skyTop: Color(0xFFA6DFF7),
+    skyMid: Color(0xFFD8F0FC),
+    skyBottom: Color(0xFFF4FBFF),
+    sheet: Colors.white,
+    field: Color(0xFFF4F6F9),
+    fieldFocused: Colors.white,
+    ink: Color(0xFF0B1736),
+    muted: Color(0xFF64748B),
+    icon: Color(0xFF7F8B9E),
+    border: Color(0xFFE1E7F0),
+    accent: Color(0xFF1E2A78),
+    handle: Color(0xFFE2E8F0),
+    cloudLight: Colors.white,
+    cloudShade: Color(0xFFD9EDF9),
+    cloudShadow: Color(0xFF4FA7CB),
+  );
+
+  static const _dark = _SkyPalette(
+    skyTop: Color(0xFF17415F),
+    skyMid: Color(0xFF0D2438),
+    skyBottom: Color(0xFF081524),
+    sheet: Color(0xFF0A1321),
+    field: Color(0xFF151F2E),
+    fieldFocused: Color(0xFF111B29),
+    ink: Color(0xFFF8FAFC),
+    muted: Color(0xFF96A5B9),
+    icon: Color(0xFF8494A9),
+    border: Color(0xFF26354A),
+    accent: Color(0xFF4265E8),
+    handle: Color(0xFF26354A),
+    cloudLight: Color(0xFFC3DAE8),
+    cloudShade: Color(0xFF5E8098),
+    cloudShadow: Colors.black,
+  );
+}
+
+class _SkyCountryField extends StatelessWidget {
+  const _SkyCountryField({
+    required this.country,
+    required this.onTap,
+  });
+
+  final ContactCountry country;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _SkyPalette.of(
+      Theme.of(context).brightness == Brightness.dark,
+    );
+    return Material(
+      color: palette.field,
+      borderRadius: BorderRadius.circular(27),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: SizedBox(
+            height: 54,
+            child: Row(
+              children: [
+                Text(country.flag, style: const TextStyle(fontSize: 21)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    country.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  country.code,
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: palette.icon,
+                  size: 21,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkyTextField extends StatefulWidget {
+  const _SkyTextField({
     super.key,
     required this.controller,
-    required this.hint,
-    this.onSubmitted,
+    required this.hintText,
+    this.focusNode,
+    this.autofocus = false,
+    this.leadingIcon,
     this.prefixText,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
@@ -1812,14 +2017,17 @@ class _ProfileSetupField extends StatelessWidget {
     this.enableSuggestions = true,
     this.autofillHints,
     this.obscureText = false,
-    this.suffixIcon,
-    this.focusNode,
-    this.autofocus = true,
+    this.suffix,
+    this.onSubmitted,
+    this.maxLength,
+    this.letterSpacing = 0,
   });
 
   final TextEditingController controller;
-  final String hint;
-  final VoidCallback? onSubmitted;
+  final String hintText;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final IconData? leadingIcon;
   final String? prefixText;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
@@ -1829,109 +2037,131 @@ class _ProfileSetupField extends StatelessWidget {
   final bool enableSuggestions;
   final Iterable<String>? autofillHints;
   final bool obscureText;
-  final Widget? suffixIcon;
-  final FocusNode? focusNode;
-  final bool autofocus;
+  final Widget? suffix;
+  final ValueChanged<String>? onSubmitted;
+  final int? maxLength;
+  final double letterSpacing;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
-          width: 1.0,
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        autofocus: autofocus,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
-        textInputAction: textInputAction,
-        inputFormatters: inputFormatters,
-        autocorrect: autocorrect,
-        enableSuggestions: enableSuggestions,
-        autofillHints: autofillHints,
-        onSubmitted: (_) => onSubmitted?.call(),
-        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
-            fontSize: 15,
-          ),
-          prefixText: prefixText,
-          prefixStyle: TextStyle(
-            fontSize: 15.5,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white70 : const Color(0xFF0F172A),
-          ),
-          suffixIcon: suffixIcon,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
-  }
+  State<_SkyTextField> createState() => _SkyTextFieldState();
 }
 
+class _SkyTextFieldState extends State<_SkyTextField> {
+  late final bool _ownsFocusNode = widget.focusNode == null;
+  late final FocusNode _focusNode = widget.focusNode ?? FocusNode();
+  bool _focused = false;
 
-class _ProfileSetupAvatar extends StatelessWidget {
-  const _ProfileSetupAvatar({
-    required this.imageBytes,
-    required this.onPickImage,
-  });
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+    _focused = _focusNode.hasFocus;
+  }
 
-  final Uint8List? imageBytes;
-  final VoidCallback onPickImage;
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    if (_ownsFocusNode) _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (!mounted || _focused == _focusNode.hasFocus) return;
+    setState(() => _focused = _focusNode.hasFocus);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return SizedBox(
-      width: 128,
-      height: 128,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0F4F1),
-                shape: BoxShape.circle,
-              ),
-              child: ClipOval(
-                child: imageBytes == null
-                    ? const Icon(Icons.person_outline_rounded,
-                        color: Color(0xFF7F8D84), size: 54)
-                    : Image.memory(imageBytes!, fit: BoxFit.cover),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -3,
-            bottom: 1,
-            child: Material(
-              color: accent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: onPickImage,
-                customBorder: const CircleBorder(),
-                child: const Padding(
-                  padding: EdgeInsets.all(11),
-                  child: Icon(Icons.camera_alt_outlined,
-                      color: Colors.white, size: 23),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      height: 54,
+      decoration: BoxDecoration(
+        color: _focused ? palette.fieldFocused : palette.field,
+        borderRadius: BorderRadius.circular(27),
+        border: Border.all(
+          color: _focused ? palette.ink : Colors.transparent,
+          width: 1.25,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
+              ]
+            : null,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          if (widget.leadingIcon != null) ...[
+            Icon(
+              widget.leadingIcon,
+              size: 20,
+              color: _focused ? palette.ink : palette.icon,
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              autofocus: widget.autofocus,
+              obscureText: widget.obscureText,
+              keyboardType: widget.keyboardType,
+              textCapitalization: widget.textCapitalization,
+              textInputAction: widget.textInputAction,
+              inputFormatters: widget.inputFormatters,
+              autocorrect: widget.autocorrect,
+              enableSuggestions: widget.enableSuggestions,
+              autofillHints: widget.autofillHints,
+              maxLength: widget.maxLength,
+              onSubmitted: widget.onSubmitted,
+              cursorColor: palette.ink,
+              textAlignVertical: TextAlignVertical.center,
+              maxLines: 1,
+              style: TextStyle(
+                color: palette.ink,
+                fontSize: 15,
+                height: 1.2,
+                fontWeight: FontWeight.w500,
+                letterSpacing: widget.letterSpacing,
+              ),
+              decoration: InputDecoration(
+                // The global input decoration theme fills every field with
+                // AppColors.lightCard. Left on, that painted a white rectangle
+                // with a visible seam inside the grey pill. The pill owns the
+                // background, so the inner field must stay transparent.
+                filled: false,
+                hintText: widget.hintText,
+                hintStyle: TextStyle(
+                  color: palette.muted.withValues(alpha: 0.78),
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                ),
+                prefixText: widget.prefixText,
+                prefixStyle: TextStyle(
+                  color: palette.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+                suffixIcon: widget.suffix,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
@@ -1941,6 +2171,268 @@ class _ProfileSetupAvatar extends StatelessWidget {
   }
 }
 
+class _PasswordVisibilityButton extends StatelessWidget {
+  const _PasswordVisibilityButton({
+    required this.visible,
+    required this.onTap,
+  });
+
+  final bool visible;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _SkyPalette.of(
+      Theme.of(context).brightness == Brightness.dark,
+    );
+    return IconButton(
+      tooltip: visible ? 'Hide password' : 'Show password',
+      onPressed: onTap,
+      icon: Icon(
+        visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+        color: palette.icon,
+        size: 20,
+      ),
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+    );
+  }
+}
+
+class _TermsAgreement extends StatefulWidget {
+  const _TermsAgreement({
+    required this.accepted,
+    required this.onChanged,
+    required this.onTermsTap,
+    required this.onPrivacyTap,
+  });
+
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onTermsTap;
+  final VoidCallback onPrivacyTap;
+
+  @override
+  State<_TermsAgreement> createState() => _TermsAgreementState();
+}
+
+class _TermsAgreementState extends State<_TermsAgreement> {
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()..onTap = widget.onTermsTap;
+    _privacyRecognizer = TapGestureRecognizer()..onTap = widget.onPrivacyTap;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TermsAgreement oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _termsRecognizer.onTap = widget.onTermsTap;
+    _privacyRecognizer.onTap = widget.onPrivacyTap;
+  }
+
+  @override
+  void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Semantics(
+            checked: widget.accepted,
+            label: 'I agree to the Terms of Service and Privacy Policy',
+            child: GestureDetector(
+              key: const Key('signup-terms'),
+              onTap: () => widget.onChanged(!widget.accepted),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: widget.accepted ? palette.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: widget.accepted ? palette.accent : palette.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: widget.accepted
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 11.5,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'I agree to the '),
+                TextSpan(
+                  text: 'Terms of Service',
+                  recognizer: _termsRecognizer,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                    decorationColor: palette.ink,
+                  ),
+                ),
+                const TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  recognizer: _privacyRecognizer,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                    decorationColor: palette.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkyErrorBanner extends StatelessWidget {
+  const _SkyErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.error.withValues(alpha: isDark ? 0.16 : 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.20),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkyPrimaryButton extends StatelessWidget {
+  const _SkyPrimaryButton({
+    required this.label,
+    required this.loading,
+    required this.palette,
+    required this.onPressed,
+    this.buttonKey,
+  });
+
+  final String label;
+  final bool loading;
+  final _SkyPalette palette;
+  final VoidCallback onPressed;
+  final Key? buttonKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(27),
+        boxShadow: [
+          BoxShadow(
+            color: palette.accent.withValues(alpha: 0.16),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: FilledButton(
+          key: buttonKey ?? const Key('signup-submit'),
+          onPressed: loading ? null : onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: palette.accent,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: palette.accent.withValues(alpha: 0.55),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(27),
+            ),
+            elevation: 0,
+          ),
+          child: loading
+              ? const SizedBox(
+                  width: 21,
+                  height: 21,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      ),
+                ),
+        ),
+      ),
+    );
+  }
+}
 
 class _LowerCaseTextInputFormatter extends TextInputFormatter {
   const _LowerCaseTextInputFormatter();
@@ -1953,27 +2445,159 @@ class _LowerCaseTextInputFormatter extends TextInputFormatter {
       newValue.copyWith(text: newValue.text.toLowerCase());
 }
 
-
 class _BottomLink extends StatelessWidget {
-  const _BottomLink(
-      {required this.prompt, required this.action, required this.onTap});
+  const _BottomLink({
+    required this.prompt,
+    required this.action,
+    required this.onTap,
+  });
+
   final String prompt;
   final String action;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: TextButton(
-          onPressed: onTap,
-          child: Text.rich(TextSpan(text: '$prompt ', children: [
-            TextSpan(
-                text: action,
-                style: const TextStyle(fontWeight: FontWeight.w800))
-          ])),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = _SkyPalette.of(isDark);
+    return Center(
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: palette.muted,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          minimumSize: const Size(0, 36),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-      );
+        child: Text.rich(
+          TextSpan(
+            text: '$prompt ',
+            style: TextStyle(
+              fontSize: 13,
+              color: palette.muted,
+              fontWeight: FontWeight.w400,
+            ),
+            children: [
+              TextSpan(
+                text: action,
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
+enum _LegalDocument { terms, privacy }
+
+void _showLegalInfo(BuildContext context, _LegalDocument document) {
+  HapticFeedback.selectionClick();
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final palette = _SkyPalette.of(isDark);
+  final title =
+      document == _LegalDocument.terms ? 'Terms of Service' : 'Privacy Policy';
+  final body = document == _LegalDocument.terms
+      ? 'By creating a Docmac account, you agree to use the service honestly, '
+          'respect the people you connect with, and keep your account '
+          'credentials secure. You are responsible for activity that happens '
+          'on your account.'
+      : 'Docmac uses your name, username, and email to create and secure your '
+          'account. We do not sell your personal data. You stay in control of '
+          'what you share, and you can adjust your visibility from Privacy '
+          'settings at any time.';
+
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: palette.sheet,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          12,
+          24,
+          22 + MediaQuery.viewPaddingOf(sheetContext).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: palette.handle,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(sheetContext),
+                  icon: Icon(Icons.close_rounded, color: palette.icon),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              body,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 13.5,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              height: 50,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                style: FilledButton.styleFrom(
+                  backgroundColor: palette.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+                child: const Text(
+                  'Got it',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 String _phoneWithCountry(ContactCountry country, String phone) {
   final compact = phone.replaceAll(RegExp(r'[\s()\-]'), '');

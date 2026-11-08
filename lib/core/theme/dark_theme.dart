@@ -6,20 +6,28 @@ import 'app_colors.dart';
 final ThemeData darkTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
-  scaffoldBackgroundColor: AppColors.darkSurface,
+  scaffoldBackgroundColor: AppColors.darkBackground,
   colorScheme: const ColorScheme.dark(
-    primary: AppColors.primary,
-    onPrimary: Colors.white,
-    primaryContainer: Color(0xFF123C7A),
+    primary: AppColors.darkPrimary,
+    onPrimary: AppColors.darkOnPrimary,
+    primaryContainer: Color(0xFF0C2E63),
     onPrimaryContainer: AppColors.accent,
-    secondary: AppColors.primary,
-    onSecondary: Colors.white,
-    secondaryContainer: Color(0xFF123C7A),
+    secondary: AppColors.darkPrimary,
+    onSecondary: AppColors.darkOnPrimary,
+    secondaryContainer: Color(0xFF0C2E63),
     onSecondaryContainer: AppColors.accent,
     tertiary: AppColors.accent,
     onTertiary: AppColors.brandBase,
     surface: AppColors.darkSurface,
     onSurface: AppColors.darkTextPrimary,
+    onSurfaceVariant: AppColors.darkTextSecondary,
+    surfaceContainerLowest: AppColors.darkBackground,
+    surfaceContainerLow: Color(0xFF0A0A0A),
+    surfaceContainer: Color(0xFF121212),
+    surfaceContainerHigh: Color(0xFF1A1A1A),
+    surfaceContainerHighest: Color(0xFF242424),
+    outline: Color(0xFF6B6B6B),
+    outlineVariant: AppColors.darkDivider,
     error: AppColors.danger,
     onError: Colors.white,
   ),
@@ -48,14 +56,28 @@ final ThemeData darkTheme = ThemeData(
     ),
   )),
   appBarTheme: const AppBarTheme(
-    backgroundColor: AppColors.darkSurface,
+    backgroundColor: AppColors.darkBackground,
     foregroundColor: AppColors.darkTextPrimary,
+    surfaceTintColor: Colors.transparent,
     elevation: 0,
     centerTitle: false,
   ),
-  popupMenuTheme: const PopupMenuThemeData(
-    color: AppColors.darkSurface,
+  popupMenuTheme: PopupMenuThemeData(
+    color: AppColors.darkCard,
     surfaceTintColor: Colors.transparent,
+    elevation: 12,
+    shadowColor: const Color(0x66000000),
+    menuPadding: const EdgeInsets.symmetric(vertical: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+    ),
+    iconColor: AppColors.darkTextSecondary,
+    iconSize: 20,
+    textStyle: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppColors.darkTextPrimary,
+    ),
   ),
   cardTheme: CardThemeData(
     color: AppColors.darkCard,
@@ -67,8 +89,8 @@ final ThemeData darkTheme = ThemeData(
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
+      backgroundColor: AppColors.darkPrimary,
+      foregroundColor: AppColors.darkOnPrimary,
       padding: const EdgeInsets.symmetric(
         vertical: 16,
         horizontal: AppSpacing.md,
@@ -79,14 +101,34 @@ final ThemeData darkTheme = ThemeData(
       elevation: 0,
     ),
   ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      backgroundColor: AppColors.darkPrimary,
+      foregroundColor: AppColors.darkOnPrimary,
+      minimumSize: const Size(64, 44),
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: AppSpacing.md,
+      ),
+      textStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.1,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      elevation: 0,
+    ),
+  ),
   textButtonTheme: TextButtonThemeData(
     style: TextButton.styleFrom(
-      foregroundColor: AppColors.primary,
+      foregroundColor: AppColors.darkPrimary,
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
-    fillColor: AppColors.darkSurface,
+    fillColor: AppColors.darkCard,
     contentPadding: const EdgeInsets.symmetric(
       vertical: 14,
       horizontal: AppSpacing.sm,
@@ -104,7 +146,7 @@ final ThemeData darkTheme = ThemeData(
     labelTextStyle: WidgetStateProperty.resolveWith(
       (states) => TextStyle(
         color: states.contains(WidgetState.selected)
-            ? AppColors.primary
+            ? AppColors.darkPrimary
             : AppColors.darkTextSecondary,
         fontSize: 10,
         fontWeight: FontWeight.w600,
@@ -113,7 +155,7 @@ final ThemeData darkTheme = ThemeData(
     iconTheme: WidgetStateProperty.resolveWith(
       (states) => IconThemeData(
         color: states.contains(WidgetState.selected)
-            ? AppColors.primary
+            ? AppColors.darkPrimary
             : AppColors.darkTextSecondary,
         size: 21,
       ),
@@ -122,12 +164,12 @@ final ThemeData darkTheme = ThemeData(
   switchTheme: SwitchThemeData(
     thumbColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.selected)
-          ? AppColors.primary
+          ? AppColors.darkPrimary
           : AppColors.darkDivider,
     ),
     trackColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.selected)
-          ? AppColors.primary.withValues(alpha: 0.4)
+          ? AppColors.darkPrimary.withValues(alpha: 0.4)
           : AppColors.darkDivider.withValues(alpha: 0.6),
     ),
   ),
