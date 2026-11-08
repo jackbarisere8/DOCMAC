@@ -29,7 +29,9 @@ A starter Flutter project scaffold organized for:
 See [docs/PRODUCTION_RUNBOOK.md](docs/PRODUCTION_RUNBOOK.md) for the deployment
 order, Firebase Console setup (API-key restrictions, SHA fingerprints, App
 Check, Crashlytics), release channels, rollback, and the end-to-end encryption
-gate.
+gate. The draft E2EE protocol and migration plan is
+[docs/E2EE_DESIGN.md](docs/E2EE_DESIGN.md); it is a proposal awaiting review,
+not a shipped feature.
 
 Real 1:1 chat, inboxes, and account deletion require the server code in
 `functions/` plus `firestore.rules` and `firestore.indexes.json` to be

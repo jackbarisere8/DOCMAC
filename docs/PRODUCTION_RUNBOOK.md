@@ -173,6 +173,9 @@ Releases.
 
 E2EE is a product requirement but not an implemented feature. Do not enable
 copy that says messages, calls, media, or backups are encrypted end-to-end.
+The draft protocol, data-model, migration, and review plan is in
+[docs/E2EE_DESIGN.md](E2EE_DESIGN.md). It is a proposal awaiting review, not a
+shipped design.
 
 Before E2EE can ship, complete a design review covering:
 
