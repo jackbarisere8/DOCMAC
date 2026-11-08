@@ -44,9 +44,9 @@ class LogoutOptionsPage extends ConsumerWidget {
               _Option(
                 icon: DocmacIconlyLight.addUser,
                 title: 'Add another account',
-                subtitle: 'Keep more than one Docmac identity ready to switch.',
-                onTap: () => _notice(
-                    context, 'Multiple account switching is coming to Docmac.'),
+                subtitle: 'Multiple account switching is not available yet.',
+                onTap: () => _notice(context,
+                    'Multiple account switching is not available yet. Nothing was added.'),
               ),
               _Option(
                 icon: DocmacIconlyLight.lock,
@@ -57,22 +57,22 @@ class LogoutOptionsPage extends ConsumerWidget {
               _Option(
                 icon: DocmacIconlyLight.delete,
                 title: 'Clear cache',
-                subtitle: 'Free device space. Your cloud content stays safe.',
-                onTap: () => _notice(
-                    context, 'Cache controls are preparing a safe cleanup.'),
+                subtitle: 'Cache controls are not available yet.',
+                onTap: () => _notice(context,
+                    'Cache controls are not available yet. Nothing was cleared.'),
               ),
               _Option(
                 icon: DocmacIconlyLight.swap,
                 title: 'Change phone number',
-                subtitle: 'Move your Docmac identity to a new number.',
-                onTap: () => context.push('/settings/account'),
+                subtitle: 'Changing your sign-in number is not available yet.',
+                onTap: () => context.push('/settings/change-number'),
               ),
               _Option(
                 icon: DocmacIconlyLight.infoCircle,
                 title: 'Contact support',
-                subtitle: 'Tell us what is not working before you leave.',
+                subtitle: 'Support messages are not accepted in this build.',
                 onTap: () => _notice(context,
-                    'Support will be available from Help and feedback.'),
+                    'Support is not available yet. No message was sent.'),
               ),
             ]),
           ),

@@ -145,7 +145,7 @@ class _NewCirclePageState extends State<NewCirclePage> {
                   Center(
                     child: TextButton.icon(
                       onPressed: () =>
-                          _notice('Photo selection will be available soon.'),
+                          _notice('Photo selection is not available yet.'),
                       icon: const Icon(DocmacIconlyLight.camera, size: 18),
                       label: const Text('Change Space photo'),
                     ),
