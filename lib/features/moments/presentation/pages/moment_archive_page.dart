@@ -218,7 +218,11 @@ class _MomentArchivePageState extends State<MomentArchivePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Moments move here after their 24 hours expire. Only you can see them unless you choose to share one. You can sort the archive, select moments, or remove them at any time.',
+                AppFeatureFlags.localPreviews
+                    ? 'This archive is a local preview. The moments shown here '
+                        'are sample data, not real archived moments. Nothing '
+                        'here is synced or shared.'
+                    : 'Moment archiving is not available yet in this build.',
                 style: Theme.of(sheetContext)
                     .textTheme
                     .bodyMedium
@@ -388,8 +392,9 @@ class _MomentArchivePageState extends State<MomentArchivePage> {
                     onTap: _showArchiveInfo,
                     child: Text.rich(
                       TextSpan(
-                        text:
-                            'Only you can see archived moments unless you share them. ',
+                        text: AppFeatureFlags.localPreviews
+                            ? 'Preview archive. These sample moments stay on this screen. '
+                            : 'Moment archiving is not available yet. ',
                         children: [
                           TextSpan(
                             text: 'Learn more',

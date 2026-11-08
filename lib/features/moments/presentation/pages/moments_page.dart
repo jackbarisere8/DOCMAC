@@ -124,7 +124,7 @@ class _MomentsPageState extends State<MomentsPage> {
       caption: draft.caption,
       icon: draft.kind.icon,
       tint: draft.kind.tint,
-      expires: '24h left',
+      expires: AppFeatureFlags.localPreviews ? '24h left' : 'This session',
       views: 0,
       viewers: const [],
       isMine: true,
@@ -200,7 +200,7 @@ class _MomentsPageState extends State<MomentsPage> {
         if (!mounted || caption == null) return;
         _updateMoment(
             moment.id, (current) => current.copyWith(caption: caption));
-        _showToast(context, 'Caption updated.');
+        _showToast(context, 'Caption updated for this session.');
         return;
       case 'delete':
         final confirmed = await _confirmMomentDelete(context, moment);
@@ -214,7 +214,7 @@ class _MomentsPageState extends State<MomentsPage> {
           context,
           saving
               ? 'Saved for this session. Downloading a moment is not available yet.'
-              : 'Removed from saved.',
+              : 'Removed from saved for this session.',
         );
         return;
       case 'share':
@@ -302,7 +302,7 @@ class _MomentsPageState extends State<MomentsPage> {
           _MomentSectionHeader(
             title: 'Your moments',
             detail: AppFeatureFlags.localPreviews
-                ? 'Only you can see who watched'
+                ? 'Sample views on this device'
                 : 'Visible only in this session',
             count: _myMoments.length,
           ),
@@ -331,7 +331,7 @@ class _MomentsPageState extends State<MomentsPage> {
           _MomentSectionHeader(
             title: 'Your people',
             detail: AppFeatureFlags.localPreviews
-                ? 'Moments disappear after 24 hours'
+                ? 'Sample moments in this preview'
                 : 'Not available in this build',
             count: _peopleMoments.length,
           ),
@@ -742,8 +742,8 @@ class _MomentPrivacyNote extends StatelessWidget {
         Expanded(
           child: Text(
             AppFeatureFlags.localPreviews
-                ? 'Your moments are private to the audience you choose. They expire after 24 hours.'
-                : 'Moments are saved on this device in this build. They are not shared with other people.',
+                ? 'Preview only: moments stay in this session. Nothing is sent to other people and no views are tracked.'
+                : 'Moments stay in this session in this build. They are not shared with other people.',
             style: TextStyle(
               color: scheme.onSurfaceVariant,
               fontSize: 11,
@@ -835,7 +835,7 @@ class _MomentExpiryNote extends StatelessWidget {
         Flexible(
           child: Text(
             AppFeatureFlags.localPreviews
-                ? 'Your moments are visible only to the audience you choose and disappear after 24 hours.'
+                ? 'Preview only: moments stay in this session. Nothing is sent to other people.'
                 : 'Saving, sharing, and view tracking are not available in this build.',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -898,8 +898,8 @@ class _StartMomentCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       AppFeatureFlags.localPreviews
-                          ? 'Share a thought, a photo, or a small win.'
-                          : 'Write or capture a moment on this device.',
+                          ? 'Add a thought, a photo, or a small win.'
+                          : 'Write or capture a moment in this session.',
                       style: TextStyle(
                         color: scheme.onSurfaceVariant,
                         fontSize: 11,
@@ -952,7 +952,7 @@ class _MomentViewerState extends State<_MomentViewer> {
         if (!mounted || caption == null) return;
         setState(() => _caption = caption);
         widget.onCaptionChanged(caption);
-        _showToast(context, 'Caption updated.');
+        _showToast(context, 'Caption updated for this session.');
         return;
       case 'delete':
         final confirmed = await _confirmMomentDelete(context, widget.moment);
@@ -967,7 +967,7 @@ class _MomentViewerState extends State<_MomentViewer> {
           context,
           saving
               ? 'Saved for this session. Downloading a moment is not available yet.'
-              : 'Removed from saved.',
+              : 'Removed from saved for this session.',
         );
         return;
       case 'share':
@@ -1024,7 +1024,9 @@ class _MomentViewerState extends State<_MomentViewer> {
                         const SizedBox(height: 2),
                         Text(
                           isMine
-                              ? '${moment.expires}  ·  ${moment.audience}'
+                              ? (AppFeatureFlags.localPreviews
+                                  ? '${moment.expires}  ·  ${moment.audience}'
+                                  : 'Stays in this session  ·  Not shared')
                               : '${moment.handle}  ·  ${moment.expires}',
                           style: const TextStyle(
                             color: Colors.white60,
@@ -1044,18 +1046,19 @@ class _MomentViewerState extends State<_MomentViewer> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(
-                  minHeight: 2.5,
-                  value: .58,
-                  backgroundColor: Colors.white.withValues(alpha: .12),
-                  valueColor: AlwaysStoppedAnimation<Color>(moment.tint),
+            if (AppFeatureFlags.localPreviews)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    minHeight: 2.5,
+                    value: .58,
+                    backgroundColor: Colors.white.withValues(alpha: .12),
+                    valueColor: AlwaysStoppedAnimation<Color>(moment.tint),
+                  ),
                 ),
               ),
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
@@ -1219,7 +1222,7 @@ class _MomentViewerState extends State<_MomentViewer> {
                           label: 'Reply',
                           onTap: () => _showToast(
                             context,
-                            'Reply to ${widget.moment.owner}’s moment.',
+                            'Replies are not available yet. Nothing was sent.',
                           ),
                         ),
                       ],
@@ -1229,7 +1232,10 @@ class _MomentViewerState extends State<_MomentViewer> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Your moment is private to ${widget.moment.audience.toLowerCase()}.',
+                  AppFeatureFlags.localPreviews
+                      ? 'Preview only: this moment stays in this session and '
+                          'is not shared with anyone.'
+                      : 'Your moment stays in this session. Nothing was shared.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: .38),
                     fontSize: 10.5,
@@ -1794,25 +1800,25 @@ class _MomentInfoSheet extends StatelessWidget {
         ? const [
             (
               Icons.people_outline_rounded,
-              'Choose your audience',
-              'Your People, close friends, everyone, or only yourself.',
+              'Audience is a preview',
+              'Choosing Your People, close friends, everyone, or only yourself does not send anything yet.',
             ),
             (
               DocmacIconlyLight.show,
-              'See who watched',
-              'Tap the view count on any moment you shared.',
+              'No view tracking',
+              'View counts on the sample moments are demo data. This build does not track real views.',
             ),
             (
               Icons.more_horiz_rounded,
-              'Stay in control',
-              'Save, share, forward, edit the caption, or delete any time.',
+              'Actions are preview-only',
+              'Save, share, forward, edit, and delete change only this session.',
             ),
           ]
         : const [
             (
               Icons.smartphone_rounded,
               'Local preview',
-              'Moments are saved on this device only and are not shared with other people.',
+              'Moments stay in this session only and are not shared with other people.',
             ),
             (
               Icons.visibility_off_outlined,
@@ -1841,8 +1847,8 @@ class _MomentInfoSheet extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             AppFeatureFlags.localPreviews
-                ? 'Share a thought, a photo, or a small win with the people you choose. Every moment disappears after 24 hours.'
-                : 'This build is a local preview. Create a moment on this device; it is not shared and no one else can view it.',
+                ? 'Preview only: add a thought, a photo, or a small win in this session. Nothing is sent to other people and no views are tracked.'
+                : 'This build is a local preview. Create a moment in this session; it is not shared and no one else can view it.',
             style:
                 Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
