@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,8 +34,11 @@ class OrbitPage extends ConsumerStatefulWidget {
 
 class _OrbitPageState extends ConsumerState<OrbitPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _query = '';
   int _selectedCategoryIndex = 0;
+  bool _isHeaderVisible = true;
+  Timer? _pauseTimer;
 
   static const _categories = [
     _HubCategory('All', Icons.grid_view_rounded),
@@ -47,8 +52,54 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
 
   @override
   void dispose() {
+    _pauseTimer?.cancel();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification.metrics.pixels <= 10) {
+      _pauseTimer?.cancel();
+      if (!_isHeaderVisible) {
+        setState(() => _isHeaderVisible = true);
+      }
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      if (notification.scrollDelta != null &&
+          notification.scrollDelta!.abs() > 1.2) {
+        if (_isHeaderVisible) {
+          setState(() => _isHeaderVisible = false);
+        }
+
+        _pauseTimer?.cancel();
+        _pauseTimer = Timer(const Duration(milliseconds: 360), () {
+          if (mounted && !_isHeaderVisible) {
+            setState(() => _isHeaderVisible = true);
+          }
+        });
+      }
+    } else if (notification is ScrollEndNotification) {
+      _pauseTimer?.cancel();
+      if (!_isHeaderVisible) {
+        setState(() => _isHeaderVisible = true);
+      }
+    } else if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.idle) {
+        _pauseTimer?.cancel();
+        if (!_isHeaderVisible) {
+          setState(() => _isHeaderVisible = true);
+        }
+      }
+    }
+
+    return false;
   }
 
   @override
@@ -57,14 +108,28 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
     return ColoredBox(
       color: colorScheme.surfaceContainerLowest,
       child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate.fixed([
-                  const _TopBar(),
-                  const SizedBox(height: 18),
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: _isHeaderVisible
+                        ? const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _TopBar(),
+                              SizedBox(height: 14),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   _SearchField(
                     controller: _searchController,
                     onChanged: (value) => setState(() => _query = value),
@@ -78,18 +143,30 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
                       }
                     },
                   ),
-                  const SizedBox(height: 22),
-                  _CategoryFilterStrip(
-                    categories: _categories,
-                    selectedIndex: _selectedCategoryIndex,
-                    onSelected: (index) =>
-                        setState(() => _selectedCategoryIndex = index),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_selectedCategoryIndex == 0) ...[
-                    const _FeaturedShowcaseCarousel(),
-                    const SizedBox(height: 28),
-                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate.fixed([
+                          _CategoryFilterStrip(
+                            categories: _categories,
+                            selectedIndex: _selectedCategoryIndex,
+                            onSelected: (index) =>
+                                setState(() => _selectedCategoryIndex = index),
+                          ),
+                          const SizedBox(height: 20),
+                          if (_selectedCategoryIndex == 0) ...[
+                            const _FeaturedShowcaseCarousel(),
+                            const SizedBox(height: 28),
+                          ],
                   if (_selectedCategoryIndex == 0 ||
                       _selectedCategoryIndex == 1) ...[
                     const _SectionTitle(
@@ -188,7 +265,11 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
                     const SizedBox(height: 12),
                     const _SpaceGrid(),
                   ],
-                ]),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -472,20 +553,25 @@ class _CategoryFilterStrip extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var index = 0; index < categories.length; index++)
-              _HubChip(
-                category: categories[index],
-                selected: selectedIndex == index,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  onSelected(index);
-                },
-              ),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          clipBehavior: Clip.none,
+          child: Row(
+            children: [
+              for (var index = 0; index < categories.length; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                _HubChip(
+                  category: categories[index],
+                  selected: selectedIndex == index,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onSelected(index);
+                  },
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -507,9 +593,9 @@ class _HubChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
-    final foreground = selected ? scheme.onPrimary : scheme.onSurface;
-    final background = selected ? scheme.primary : scheme.surface;
-    final borderColor = selected ? scheme.primary : scheme.outlineVariant;
+    final foreground = selected ? scheme.surface : scheme.onSurface;
+    final background = selected ? scheme.onSurface : scheme.surface;
+    final borderColor = selected ? scheme.onSurface : scheme.outlineVariant;
 
     return Semantics(
       button: true,
@@ -572,7 +658,7 @@ class _HubCountBadge extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(7, 5, 11, 5),
+      padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(999),
@@ -581,13 +667,16 @@ class _HubCountBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.workspace_premium_rounded,
-              size: 15, color: scheme.primary),
-          const SizedBox(width: 5),
+          Icon(
+            Icons.workspace_premium_rounded,
+            size: 12,
+            color: scheme.onSurface,
+          ),
+          const SizedBox(width: 4),
           Text(
             '$count hubs',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               color: scheme.onSurface,
             ),
@@ -821,7 +910,7 @@ class _ShowcaseCard extends StatelessWidget {
           const Spacer(),
 
           // Monochrome preview surface with a fine diagonal texture. The icon
-          // tile always inverts against the surrounding theme (black/white ↔
+          // tile always inverts against the surrounding theme (black/white â†”
           // white/black) so the hub family reads as one system.
           Container(
             height: 72,
@@ -999,7 +1088,7 @@ class _OrbitNoticeCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: scheme.primary),
+          Icon(icon, size: 20, color: scheme.onSurface),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1067,10 +1156,10 @@ class _PulseGrid extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final momentsStr = AppFeatureFlags.localPreviews
         ? pulse.momentsCount.toString().padLeft(2, '0')
-        : '—';
+        : 'â€”';
     final nearbyStr = AppFeatureFlags.localPreviews
         ? pulse.nearbyCount.toString().padLeft(2, '0')
-        : '—';
+        : 'â€”';
 
     return Row(
       children: [
@@ -1092,7 +1181,7 @@ class _PulseGrid extends ConsumerWidget {
             value: nearbyStr,
             label: 'people nearby',
             icon: DocmacIconlyLight.activity,
-            tint: scheme.primaryContainer,
+            tint: scheme.surfaceContainerHigh,
             onTap: () {
               HapticFeedback.lightImpact();
               context.push('/people/discover');
@@ -1128,8 +1217,8 @@ class _PulseCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          height: 112,
-          padding: const EdgeInsets.all(14),
+          height: 118,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Theme.of(context).dividerColor),
@@ -1145,7 +1234,7 @@ class _PulseCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon,
-                    color: Theme.of(context).colorScheme.primary, size: 17),
+                    color: Theme.of(context).colorScheme.onSurface, size: 17),
               ),
               const Spacer(),
               Text(value,
@@ -1205,7 +1294,7 @@ class _RowHeading extends StatelessWidget {
                   const SizedBox(width: 5),
                   DocmacCommunityIcon(
                     asset: DocmacCommunityIcons.seeMore,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     size: 15,
                     semanticLabel: action,
                   ),
@@ -1286,10 +1375,10 @@ class _InnerOrbit extends ConsumerWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                    color: scheme.secondaryContainer, shape: BoxShape.circle),
+                    color: scheme.surfaceContainerHigh, shape: BoxShape.circle),
                 child: DocmacCommunityIcon(
                   asset: DocmacCommunityIcons.seeMore,
-                  color: scheme.onSecondaryContainer,
+                  color: scheme.onSurface,
                   size: 15,
                   semanticLabel: 'View people',
                 ),
@@ -1389,13 +1478,13 @@ class _RelayEntry extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  color: colors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
                 child: DocmacCommunityIcon(
                   asset: DocmacCommunityIcons.relay,
-                  color: colors.onPrimaryContainer,
+                  color: colors.onSurface,
                   size: 23,
                   semanticLabel: 'Docmac Relay',
                 ),
@@ -1421,7 +1510,7 @@ class _RelayEntry extends StatelessWidget {
               ),
               DocmacCommunityIcon(
                 asset: DocmacCommunityIcons.seeMore,
-                color: colors.primary,
+                color: colors.onSurface,
                 semanticLabel: 'Open Docmac Relay',
               ),
             ],
@@ -1459,7 +1548,7 @@ class _MomentStrip extends StatelessWidget {
         'David',
         'Little\nwins',
         DocmacIconlyLight.star,
-        scheme.primaryContainer
+        scheme.surfaceContainerHigh
       ),
       (
         'Emma',
@@ -1563,7 +1652,7 @@ class _ActivePeople extends ConsumerWidget {
     if (people.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(18),
-        child: Text('No one in your Orbit matches “$query”.',
+        child: Text('No one in your Orbit matches â€œ$queryâ€.',
             style: Theme.of(context).textTheme.bodyMedium),
       );
     }
@@ -1652,7 +1741,7 @@ class _PersonRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Icon(DocmacIconlyLight.chat,
-                    size: 16, color: Theme.of(context).colorScheme.primary),
+                    size: 16, color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ],
@@ -1727,7 +1816,7 @@ class _SpaceCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon,
-                  color: Theme.of(context).colorScheme.primary, size: 22),
+                  color: Theme.of(context).colorScheme.onSurface, size: 22),
               const Spacer(),
               Text(label,
                   style: TextStyle(

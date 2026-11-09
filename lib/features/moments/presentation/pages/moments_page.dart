@@ -377,7 +377,7 @@ class _SharingWithNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.lock_outline_rounded, size: 16, color: scheme.primary),
+          Icon(Icons.lock_outline_rounded, size: 16, color: scheme.onSurface),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
@@ -415,7 +415,7 @@ class _MomentEmptyNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 19, color: scheme.primary),
+          Icon(Icons.info_outline_rounded, size: 19, color: scheme.onSurface),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -706,7 +706,7 @@ class _ViewsChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(DocmacIconlyLight.show, size: 11, color: scheme.primary),
+              Icon(DocmacIconlyLight.show, size: 11, color: scheme.onSurface),
               const SizedBox(width: 4),
               Text(
                 views == 0

@@ -1381,7 +1381,7 @@ void _showAuthHelpSheet(BuildContext context) {
           children: [
             Row(
               children: [
-                Icon(Icons.shield_outlined, color: scheme.primary, size: 24),
+                Icon(Icons.shield_outlined, color: scheme.onSurface, size: 24),
                 const SizedBox(width: 12),
                 Text(
                   'Private & Secure Identity',

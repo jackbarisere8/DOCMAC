@@ -639,7 +639,7 @@ class _AccountAction extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(icon, color: Theme.of(context).colorScheme.primary),
+                  Icon(icon, color: Theme.of(context).colorScheme.onSurface),
                   const SizedBox(width: 12),
                   Text(label, style: Theme.of(context).textTheme.titleLarge),
                 ],

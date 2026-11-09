@@ -86,7 +86,7 @@ class _DocmacSearchBarState extends State<DocmacSearchBar> {
     final theme = Theme.of(context);
 
     final fillColor = theme.colorScheme.surfaceContainerHigh;
-    final iconColor = theme.colorScheme.onSurfaceVariant;
+    final iconColor = theme.colorScheme.onSurface;
     final hintColor =
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82);
     final textColor = theme.colorScheme.onSurface;

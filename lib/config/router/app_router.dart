@@ -44,6 +44,10 @@ import '../../features/settings/presentation/pages/lists_settings_page.dart';
 import '../../features/settings/presentation/pages/privacy_help_page.dart';
 import '../../features/settings/presentation/pages/help_feedback_page.dart';
 import '../../features/settings/presentation/pages/help_categories_page.dart';
+import '../../features/live/presentation/pages/live_page.dart';
+import '../../features/orbit/presentation/pages/orbit_page.dart';
+import '../../features/me/presentation/pages/me_page.dart';
+import '../../features/talk/presentation/pages/talk_page.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -344,21 +348,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/app',
         redirect: (context, state) => '/orbit',
       ),
-      GoRoute(
-        path: '/orbit',
-        builder: (context, state) => const AppShell(),
-      ),
-      GoRoute(
-        path: '/talk',
-        builder: (context, state) => const AppShell(),
-      ),
-      GoRoute(
-        path: '/live',
-        builder: (context, state) => const AppShell(),
-      ),
-      GoRoute(
-        path: '/me',
-        builder: (context, state) => const AppShell(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/orbit',
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: OrbitPage(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/talk',
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: TalkPage(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/live',
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: LivePage(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/me',
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: MePage(),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/chat',

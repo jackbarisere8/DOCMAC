@@ -190,7 +190,7 @@ class _LocalForgePreviewNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 20, color: scheme.primary),
+          Icon(Icons.info_outline_rounded, size: 20, color: scheme.onSurface),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(

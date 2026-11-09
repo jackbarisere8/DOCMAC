@@ -290,7 +290,7 @@ class _RelationshipAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
         subtitle: Text(detail, style: Theme.of(context).textTheme.bodySmall),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),

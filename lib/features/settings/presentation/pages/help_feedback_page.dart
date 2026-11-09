@@ -276,7 +276,7 @@ class SendFeedbackPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
         children: [
-          Icon(Icons.feedback_outlined, size: 52, color: scheme.primary),
+          Icon(Icons.feedback_outlined, size: 52, color: scheme.onSurface),
           const SizedBox(height: 18),
           Text(
             'Feedback submission is not available yet',
@@ -340,7 +340,7 @@ class _HelpCenterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 6),
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
         title: Text(title),
         subtitle: subtitle == null ? null : Text(subtitle!, maxLines: 1),
         trailing: const Icon(Icons.chevron_right_rounded),

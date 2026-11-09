@@ -610,7 +610,7 @@ class _CountryPickerPageState extends State<CountryPickerPage> {
                               ),
                     ),
                   ),
-                  Icon(Icons.public_rounded, color: scheme.primary, size: 22),
+                  Icon(Icons.public_rounded, color: scheme.onSurface, size: 22),
                 ],
               ),
             ),

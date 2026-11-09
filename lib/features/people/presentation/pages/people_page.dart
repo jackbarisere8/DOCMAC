@@ -827,7 +827,7 @@ class _PeopleUnavailable extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(DocmacIconlyLight.discovery, color: scheme.primary, size: 22),
+          Icon(DocmacIconlyLight.discovery, color: scheme.onSurface, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -865,7 +865,7 @@ class _EmptyPeopleSearch extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 26),
       child: Row(
         children: [
-          Icon(DocmacIconlyLight.search, color: scheme.primary, size: 22),
+          Icon(DocmacIconlyLight.search, color: scheme.onSurface, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1300,7 +1300,7 @@ class _DiscoverTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              Icon(icon, color: Theme.of(context).colorScheme.onSurface),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -1351,7 +1351,7 @@ class _ImportContactsCard extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: scheme.surface,
                     borderRadius: BorderRadius.circular(15)),
-                child: Icon(DocmacIconlyLight.addUser, color: scheme.primary),
+                child: Icon(DocmacIconlyLight.addUser, color: scheme.onSurface),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -1427,7 +1427,7 @@ class _NoRequestsRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
       child: Row(
         children: [
-          Icon(DocmacIconlyLight.tickSquare, color: scheme.primary, size: 22),
+          Icon(DocmacIconlyLight.tickSquare, color: scheme.onSurface, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

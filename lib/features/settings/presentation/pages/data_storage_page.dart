@@ -30,7 +30,7 @@ class DataStoragePage extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, color: scheme.primary),
+                Icon(Icons.info_outline_rounded, color: scheme.onSurface),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(

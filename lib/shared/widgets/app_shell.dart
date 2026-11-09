@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,12 +11,19 @@ import '../../features/me/presentation/pages/me_page.dart';
 import '../../features/talk/presentation/pages/talk_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.pages})
-      : assert(pages == null || pages.length == 4);
+  const AppShell({
+    super.key,
+    this.pages,
+    this.navigationShell,
+  }) : assert(pages == null || pages.length == 4);
 
   /// Allows lightweight shell navigation tests without initializing feature
   /// dependencies. Production uses the four standard tab pages.
   final List<Widget>? pages;
+
+  /// Injected by [StatefulShellRoute] so the shell keeps the navigation bar
+  /// completely static and stationary while tabs switch cleanly.
+  final StatefulNavigationShell? navigationShell;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -27,6 +36,9 @@ class _AppShellState extends State<AppShell> {
   var _selectedIndex = 0;
   String? _lastSyncedLocation;
 
+  bool _isBottomNavVisible = true;
+  Timer? _pauseTimer;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +48,8 @@ class _AppShellState extends State<AppShell> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    if (widget.navigationShell != null) return;
 
     final location = GoRouterState.of(context).matchedLocation;
     if (location != _lastSyncedLocation) {
@@ -52,8 +66,30 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  int get _currentIndex =>
+      widget.navigationShell?.currentIndex ?? _selectedIndex;
+
   void _selectPage(int index) {
+    if (widget.navigationShell != null) {
+      if (index == widget.navigationShell!.currentIndex) return;
+      // When leaving home page or switching tabs, make sure bottom nav is visible
+      _pauseTimer?.cancel();
+      if (!_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = true);
+      }
+      widget.navigationShell!.goBranch(
+        index,
+        initialLocation: index == widget.navigationShell!.currentIndex,
+      );
+      return;
+    }
+
     if (index == _selectedIndex) return;
+
+    _pauseTimer?.cancel();
+    if (!_isBottomNavVisible) {
+      _isBottomNavVisible = true;
+    }
 
     setState(() => _selectedIndex = index);
     _lastSyncedLocation = _destinations[index];
@@ -73,31 +109,107 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // The hide/show animation only runs on the home page (Orbit, tab index 0).
+    if (_currentIndex != 0) {
+      if (!_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = true);
+      }
+      return false;
+    }
+
+    // Only respond to vertical scrolling of the page feed.
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    // When near the top, always show the navigation bar.
+    if (notification.metrics.pixels <= 10) {
+      _pauseTimer?.cancel();
+      if (!_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = true);
+      }
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      if (notification.scrollDelta != null &&
+          notification.scrollDelta!.abs() > 1.2) {
+        // While user is actively scrolling, hide bottom navigation.
+        if (_isBottomNavVisible) {
+          setState(() => _isBottomNavVisible = false);
+        }
+
+        // Debounce: once user stops or pauses scrolling, show it back.
+        _pauseTimer?.cancel();
+        _pauseTimer = Timer(const Duration(milliseconds: 360), () {
+          if (mounted && !_isBottomNavVisible) {
+            setState(() => _isBottomNavVisible = true);
+          }
+        });
+      }
+    } else if (notification is ScrollEndNotification) {
+      _pauseTimer?.cancel();
+      if (!_isBottomNavVisible) {
+        setState(() => _isBottomNavVisible = true);
+      }
+    } else if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.idle) {
+        _pauseTimer?.cancel();
+        if (!_isBottomNavVisible) {
+          setState(() => _isBottomNavVisible = true);
+        }
+      }
+    }
+
+    return false;
+  }
+
   @override
   void dispose() {
+    _pauseTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final activeIndex = _currentIndex;
+
+    final Widget bodyChild = widget.navigationShell ??
+        PageView(
+          controller: _pageController,
+          onPageChanged: _handlePageChanged,
+          children: widget.pages ??
+              const [
+                OrbitPage(),
+                TalkPage(),
+                LivePage(),
+                MePage(),
+              ],
+        );
+
     return Scaffold(
-      // The PageView moves only the tab content. Keeping the navigation bar
-      // outside it makes the bar remain stationary, like WhatsApp's tabs.
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _handlePageChanged,
-        children: widget.pages ??
-            const [
-              OrbitPage(),
-              TalkPage(),
-              LivePage(),
-              MePage(),
-            ],
+      // The bottom navigation bar stays static and stationary outside the
+      // pages. Only on the home page does it slide out during active scroll
+      // and animate back once scrolling pauses or stops.
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: bodyChild,
       ),
-      bottomNavigationBar: _AppNavigation(
-        selectedIndex: _selectedIndex,
-        onSelected: _selectPage,
+      bottomNavigationBar: AnimatedSlide(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        offset: _isBottomNavVisible ? Offset.zero : const Offset(0, 1.25),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          opacity: _isBottomNavVisible ? 1.0 : 0.0,
+          child: _AppNavigation(
+            selectedIndex: activeIndex,
+            onSelected: _selectPage,
+          ),
+        ),
       ),
     );
   }
@@ -207,9 +319,16 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final scheme = theme.colorScheme;
 
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    // Monochrome theme: dark in light mode, white in dark mode.
+    final color = selected ? scheme.onSurface : scheme.onSurfaceVariant;
+    final pillBackground = selected
+        ? (isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.07))
+        : Colors.transparent;
 
     return Expanded(
       child: Semantics(
@@ -231,9 +350,7 @@ class _NavItem extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
                   decoration: BoxDecoration(
-                    color: selected
-                        ? scheme.primary.withValues(alpha: 0.12)
-                        : Colors.transparent,
+                    color: pillBackground,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: AnimatedSwitcher(

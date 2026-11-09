@@ -29,7 +29,7 @@ class PrivacyPage extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded, color: scheme.primary),
+                Icon(Icons.info_outline_rounded, color: scheme.onSurface),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
@@ -166,7 +166,7 @@ class _Fact extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
         title: Text(title),
         subtitle: Text(detail),
       );

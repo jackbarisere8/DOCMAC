@@ -32,6 +32,14 @@ final ThemeData lightTheme = ThemeData(
     onError: Colors.white,
   ),
   dividerColor: AppColors.lightDivider,
+  iconTheme: const IconThemeData(
+    color: AppColors.lightTextPrimary,
+    size: 22,
+  ),
+  primaryIconTheme: const IconThemeData(
+    color: AppColors.lightTextPrimary,
+    size: 22,
+  ),
   textTheme: GoogleFonts.spaceGroteskTextTheme(const TextTheme(
     headlineLarge: TextStyle(
       fontSize: 24,
@@ -71,7 +79,7 @@ final ThemeData lightTheme = ThemeData(
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppRadius.md),
     ),
-    iconColor: AppColors.lightTextSecondary,
+    iconColor: AppColors.lightTextPrimary,
     iconSize: 20,
     textStyle: const TextStyle(
       fontSize: 14,

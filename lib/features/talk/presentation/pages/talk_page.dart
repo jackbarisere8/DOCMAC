@@ -1212,7 +1212,7 @@ class _ArchiveEntry extends StatelessWidget {
                     color: scheme.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(Icons.archive_outlined, color: scheme.primary),
+                  child: Icon(Icons.archive_outlined, color: scheme.onSurface),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

@@ -115,7 +115,7 @@ class _Fact extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: scheme.primary),
+          Icon(icon, size: 18, color: scheme.onSurface),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

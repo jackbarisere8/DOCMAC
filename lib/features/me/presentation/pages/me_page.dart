@@ -2388,10 +2388,10 @@ class _DetailRow extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: .08),
+                color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, size: 16, color: scheme.primary),
+              child: Icon(icon, size: 16, color: scheme.onSurface),
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -2540,10 +2540,10 @@ class _QuickLink extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: .08),
+                  color: scheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 15, color: scheme.primary),
+                child: Icon(icon, size: 15, color: scheme.onSurface),
               ),
               const SizedBox(height: 5),
               Text(

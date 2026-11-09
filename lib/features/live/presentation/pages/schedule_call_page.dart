@@ -471,7 +471,7 @@ class _ScheduleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         onTap: onTap,
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        leading: Icon(icon, color: Theme.of(context).colorScheme.onSurface),
         title: Text(label, style: Theme.of(context).textTheme.labelLarge),
         trailing: Text(trailing,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
