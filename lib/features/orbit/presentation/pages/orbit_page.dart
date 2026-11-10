@@ -167,104 +167,104 @@ class _OrbitPageState extends ConsumerState<OrbitPage> {
                             const _FeaturedShowcaseCarousel(),
                             const SizedBox(height: 28),
                           ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 1) ...[
-                    const _SectionTitle(
-                      eyebrow: 'YOUR PULSE',
-                      title: 'Keep your people close',
-                    ),
-                    const SizedBox(height: 12),
-                    const _PulseGrid(),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 2) ...[
-                    _RowHeading(
-                      title: 'Your Orbit',
-                      action: 'People',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.push('/people/all');
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _InnerOrbit(onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/people/all');
-                    }),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 3) ...[
-                    _RowHeading(
-                      title: 'Moments',
-                      action: 'See archive',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.push('/moments');
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    const SizedBox(height: 136, child: _MomentStrip()),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 4) ...[
-                    _RowHeading(
-                      title: 'Forge',
-                      action: 'Explore ideas',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.push('/forge');
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _ForgeEntry(onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/forge');
-                    }),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 5) ...[
-                    _RowHeading(
-                      title: 'Relays',
-                      action: 'View Relays',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.push('/relays');
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _RelayEntry(onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/relays');
-                    }),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 2) ...[
-                    _RowHeading(
-                      title: 'Active now',
-                      action: 'View all',
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        context.push('/people/all');
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _ActivePeople(query: _query),
-                    const SizedBox(height: 30),
-                  ],
-                  if (_selectedCategoryIndex == 0 ||
-                      _selectedCategoryIndex == 6) ...[
-                    const _SectionTitle(
-                      eyebrow: 'DISCOVER',
-                      title: 'Try a Space on this device',
-                    ),
-                    const SizedBox(height: 12),
-                    const _SpaceGrid(),
-                  ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 1) ...[
+                            const _SectionTitle(
+                              eyebrow: 'YOUR PULSE',
+                              title: 'Keep your people close',
+                            ),
+                            const SizedBox(height: 12),
+                            const _PulseGrid(),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 2) ...[
+                            _RowHeading(
+                              title: 'Your Orbit',
+                              action: 'People',
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                context.push('/people/all');
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _InnerOrbit(onTap: () {
+                              HapticFeedback.selectionClick();
+                              context.push('/people/all');
+                            }),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 3) ...[
+                            _RowHeading(
+                              title: 'Moments',
+                              action: 'See archive',
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                context.push('/moments');
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            const SizedBox(height: 136, child: _MomentStrip()),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 4) ...[
+                            _RowHeading(
+                              title: 'Forge',
+                              action: 'Explore ideas',
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                context.push('/forge');
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _ForgeEntry(onTap: () {
+                              HapticFeedback.selectionClick();
+                              context.push('/forge');
+                            }),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 5) ...[
+                            _RowHeading(
+                              title: 'Relays',
+                              action: 'View Relays',
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                context.push('/relays');
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _RelayEntry(onTap: () {
+                              HapticFeedback.selectionClick();
+                              context.push('/relays');
+                            }),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 2) ...[
+                            _RowHeading(
+                              title: 'Active now',
+                              action: 'View all',
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                context.push('/people/all');
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _ActivePeople(query: _query),
+                            const SizedBox(height: 30),
+                          ],
+                          if (_selectedCategoryIndex == 0 ||
+                              _selectedCategoryIndex == 6) ...[
+                            const _SectionTitle(
+                              eyebrow: 'DISCOVER',
+                              title: 'Try a Space on this device',
+                            ),
+                            const SizedBox(height: 12),
+                            const _SpaceGrid(),
+                          ],
                         ]),
                       ),
                     ),
