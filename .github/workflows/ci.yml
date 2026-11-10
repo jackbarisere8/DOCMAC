@@ -41,6 +41,12 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Design Lab smoke test
+        run: >-
+          flutter test
+          --dart-define=DOCMAC_DESIGN_LAB=true
+          test/design_lab_smoke_test.dart
+
   android:
     name: Android debug build
     runs-on: ubuntu-latest
