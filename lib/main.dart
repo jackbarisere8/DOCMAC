@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'config/feature_flags.dart';
 import 'config/router/app_router.dart';
 import 'config/firebase/firebase_configuration.dart';
 import 'core/theme/app_theme.dart';
@@ -22,6 +23,12 @@ const _useFirebaseTestPhoneAuth = bool.fromEnvironment(
 
 Future<void> initializeFirebase() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (AppFeatureFlags.designLab) {
+    debugPrint(
+      'Design Lab mode: Firebase is disabled and sample data is active.',
+    );
+    return;
+  }
   if (!FirebaseConfiguration.isConfigured) {
     debugPrint('Firebase is not configured; running in signed-out mode.');
     return;
@@ -102,6 +109,22 @@ class DocmacApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) {
+        final content = child ?? const SizedBox.shrink();
+        if (!AppFeatureFlags.designLab) return content;
+        return Banner(
+          message: 'DESIGN LAB',
+          location: BannerLocation.topEnd,
+          color: const Color(0xFFB45309),
+          textStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+          child: content,
+        );
+      },
     );
   }
 }

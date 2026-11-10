@@ -54,7 +54,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/loading',
+    initialLocation: AppFeatureFlags.designLab ? '/orbit' : '/loading',
     redirect: (context, state) {
       final loc = state.uri.path;
       final isPublic = loc == '/' ||
@@ -67,7 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final user = authState.valueOrNull;
       final isLoggedIn = user != null;
 
-      if (!isLoggedIn && !isPublic) {
+      if (!isLoggedIn && !isPublic && !AppFeatureFlags.designLab) {
         return '/auth';
       }
       return null;

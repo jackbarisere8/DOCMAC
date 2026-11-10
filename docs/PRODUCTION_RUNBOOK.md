@@ -295,8 +295,17 @@ flutter run \
   --dart-define=DOCMAC_LOCAL_PREVIEWS=true
 ```
 
-Release builds always compile this sample content out, so no store build can
-present fabricated people as real accounts.
+For UI/UX work without Firebase, use Design Lab. It skips Firebase entirely,
+bypasses the auth gate, starts in the app shell, and shows a **DESIGN LAB**
+ribbon so sample data is never mistaken for real activity:
+
+```bash
+flutter run --dart-define=DOCMAC_DESIGN_LAB=true
+```
+
+See `docs/DESIGN_LAB.md` for the fixture map and limits. Release builds always
+compile this sample content out, so no store build can present fabricated
+people as real accounts.
 
 ## Verification checklist
 
