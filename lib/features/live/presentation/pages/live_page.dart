@@ -79,95 +79,204 @@ class _LivePageState extends ConsumerState<LivePage> {
   Widget build(BuildContext context) {
     final calls = ref.watch(filteredCallsProvider);
     final activeFilter = ref.watch(callFilterProvider);
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return ColoredBox(
       color: scheme.surfaceContainerLowest,
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          children: [
-            _Header(onMore: _showOptions),
-            const SizedBox(height: 30),
-            Text('Start a signal',
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text('Choose how you want to connect.',
-                style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Calls in this build are simulated on your device. No audio is sent and nobody is dialled.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.35,
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 320,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.7, -1.05),
+                    radius: 1.35,
+                    colors: [
+                      scheme.primary.withValues(alpha: isDark ? 0.16 : 0.07),
+                      scheme.primary.withValues(alpha: 0),
+                    ],
                   ),
-            ),
-            const SizedBox(height: 16),
-            _QuickActions(
-              favoritesActive: activeFilter == CallFilter.favorites,
-              onVoice: _pickPerson,
-              onSchedule: () => context.push('/live/schedule'),
-              onKeypad: _openKeypad,
-              onFavorites: () {
-                HapticFeedback.selectionClick();
-                final notifier = ref.read(callFilterProvider.notifier);
-                notifier.state = activeFilter == CallFilter.favorites
-                    ? CallFilter.all
-                    : CallFilter.favorites;
-              },
-            ),
-            const SizedBox(height: 28),
-            Row(children: [
-              Expanded(
-                child: Text('Recent signals',
-                    style: Theme.of(context).textTheme.headlineSmall),
-              ),
-              if (activeFilter != CallFilter.all)
-                TextButton(
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
-                    ref.read(callFilterProvider.notifier).state =
-                        CallFilter.all;
-                  },
-                  child: const Text('Show all'),
-                )
-              else
-                TextButton.icon(
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
-                    ref.read(callFilterProvider.notifier).state =
-                        CallFilter.missed;
-                  },
-                  icon:
-                      const Icon(Icons.call_missed_outgoing_rounded, size: 15),
-                  label: const Text('Missed'),
                 ),
-            ]),
-            const SizedBox(height: 12),
-            if (calls.isEmpty)
-              const _EmptyCalls()
-            else
-              _CallList(
-                calls: calls,
-                onCall: (call) {
-                  HapticFeedback.lightImpact();
-                  ref.read(callsNotifierProvider.notifier).logOutgoingCall(
-                        target: call.personId,
-                        displayName: call.name,
-                        isVideo: call.video,
-                      );
-                  context.push('/live/call/${call.personId}');
-                },
-                onToggleFavorite: (call) {
-                  ref
-                      .read(callsNotifierProvider.notifier)
-                      .toggleFavorite(call.id);
-                },
-                onDelete: (call) {
-                  ref.read(callsNotifierProvider.notifier).deleteCall(call.id);
-                },
               ),
-          ],
+            ),
+          ),
+          SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              children: [
+                _Header(onMore: _showOptions),
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Start a signal',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _QuickActions(
+                  favoritesActive: activeFilter == CallFilter.favorites,
+                  onVoice: _pickPerson,
+                  onSchedule: () => context.push('/live/schedule'),
+                  onKeypad: _openKeypad,
+                  onFavorites: () {
+                    HapticFeedback.selectionClick();
+                    final notifier = ref.read(callFilterProvider.notifier);
+                    notifier.state = activeFilter == CallFilter.favorites
+                        ? CallFilter.all
+                        : CallFilter.favorites;
+                  },
+                ),
+                const SizedBox(height: 10),
+                const _SimulationNote(),
+                const SizedBox(height: 30),
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                      'Recent signals',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  _FilterAction(
+                    icon: activeFilter == CallFilter.all
+                        ? Icons.call_missed_outgoing_rounded
+                        : Icons.restart_alt_rounded,
+                    label:
+                        activeFilter == CallFilter.all ? 'Missed' : 'Show all',
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(callFilterProvider.notifier).state =
+                          activeFilter == CallFilter.all
+                              ? CallFilter.missed
+                              : CallFilter.all;
+                    },
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                if (calls.isEmpty)
+                  const _EmptyCalls()
+                else
+                  _CallList(
+                    calls: calls,
+                    onCall: (call) {
+                      HapticFeedback.lightImpact();
+                      ref.read(callsNotifierProvider.notifier).logOutgoingCall(
+                            target: call.personId,
+                            displayName: call.name,
+                            isVideo: call.video,
+                          );
+                      context.push('/live/call/${call.personId}');
+                    },
+                    onToggleFavorite: (call) {
+                      ref
+                          .read(callsNotifierProvider.notifier)
+                          .toggleFavorite(call.id);
+                    },
+                    onDelete: (call) {
+                      ref
+                          .read(callsNotifierProvider.notifier)
+                          .deleteCall(call.id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single, quiet line replaces the old build disclaimer so the page keeps
+/// its airy hierarchy without hiding how preview calls behave.
+class _SimulationNote extends StatelessWidget {
+  const _SimulationNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(
+          Icons.lock_outline_rounded,
+          size: 12,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            'Simulated on this device. No audio is sent.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 11.5,
+                  height: 1.3,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.82),
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterAction extends StatelessWidget {
+  const _FilterAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.85),
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(11, 6, 12, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -179,28 +288,28 @@ class _Header extends StatelessWidget {
   final VoidCallback onMore;
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-        Expanded(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Make time together',
-                style: Theme.of(context).textTheme.headlineLarge),
-            const SizedBox(height: 3),
-            Text('Call, plan, and stay close.',
-                style: Theme.of(context).textTheme.bodyMedium),
-          ]),
-        ),
-        _HeaderAction(
-          icon: DocmacIconlyLight.calendar,
-          label: 'Schedule a signal',
-          onTap: () => context.push('/live/schedule'),
-        ),
-        const SizedBox(width: 8),
-        _HeaderAction(
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              'Live',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+          ),
+          _HeaderAction(
+            icon: DocmacIconlyLight.calendar,
+            label: 'Schedule a signal',
+            onTap: () => context.push('/live/schedule'),
+          ),
+          const SizedBox(width: 8),
+          _HeaderAction(
             icon: DocmacIconlyLight.moreCircle,
             label: 'Live options',
-            onTap: onMore),
-      ]);
+            onTap: onMore,
+          ),
+        ],
+      );
 }
 
 class _HeaderAction extends StatelessWidget {
@@ -211,27 +320,32 @@ class _HeaderAction extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-        message: label,
-        child: Material(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).dividerColor),
-                borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: scheme.surface.withValues(alpha: 0.9),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.85),
               ),
-              child: Icon(icon, size: 20),
             ),
+            child: Icon(icon, size: 19, color: scheme.onSurfaceVariant),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _QuickActions extends StatelessWidget {
@@ -252,18 +366,22 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         Expanded(
             child: _QuickAction(
-                icon: DocmacIconlyLight.voice, label: 'Voice', onTap: onVoice)),
-        const SizedBox(width: 10),
+          icon: DocmacIconlyLight.voice,
+          label: 'Voice',
+          primary: true,
+          onTap: onVoice,
+        )),
+        const SizedBox(width: 9),
         Expanded(
             child: _QuickAction(
                 icon: DocmacIconlyLight.calendar,
                 label: 'Schedule',
                 onTap: onSchedule)),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         Expanded(
             child: _QuickAction(
                 icon: Icons.dialpad_rounded, label: 'Keypad', onTap: onKeypad)),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         Expanded(
             child: _QuickAction(
           icon: DocmacIconlyLight.heart,
@@ -280,51 +398,111 @@ class _QuickAction extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.active = false,
+    this.primary = false,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool active;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 92,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: active ? scheme.primaryContainer : scheme.surface,
-          border: Border.all(
-              color:
-                  active ? scheme.onSurface : Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(17),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final radius = BorderRadius.circular(18);
+
+    final Color iconBackground;
+    final Color iconColor;
+    final Color labelColor;
+    if (primary) {
+      iconBackground = Colors.white.withValues(alpha: 0.16);
+      iconColor = scheme.onPrimary;
+      labelColor = scheme.onPrimary;
+    } else if (active) {
+      iconBackground = scheme.primary.withValues(alpha: 0.16);
+      iconColor = scheme.primary;
+      labelColor = scheme.onPrimaryContainer;
+    } else {
+      iconBackground = isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : scheme.surfaceContainerHigh;
+      iconColor = scheme.onSurface;
+      labelColor = scheme.onSurfaceVariant;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      height: 88,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: primary
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xFF4A83FF), AppColors.darkPrimary]
+                    : [AppColors.primary, AppColors.brandBase],
+              )
+            : null,
+        color: primary
+            ? null
+            : active
+                ? scheme.primaryContainer
+                : (isDark ? AppColors.darkCard : scheme.surface),
+        border: Border.all(
+          color: primary
+              ? Colors.white.withValues(alpha: 0.12)
+              : active
+                  ? scheme.primary.withValues(alpha: 0.4)
+                  : theme.dividerColor.withValues(alpha: 0.8),
         ),
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        borderRadius: radius,
+        boxShadow: primary
+            ? [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: isDark ? 0.26 : 0.2),
+                  blurRadius: 18,
+                  offset: const Offset(0, 7),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 width: 34,
                 height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: active
-                      ? scheme.onSurface
-                      : scheme.surfaceContainerHighest,
+                  color: iconBackground,
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon,
-                    size: 17,
-                    color: active ? scheme.surface : scheme.onSurface),
+                child: Icon(icon, size: 17, color: iconColor),
               ),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w700)),
-            ]),
+              const SizedBox(height: 9),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.1,
+                  color: labelColor,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -343,26 +521,54 @@ class _CallList extends StatelessWidget {
   final ValueChanged<CallRecord> onDelete;
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Theme.of(context).dividerColor),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: isDark ? null : scheme.surface,
+        gradient: isDark
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.darkCard, AppColors.darkSurface],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: isDark ? 0.8 : 1),
         ),
-        child: Column(children: [
-          for (var index = 0; index < calls.length; index++) ...[
-            _CallRow(
-              call: calls[index],
-              onCall: () => onCall(calls[index]),
-              onToggleFavorite: () => onToggleFavorite(calls[index]),
-              onDelete: () => onDelete(calls[index]),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: Column(children: [
+        for (var index = 0; index < calls.length; index++) ...[
+          _CallRow(
+            call: calls[index],
+            onCall: () => onCall(calls[index]),
+            onToggleFavorite: () => onToggleFavorite(calls[index]),
+            onDelete: () => onDelete(calls[index]),
+          ),
+          if (index != calls.length - 1)
+            Divider(
+              height: 1,
+              indent: 72,
+              color: theme.dividerColor.withValues(alpha: 0.7),
             ),
-            if (index != calls.length - 1)
-              Divider(
-                  height: 1, indent: 72, color: Theme.of(context).dividerColor),
-          ],
-        ]),
-      );
+        ],
+      ]),
+    );
+  }
 }
 
 class _CallRow extends StatelessWidget {
@@ -422,75 +628,74 @@ class _CallRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onCall,
-      onLongPress: () => _showCallMenu(context),
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
-        child: Row(children: [
-          _Avatar(initial: call.initial, tint: call.tint),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Row(children: [
-                  Flexible(
-                      child: Text(call.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelLarge)),
-                  if (call.favorite) ...[
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onCall,
+        onLongPress: () => _showCallMenu(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+          child: Row(children: [
+            _Avatar(initial: call.initial, tint: call.tint),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Row(children: [
+                    Flexible(
+                        child: Text(call.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge)),
+                    if (call.favorite) ...[
+                      const SizedBox(width: 5),
+                      const Icon(DocmacIconlyLight.heart,
+                          size: 12, color: AppColors.accent),
+                    ],
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(
+                      call.missed
+                          ? Icons.call_missed_outgoing_rounded
+                          : (call.isOutgoing
+                              ? Icons.call_made_rounded
+                              : Icons.call_received_rounded),
+                      size: 14,
+                      color:
+                          call.missed ? scheme.error : scheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 5),
-                    const Icon(DocmacIconlyLight.heart,
-                        size: 12, color: AppColors.accent),
-                  ],
-                ]),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Icon(
-                    call.missed
-                        ? Icons.call_missed_outgoing_rounded
-                        : (call.isOutgoing
-                            ? Icons.call_made_rounded
-                            : Icons.call_received_rounded),
-                    size: 14,
-                    color: call.missed ? scheme.error : scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                      child: Text(call.detail,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontSize: 12))),
-                ]),
-              ])),
-          const SizedBox(width: 8),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(call.when,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(fontSize: 10)),
-            const SizedBox(height: 8),
-            Container(
-              width: 31,
-              height: 31,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(
-                  call.video
-                      ? DocmacIconlyLight.video
-                      : DocmacIconlyLight.voice,
-                  size: 16),
-            ),
+                    Expanded(
+                        child: Text(call.detail,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontSize: 12))),
+                  ]),
+                ])),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(call.when,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10.5)),
+              const SizedBox(height: 8),
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10.5)),
+                child: Icon(
+                    call.video
+                        ? DocmacIconlyLight.video
+                        : DocmacIconlyLight.voice,
+                    size: 16),
+              ),
+            ]),
           ]),
-        ]),
+        ),
       ),
     );
   }
@@ -502,39 +707,70 @@ class _Avatar extends StatelessWidget {
   final Color tint;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: 46,
-        height: 46,
-        alignment: Alignment.center,
-        decoration:
-            BoxDecoration(color: tint, borderRadius: BorderRadius.circular(15)),
-        child: Text(initial,
-            style: const TextStyle(
-                color: AppColors.brandBase, fontWeight: FontWeight.w800)),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 46,
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: scheme.onSurface.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Text(initial,
+          style: const TextStyle(
+              color: AppColors.brandBase, fontWeight: FontWeight.w800)),
+    );
+  }
 }
 
 class _EmptyCalls extends StatelessWidget {
   const _EmptyCalls();
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Theme.of(context).dividerColor),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+      decoration: BoxDecoration(
+        color: isDark ? null : scheme.surface,
+        gradient: isDark
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.darkCard, AppColors.darkSurface],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(children: [
+        Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: isDark ? 0.18 : 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(DocmacIconlyLight.heart, size: 20, color: scheme.primary),
         ),
-        child: Column(children: [
-          const Icon(DocmacIconlyLight.heart, size: 25),
-          const SizedBox(height: 10),
-          Text('Nothing here yet',
-              style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 3),
-          Text('Try a different filter or start a new signal.',
-              style: Theme.of(context).textTheme.bodyMedium),
-        ]),
-      );
+        const SizedBox(height: 12),
+        Text('Nothing here yet', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(
+          'Try a different filter or start a new signal.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+        ),
+      ]),
+    );
+  }
 }
 
 class _PeopleSheet extends StatelessWidget {
